@@ -1,0 +1,43 @@
+MERIDIAN TECHNOLOGIES, INC.
+FORM 10-K — FISCAL YEAR ENDED DECEMBER 31, 2023
+EXCERPT: BUSINESS OVERVIEW AND SELECTED FINANCIAL DATA
+
+BUSINESS OVERVIEW
+
+Meridian Technologies, Inc. is a B2B fintech platform headquartered in Austin, Texas. The Company
+provides embedded payment infrastructure and real-time reconciliation software to mid-market and
+enterprise financial institutions across the United States. Meridian's flagship product, ClearFlow,
+enables banks and financial institutions to automate payment exception handling and back-office
+reconciliation at scale.
+
+As of December 31, 2023, Meridian served 47 enterprise clients, including six of the top 20 U.S.
+regional banks. Annual Recurring Revenue (ARR) grew from $28.4 million in fiscal year 2022 to
+$38.1 million in fiscal year 2023, representing 34.2% year-over-year growth.
+
+SELECTED FINANCIAL DATA (FY2023)
+
+  Annual Recurring Revenue (ARR):     $38.1 million
+  Total Revenue:                       $41.3 million
+  Gross Margin:                        71%
+  Net Revenue Retention (NRR):         118%
+  Cash and Cash Equivalents:           $22.6 million
+  Long-Term Debt:                      $0
+  Headcount:                           214 full-time employees
+
+RISK FACTORS (SUMMARY)
+
+Management identifies the following as primary business risks:
+
+  (i)  Customer revenue concentration — the Company's three largest customers represent
+       approximately 58% of ARR as of December 31, 2023.
+  (ii) Dependence on continued adoption of embedded finance solutions by regional banking
+       institutions, which may be affected by regulatory changes or macroeconomic conditions.
+  (iii) Competitive pressure from established payments infrastructure providers, including
+       large technology companies entering the reconciliation automation market.
+
+FORWARD-LOOKING STATEMENTS
+
+This filing contains forward-looking statements within the meaning of the Private Securities
+Litigation Reform Act of 1995. Actual results may differ materially from those projected.
+Meridian Technologies makes no representation as to the accuracy of projections beyond the
+reporting period.

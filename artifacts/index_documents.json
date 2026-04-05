@@ -1,0 +1,244 @@
+[
+  {
+    "id": "doc_001",
+    "file_name": "meridian_10k_fy2023.txt",
+    "title": "Meridian Technologies \u2014 Form 10-K FY2023",
+    "type": "public_filing",
+    "date": "2024-03-01",
+    "min_role": "analyst",
+    "sensitivity": "low",
+    "superseded_by": null,
+    "tags": [
+      "meridian",
+      "public",
+      "financials",
+      "annual_report",
+      "fy2023",
+      "arr",
+      "nrr"
+    ],
+    "short_summary": "Meridian FY2023 annual filing. ARR $38.1M (+34% YoY), gross margin 71%, NRR 118%, zero debt. Discloses top-3 customer concentration at ~58% of ARR as a primary risk factor.",
+    "excerpt": "MERIDIAN TECHNOLOGIES, INC.\nFORM 10-K \u2014 FISCAL YEAR ENDED DECEMBER 31, 2023\nEXCERPT: BUSINESS OVERVIEW AND SELECTED FINANCIAL DATA\n\nBUSINESS OVERVIEW\n\nMeridian Technologies, Inc. is a B2B fintech platform headquartered in Austin, Texas. The Company\nprovides embedded payment infrastructure and real-time reconciliation software to mid-market and\nenterprise financial institutions across the United States. Meridian's flagship product, ClearFlow,\nenables banks and financial institutions to automate p"
+  },
+  {
+    "id": "doc_002",
+    "file_name": "meridian_research_note_q3_2023.txt",
+    "title": "Summit Financial Research \u2014 Meridian Coverage Initiation (Q3 2023)",
+    "type": "research_note",
+    "date": "2023-09-20",
+    "min_role": "analyst",
+    "sensitivity": "low",
+    "superseded_by": "doc_003",
+    "tags": [
+      "meridian",
+      "public",
+      "research",
+      "valuation",
+      "q3_2023",
+      "stale"
+    ],
+    "short_summary": "STALE. Initial BUY coverage. Projects 35% ARR growth and $480M EV. Underestimates customer concentration (~45% cited vs actual 58%). Superseded by Q4 2023 update.",
+    "excerpt": "RESEARCH NOTE \u2014 MERIDIAN TECHNOLOGIES\nCOVERAGE INITIATION\nSummit Financial Research | September 20, 2023\n\nMERIDIAN TECHNOLOGIES: INITIATING COVERAGE WITH BUY\n\nWe initiate coverage of Meridian Technologies with a BUY rating and a base-case enterprise\nvalue target of $480 million.\n\nINVESTMENT THESIS\n\nMeridian is positioned to capture significant share in the $14 billion back-office reconciliation\nand embedded payments market. Its ClearFlow platform has demonstrated strong product-market fit\nwith r"
+  },
+  {
+    "id": "doc_003",
+    "file_name": "meridian_research_note_q4_2023_update.txt",
+    "title": "Summit Financial Research \u2014 Meridian Estimate Revision (Q4 2023)",
+    "type": "research_note",
+    "date": "2024-01-15",
+    "min_role": "analyst",
+    "sensitivity": "low",
+    "superseded_by": null,
+    "tags": [
+      "meridian",
+      "public",
+      "research",
+      "valuation",
+      "q4_2023",
+      "revision"
+    ],
+    "short_summary": "Updated estimates. ARR growth cut from 35% to 22%. Concentration revised to 58-62% in top 3. EV target lowered to $340M. Maintains BUY. Supersedes September 2023 note.",
+    "excerpt": "RESEARCH NOTE UPDATE \u2014 MERIDIAN TECHNOLOGIES\nSummit Financial Research | January 15, 2024\n\nMERIDIAN TECHNOLOGIES: REVISING ESTIMATES DOWNWARD; RATING MAINTAINED AT BUY\n\nWe are revising our September 2023 financial projections for Meridian Technologies following\nthe release of Q3 2023 earnings data and updated channel checks.\n\nREVISION SUMMARY\n\nOur FY2024 ARR growth estimate is revised downward from 35% to 22%, reflecting:\n\n  \u2014 Slower-than-expected enterprise contract closings: one of two anticip"
+  },
+  {
+    "id": "doc_004",
+    "file_name": "meridian_series_c_press_release.txt",
+    "title": "Meridian Technologies \u2014 Series C Press Release",
+    "type": "press_release",
+    "date": "2023-06-15",
+    "min_role": "analyst",
+    "sensitivity": "low",
+    "superseded_by": null,
+    "tags": [
+      "meridian",
+      "public",
+      "funding",
+      "series_c",
+      "press_release"
+    ],
+    "short_summary": "Meridian closes $45M Series C led by Parkview Growth Equity. ARR $27.1M, NRR 114%, 39 enterprise clients at close. Total funding $72M.",
+    "excerpt": "FOR IMMEDIATE RELEASE\n\nMERIDIAN TECHNOLOGIES CLOSES $45 MILLION SERIES C FINANCING\n\nAustin, TX \u2014 June 15, 2023 \u2014 Meridian Technologies, Inc., a leading provider of embedded payment\ninfrastructure for financial institutions, today announced the closing of a $45 million Series C\nfinancing round. The round was led by Parkview Growth Equity, with participation from existing\ninvestors Bridgewater Ventures and Cascade Capital.\n\nMeridian will use the proceeds to accelerate product development, expand i"
+  },
+  {
+    "id": "doc_005",
+    "file_name": "atlas_fintech_sector_overview_2024.txt",
+    "title": "Atlas Capital \u2014 Fintech Infrastructure Sector Overview (Feb 2024)",
+    "type": "sector_overview",
+    "date": "2024-02-20",
+    "min_role": "analyst",
+    "sensitivity": "medium",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "fintech",
+      "sector",
+      "ma_strategy",
+      "meridian"
+    ],
+    "short_summary": "Atlas internal sector overview. Identifies Meridian as primary acquisition target. Describes ideal profile: $30-60M ARR, >20% growth, NRR >110%. Names two alternative targets.",
+    "excerpt": "ATLAS CAPITAL PARTNERS \u2014 INTERNAL SECTOR OVERVIEW\nFINTECH INFRASTRUCTURE: M&A LANDSCAPE AND ACQUISITION PRIORITIES\nFebruary 20, 2024 | INTERNAL \u2014 ANALYST DISTRIBUTION\n\nPREPARED BY: Deal Origination Team\n\nSECTOR THESIS\n\nThe market for B2B financial infrastructure software continues to consolidate. We see a two-to-\nthree year window where embedded payments, reconciliation automation, and compliance tooling will\nattract significant PE and strategic buyer interest, driven by:\n\n  (1) Regional banks s"
+  },
+  {
+    "id": "doc_006",
+    "file_name": "atlas_meridian_dd_memo.txt",
+    "title": "Atlas Capital \u2014 Project Clearwater Initial DD Memo",
+    "type": "deal_memo",
+    "date": "2024-03-15",
+    "min_role": "vp",
+    "sensitivity": "high",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "due_diligence",
+      "project_clearwater",
+      "risks"
+    ],
+    "short_summary": "Phase 1 DD findings. Recommends advancing to Phase 2. Key risks: customer concentration, H2 2023 sales slowdown, unexplained CTO departure in January 2024.",
+    "excerpt": "ATLAS CAPITAL PARTNERS \u2014 INTERNAL MEMORANDUM\nPROJECT CLEARWATER: INITIAL DUE DILIGENCE SUMMARY\nMarch 15, 2024 | CONFIDENTIAL \u2014 VP AND ABOVE\n\nTO:   VP Deal Team, Partners\nFROM: Sarah Chen, Associate; Marcus Webb, VP\n\nEXECUTIVE SUMMARY\n\nFollowing initial management meetings and document review, this memo summarizes our Phase 1\ndiligence findings on Meridian Technologies (\"the Company\") under the internal project name\nClearwater. We recommend advancing to Phase 2 financial diligence.\n\nBUSINESS QUAL"
+  },
+  {
+    "id": "doc_007",
+    "file_name": "atlas_meridian_financial_model_v1.txt",
+    "title": "Atlas Capital \u2014 Project Clearwater Financial Model v1.0",
+    "type": "financial_model",
+    "date": "2024-03-25",
+    "min_role": "vp",
+    "sensitivity": "high",
+    "superseded_by": "doc_008",
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "valuation",
+      "financial_model",
+      "stale"
+    ],
+    "short_summary": "STALE. Initial model: entry EV $480M, 35% growth, 28% IRR, 2.9x MOIC. No concentration stress test. Superseded by v2.0 which cuts EV to $340M on revised growth assumptions.",
+    "excerpt": "ATLAS CAPITAL PARTNERS \u2014 FINANCIAL MODEL SUMMARY\nPROJECT CLEARWATER: MERIDIAN TECHNOLOGIES\nVersion 1.0 | March 25, 2024 | CONFIDENTIAL \u2014 VP AND ABOVE\n\nPREPARED BY: Marcus Webb, VP\n\n*** THIS VERSION HAS BEEN SUPERSEDED BY VERSION 2.0 (APRIL 10, 2024) ***\n*** DO NOT USE FOR INVESTMENT COMMITTEE PURPOSES ***\n\nBASE CASE ASSUMPTIONS (V1.0)\n\n  FY2024 ARR Growth:            35%\n  FY2024 ARR Estimate:          $51.4 million\n  Gross Margin:                  71%\n  EBITDA Margin (Year 3):        22%\n  Reve"
+  },
+  {
+    "id": "doc_008",
+    "file_name": "atlas_meridian_financial_model_v2.txt",
+    "title": "Atlas Capital \u2014 Project Clearwater Financial Model v2.0",
+    "type": "financial_model",
+    "date": "2024-04-10",
+    "min_role": "vp",
+    "sensitivity": "high",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "valuation",
+      "financial_model",
+      "revised"
+    ],
+    "short_summary": "Current model. Entry EV $340M (8.9x ARR), 22% growth, 24% IRR, 2.4x MOIC. Adds customer churn stress case. Supersedes v1.0.",
+    "excerpt": "ATLAS CAPITAL PARTNERS \u2014 FINANCIAL MODEL SUMMARY\nPROJECT CLEARWATER: MERIDIAN TECHNOLOGIES\nVersion 2.0 | April 10, 2024 | CONFIDENTIAL \u2014 VP AND ABOVE\n\nPREPARED BY: Marcus Webb, VP\n\nREVISION NOTES\n\nVersion 2.0 supersedes Version 1.0 (March 25, 2024). Key changes:\n  \u2014 FY2024 ARR growth assumption reduced from 35% to 22% following customer concentration\n    analysis (see Diana Park memo, April 8, 2024)\n  \u2014 Updated management projections received April 5, 2024\n  \u2014 H1 2024 new logo assumption reduced"
+  },
+  {
+    "id": "doc_009",
+    "file_name": "atlas_meridian_integration_email.txt",
+    "title": "Atlas Capital \u2014 Internal Email: Clearwater Integration Risks",
+    "type": "internal_email",
+    "date": "2024-04-12",
+    "min_role": "vp",
+    "sensitivity": "high",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "integration",
+      "cto",
+      "customer_risk",
+      "cash"
+    ],
+    "short_summary": "Email flagging CTO departure context, 18-month integration timeline, August 2024 Customer 3 renewal risk, and $4.1M deferred revenue adjustment to reported cash balance.",
+    "excerpt": "FROM:    Sarah Chen <s.chen@atlascapital.com>\nTO:      Marcus Webb <m.webb@atlascapital.com>; Diana Park <d.park@atlascapital.com>\nCC:      James Reilly <j.reilly@atlascapital.com>\nSUBJECT: Re: Clearwater \u2014 Integration Risk + CTO Note\nDATE:    April 12, 2024\nCLASSIFICATION: CONFIDENTIAL \u2014 INTERNAL USE ONLY\n\nMarcus, Diana,\n\nA few things from yesterday's management call that I want to flag before we finalize the IC memo.\n\n1. CTO DEPARTURE\n\nHartley was more forthcoming this time. Rohan Mehta left v"
+  },
+  {
+    "id": "doc_010",
+    "file_name": "atlas_ic_memo_meridian_acquisition.txt",
+    "title": "Atlas Capital \u2014 IC Memo: Acquisition of Meridian Technologies",
+    "type": "board_memo",
+    "date": "2024-04-18",
+    "min_role": "partner",
+    "sensitivity": "confidential",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "ic_memo",
+      "board",
+      "deal_terms",
+      "project_clearwater"
+    ],
+    "short_summary": "Investment Committee memo recommending approval of Meridian acquisition at $340M EV (8.9x ARR). Covers investment rationale, risks, mitigations, and proposed deal structure.",
+    "excerpt": "ATLAS CAPITAL PARTNERS\nINVESTMENT COMMITTEE MEMORANDUM\nPROJECT CLEARWATER: ACQUISITION OF MERIDIAN TECHNOLOGIES, INC.\nApril 18, 2024 | STRICTLY CONFIDENTIAL \u2014 PARTNER ACCESS ONLY\n\nEXECUTIVE SUMMARY\n\nAtlas Capital Partners Fund IV recommends proceeding with the acquisition of Meridian\nTechnologies, Inc. at an enterprise value of $340 million, subject to final legal and\nfinancial confirmations. This memorandum presents the full investment rationale, risk\nsummary, and proposed deal terms for Invest"
+  },
+  {
+    "id": "doc_011",
+    "file_name": "atlas_lp_quarterly_update_q1_2024.txt",
+    "title": "Atlas Capital \u2014 LP Quarterly Update Q1 2024",
+    "type": "lp_update",
+    "date": "2024-04-15",
+    "min_role": "partner",
+    "sensitivity": "confidential",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "lp",
+      "fund_iv",
+      "pipeline",
+      "project_clearwater"
+    ],
+    "short_summary": "Q1 2024 LP letter. References Project Clearwater in pipeline without naming the target. Notes one exit (Brightpath, 2.8x MOIC) and market valuation commentary.",
+    "excerpt": "ATLAS CAPITAL PARTNERS\nLIMITED PARTNER QUARTERLY UPDATE \u2014 Q1 2024\nApril 15, 2024 | CONFIDENTIAL \u2014 LP DISTRIBUTION ONLY\n\nDear Limited Partners,\n\nThis letter provides an update on Atlas Capital Partners Fund IV portfolio activity and\ndeal pipeline for Q1 2024.\n\nFUND IV PORTFOLIO SUMMARY\n\n  Portfolio companies (active):         8\n  Total deployed capital:               $612M of $850M committed\n  Weighted average gross IRR (unrealized): 23.4%\n  Q1 2024 exit:                         Brightpath Logist"
+  },
+  {
+    "id": "doc_012",
+    "file_name": "atlas_meridian_customer_concentration.txt",
+    "title": "Atlas Capital \u2014 Project Clearwater Customer Concentration Analysis",
+    "type": "internal_analysis",
+    "date": "2024-04-08",
+    "min_role": "vp",
+    "sensitivity": "high",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "customer_risk",
+      "concentration",
+      "renewal"
+    ],
+    "short_summary": "Detailed ARR breakdown by customer. Top 3 = 58.5% of ARR ($22.3M). Notes concentration increased from Q3 2023 estimates. Flags August 2024 Customer 3 renewal as a pre-close risk.",
+    "excerpt": "ATLAS CAPITAL PARTNERS \u2014 INTERNAL ANALYSIS\nPROJECT CLEARWATER: CUSTOMER CONCENTRATION RISK ASSESSMENT\nApril 8, 2024 | CONFIDENTIAL \u2014 VP AND ABOVE\n\nPREPARED BY: Diana Park, VP\n\nOVERVIEW\n\nThis memo summarizes the findings of our customer concentration analysis for Meridian\nTechnologies, based on the customer ARR schedule provided by management on April 3, 2024.\n\nCONCENTRATION FINDINGS (AS OF MARCH 31, 2024, ESTIMATED)\n\n  Customer 1 (Regional Bank A):       $9.4M ARR     24.7% of total\n  Customer 2"
+  }
+]

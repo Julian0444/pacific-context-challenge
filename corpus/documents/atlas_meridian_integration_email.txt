@@ -1,0 +1,42 @@
+FROM:    Sarah Chen <s.chen@atlascapital.com>
+TO:      Marcus Webb <m.webb@atlascapital.com>; Diana Park <d.park@atlascapital.com>
+CC:      James Reilly <j.reilly@atlascapital.com>
+SUBJECT: Re: Clearwater — Integration Risk + CTO Note
+DATE:    April 12, 2024
+CLASSIFICATION: CONFIDENTIAL — INTERNAL USE ONLY
+
+Marcus, Diana,
+
+A few things from yesterday's management call that I want to flag before we finalize the IC memo.
+
+1. CTO DEPARTURE
+
+Hartley was more forthcoming this time. Rohan Mehta left voluntarily but the timing is
+problematic — the team is mid-refactor on the reconciliation engine core. Hartley says they've
+promoted an internal candidate (VP Engineering) and have two senior hires in the pipeline.
+I think this is manageable but it adds post-close integration risk. We should flag it in the
+IC memo and tie a retention package assumption to the top 5 engineers in the model.
+
+2. INTEGRATION TIMELINE
+
+If we close in Q3, we'd inherit a team in the middle of a major platform migration.
+IT integration would likely take longer than a standard 6-month assumption. I'd push
+synergy realization out to 18 months to be conservative.
+
+3. CUSTOMER RENEWAL RISK
+
+One of the top-3 customers (Hartley wouldn't name them, but context strongly suggests it's
+First Meridian Bank) has a contract renewal coming in August 2024. If we announce the
+acquisition before that renewal closes, there is real risk they re-evaluate. I'd recommend
+negotiating renewal before the public announcement or building in a contract assignment
+clause in the deal terms. Diana, can you flag this for the legal team?
+
+4. CASH ADJUSTMENT
+
+Finance confirmed the $22.6M cash balance includes $4.1M in deferred revenue that will
+need to be worked off. Adjusted net cash for modeling should be closer to $18.5M.
+
+Let's sync before the IC memo goes to partners. I want the risk section to be honest
+without being deal-breaking — the story is still compelling at $340M.
+
+Sarah

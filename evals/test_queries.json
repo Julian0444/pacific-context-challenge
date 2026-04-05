@@ -1,0 +1,16 @@
+{
+  "queries": [
+    {
+      "id": "q001",
+      "query": "What is the onboarding process for new employees?",
+      "expected_doc_ids": [],
+      "role": "viewer"
+    },
+    {
+      "id": "q002",
+      "query": "What are the Q4 financial targets?",
+      "expected_doc_ids": [],
+      "role": "analyst"
+    }
+  ]
+}

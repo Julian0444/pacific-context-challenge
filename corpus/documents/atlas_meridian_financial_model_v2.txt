@@ -1,0 +1,47 @@
+ATLAS CAPITAL PARTNERS — FINANCIAL MODEL SUMMARY
+PROJECT CLEARWATER: MERIDIAN TECHNOLOGIES
+Version 2.0 | April 10, 2024 | CONFIDENTIAL — VP AND ABOVE
+
+PREPARED BY: Marcus Webb, VP
+
+REVISION NOTES
+
+Version 2.0 supersedes Version 1.0 (March 25, 2024). Key changes:
+  — FY2024 ARR growth assumption reduced from 35% to 22% following customer concentration
+    analysis (see Diana Park memo, April 8, 2024)
+  — Updated management projections received April 5, 2024
+  — H1 2024 new logo assumption reduced from 2 signings to 1 (1 pushed to H2 2024)
+  — Customer loss scenario added to bear case
+
+BASE CASE ASSUMPTIONS (V2.0)
+
+  FY2024 ARR Growth:            22%
+  FY2024 ARR Estimate:          $46.5 million
+  Gross Margin:                  71%
+  EBITDA Margin (Year 3):        20%
+  Revenue Multiple at Exit:      9.5x ARR
+  Hold Period:                   5 years
+
+VALUATION OUTPUTS (V2.0)
+
+  Entry Enterprise Value:        $340 million
+  Implied ARR Multiple (Entry):  8.9x
+  Projected Exit EV:             $720 million
+  Unlevered IRR (Base Case):     24%
+  MOIC (Base Case):              2.4x
+
+KEY CHANGES FROM V1.0
+
+  — Entry EV reduced by $140M (from $480M to $340M) primarily due to lower growth
+  — Exit multiple reduced from 10x to 9.5x ARR reflecting concentration risk discount
+  — Top-customer churn scenario now modeled in bear case
+
+SENSITIVITY OUTPUTS (V2.0)
+
+  Bull case (30% growth):            EV $400M | IRR 29% | MOIC 2.9x
+  Base case (22% growth):            EV $340M | IRR 24% | MOIC 2.4x
+  Bear case (15% growth):            EV $270M | IRR 15% | MOIC 1.7x
+  Stress case (top-1 churn + 15%):   EV $200M | IRR  8% | MOIC 1.2x
+
+Source: Atlas_Meridian_Financial_Model_v2.xlsx | Version: 2.0 | Date: April 10, 2024
+Classification: CONFIDENTIAL — Atlas Capital Internal Use Only

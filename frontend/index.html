@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueryTrace</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main>
+    <h1>QueryTrace</h1>
+    <p class="subtitle">Context-aware document retrieval</p>
+
+    <form id="query-form">
+      <input type="text" id="query-input" placeholder="Ask a question..." autocomplete="off" />
+      <select id="role-select">
+        <option value="viewer">Viewer</option>
+        <option value="analyst">Analyst</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button type="submit">Search</button>
+    </form>
+
+    <section id="results"></section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

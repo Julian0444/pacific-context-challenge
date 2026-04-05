@@ -1,0 +1,43 @@
+ATLAS CAPITAL PARTNERS — INTERNAL MEMORANDUM
+PROJECT CLEARWATER: INITIAL DUE DILIGENCE SUMMARY
+March 15, 2024 | CONFIDENTIAL — VP AND ABOVE
+
+TO:   VP Deal Team, Partners
+FROM: Sarah Chen, Associate; Marcus Webb, VP
+
+EXECUTIVE SUMMARY
+
+Following initial management meetings and document review, this memo summarizes our Phase 1
+diligence findings on Meridian Technologies ("the Company") under the internal project name
+Clearwater. We recommend advancing to Phase 2 financial diligence.
+
+BUSINESS QUALITY
+
+ClearFlow is demonstrably sticky. Three of five reference customers contacted cited workflow
+dependency and implementation cost as barriers to switching. Implementation cycles average 4–6
+months, creating meaningful switching costs. The platform's core value proposition — automated
+reconciliation exception handling — addresses a real operational pain point for mid-market regional
+banks where manual processes are still prevalent.
+
+GROWTH OBSERVATIONS
+
+ARR growth of 34% in FY2023 is consistent with our internal thesis. However, new logo growth
+slowed materially in H2 2023: the Company added only 4 new enterprise clients in Q4, compared
+to 9 in the first three quarters combined. Management attributes this to sales team capacity
+constraints and pipeline timing. We are reserving judgment pending access to the CRM.
+
+KEY RISKS IDENTIFIED
+
+  1. Customer Concentration: Top 3 customers represent ~58% of ARR. Loss of any single top
+     customer would materially impact revenue in the near term.
+  2. Sales Velocity: H2 2023 new logo slowdown warrants explanation. Pipeline access required.
+  3. Growth Assumptions: The current operating model targets 35% ARR growth for FY2024.
+     We view this as optimistic given observed Q4 pipeline dynamics.
+  4. Leadership: CTO departure in January 2024 is not yet fully explained. Requires follow-up.
+
+RECOMMENDATION
+
+Advance to Phase 2. Request full CRM export, audited financials FY2021–2023, and updated
+management projections. Flag CTO situation for dedicated session with CEO.
+
+Classification: CONFIDENTIAL — Atlas Capital Internal Use Only

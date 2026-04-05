@@ -1,0 +1,39 @@
+RESEARCH NOTE — MERIDIAN TECHNOLOGIES
+COVERAGE INITIATION
+Summit Financial Research | September 20, 2023
+
+MERIDIAN TECHNOLOGIES: INITIATING COVERAGE WITH BUY
+
+We initiate coverage of Meridian Technologies with a BUY rating and a base-case enterprise
+value target of $480 million.
+
+INVESTMENT THESIS
+
+Meridian is positioned to capture significant share in the $14 billion back-office reconciliation
+and embedded payments market. Its ClearFlow platform has demonstrated strong product-market fit
+with regional banks, a segment underserved by legacy processors. Net Revenue Retention of 116%
+as of Q2 2023 supports a durable land-and-expand revenue model.
+
+FINANCIAL PROJECTIONS
+
+We project 35% ARR growth in fiscal year 2024, driven by:
+
+  — Two new top-20 bank contract signings expected in H1 2024
+  — Expansion revenue from existing clients as reconciliation volumes grow
+  — Planned launch of FX and multi-currency modules in Q4 2023
+
+  FY2024 ARR estimate:     $51.4 million
+  Valuation basis:          12.5x ARR multiple → EV $642 million
+  Risk-adjusted base case:  $480 million enterprise value
+
+RISKS
+
+  — Revenue concentration: approximately 45% of ARR from top two customers
+  — Execution risk on new product launches
+  — Dependency on regional bank vertical health
+
+We view near-term concentration risk as manageable given Meridian's strong NRR and the
+company's growing client diversification strategy. New logo pipeline for H2 2023 appears
+robust based on our channel checks with industry contacts.
+
+Rating: BUY | EV Target: $480M | Date: September 20, 2023

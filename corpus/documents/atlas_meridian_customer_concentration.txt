@@ -1,0 +1,51 @@
+ATLAS CAPITAL PARTNERS — INTERNAL ANALYSIS
+PROJECT CLEARWATER: CUSTOMER CONCENTRATION RISK ASSESSMENT
+April 8, 2024 | CONFIDENTIAL — VP AND ABOVE
+
+PREPARED BY: Diana Park, VP
+
+OVERVIEW
+
+This memo summarizes the findings of our customer concentration analysis for Meridian
+Technologies, based on the customer ARR schedule provided by management on April 3, 2024.
+
+CONCENTRATION FINDINGS (AS OF MARCH 31, 2024, ESTIMATED)
+
+  Customer 1 (Regional Bank A):       $9.4M ARR     24.7% of total
+  Customer 2 (Regional Bank B):       $7.2M ARR     18.9% of total
+  Customer 3 (Insurance Co. C):       $5.7M ARR     15.0% of total
+  Top 3 Subtotal:                     $22.3M ARR    58.5% of total
+  Remaining 44 customers:             $15.8M ARR    41.5% of total
+  Total ARR:                          $38.1M
+
+Customer identities are masked per management's NDA request. Legal names available
+under full data room access.
+
+KEY OBSERVATIONS
+
+1. CONCENTRATION INCREASED MATERIALLY
+
+The Q3 2023 Summit Financial Research note cited ~45% ARR concentration in the top two
+customers. Our analysis shows top-three concentration is now 58.5%, a meaningful increase.
+This reflects the H2 2023 new logo slowdown rather than outsized growth from top clients.
+
+2. CUSTOMER 3 RENEWAL RISK
+
+Customer 3 (Insurance Co. C) has a contract renewal due in August 2024. This date falls
+within the anticipated deal announcement window and represents a pre-close risk item.
+If Customer 3 exits, total ARR would drop to approximately $32.4M, putting significant
+pressure on the acquisition thesis at any entry multiple above 7x ARR.
+
+3. IMPACT ON FINANCIAL MODEL
+
+Financial Model v1.0 assumed 35% ARR growth without a concentration stress test.
+Model v2.0 (to be released April 10) will incorporate revised growth assumptions and a
+customer-loss scenario in the bear case.
+
+RECOMMENDATION
+
+Require audited customer contract terms and renewal schedules for the top five customers as
+a Phase 2 diligence condition. Consider inserting a revenue concentration covenant in the
+deal terms (e.g., no single customer >25% of ARR within 24 months post-close).
+
+Classification: CONFIDENTIAL — Atlas Capital Internal Use Only

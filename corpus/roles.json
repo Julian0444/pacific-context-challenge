@@ -1,0 +1,19 @@
+{
+  "roles": {
+    "analyst": {
+      "name": "analyst",
+      "description": "Entry-level deal team member. Access to public filings, research notes, press releases, and sector overviews.",
+      "access_rank": 1
+    },
+    "vp": {
+      "name": "vp",
+      "description": "Vice President or Senior Associate. Access to internal deal memos, financial models, internal analyses, and internal email communications.",
+      "access_rank": 2
+    },
+    "partner": {
+      "name": "partner",
+      "description": "Partner-level. Full access including board materials, LP updates, and final Investment Committee memoranda.",
+      "access_rank": 3
+    }
+  }
+}

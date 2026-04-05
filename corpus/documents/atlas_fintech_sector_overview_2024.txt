@@ -1,0 +1,47 @@
+ATLAS CAPITAL PARTNERS — INTERNAL SECTOR OVERVIEW
+FINTECH INFRASTRUCTURE: M&A LANDSCAPE AND ACQUISITION PRIORITIES
+February 20, 2024 | INTERNAL — ANALYST DISTRIBUTION
+
+PREPARED BY: Deal Origination Team
+
+SECTOR THESIS
+
+The market for B2B financial infrastructure software continues to consolidate. We see a two-to-
+three year window where embedded payments, reconciliation automation, and compliance tooling will
+attract significant PE and strategic buyer interest, driven by:
+
+  (1) Regional banks seeking to modernize back-office operations without building in-house
+  (2) Increasing regulatory complexity favoring specialized software providers
+  (3) Attractive SaaS metrics in the segment (NRR >110%, gross margins >65%)
+
+TARGET PROFILE
+
+Our preferred acquisition profile within this sector:
+
+  ARR:             $30–$60M
+  ARR growth:      >20% year-over-year
+  NRR:             >110%
+  Gross margin:    >65%
+  Customer base:   Enterprise, multi-year contracts
+  Debt:            Minimal, positive unit economics
+
+IDENTIFIED TARGETS
+
+  1. Meridian Technologies — Austin, TX. ARR ~$38M, NRR 118%, gross margin 71%.
+     ClearFlow platform for payment reconciliation. Currently Series C. Customer
+     concentration is a noted risk requiring diligence.
+
+  2. Trident Payments — Chicago, IL. ARR ~$21M. Earlier stage, growing at 40% YoY.
+     Focused on credit union segment. May be too early for our fund thesis.
+
+  3. VaultSync — New York, NY. ARR ~$55M. More mature, slower growth (~15% YoY).
+     Potential buyout at a lower multiple; less value-creation upside.
+
+RECOMMENDED FOCUS
+
+Meridian Technologies is the primary diligence target. The NRR and gross margin profile are
+best-in-class within our identified universe. Customer concentration is a key risk to underwrite,
+but at current revenue scale it is addressable through an active sales expansion program
+post-acquisition.
+
+Deal team to initiate outreach to Meridian management in Q1 2024.

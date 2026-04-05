@@ -1,0 +1,37 @@
+RESEARCH NOTE UPDATE — MERIDIAN TECHNOLOGIES
+Summit Financial Research | January 15, 2024
+
+MERIDIAN TECHNOLOGIES: REVISING ESTIMATES DOWNWARD; RATING MAINTAINED AT BUY
+
+We are revising our September 2023 financial projections for Meridian Technologies following
+the release of Q3 2023 earnings data and updated channel checks.
+
+REVISION SUMMARY
+
+Our FY2024 ARR growth estimate is revised downward from 35% to 22%, reflecting:
+
+  — Slower-than-expected enterprise contract closings: one of two anticipated H1 2024
+    top-20 bank signings has been pushed to H2 2024 per management commentary
+  — Customer concentration risk is higher than our September 2023 assessment. Updated
+    channel checks indicate Meridian's top three customers now represent approximately
+    58–62% of ARR, up from ~45% cited in our initiation note
+  — Delayed FX module launch (rescheduled from Q4 2023 to Q2 2024)
+
+UPDATED FINANCIAL PROJECTIONS
+
+  FY2024 ARR estimate (revised):   $46.5 million  (prior: $51.4 million)
+  Gross margin assumption:          71%  (unchanged)
+  Revised EV range:                 $300–$360 million
+
+MAINTAINED BUY RATIONALE
+
+Despite the downward revision, we maintain our BUY rating. Meridian's NRR of 118% (per
+preliminary FY2023 data) remains a key differentiator. The ClearFlow platform's stickiness
+within regional bank workflows is difficult to displace, and we view the contract delay as
+a timing issue rather than structural demand erosion.
+
+The customer concentration increase warrants monitoring. We expect Meridian to actively
+diversify its customer base through 2024 as the sales team scales.
+
+Rating: BUY | Revised EV Target: $340M | Date: January 15, 2024
+(Replaces September 20, 2023 research note)

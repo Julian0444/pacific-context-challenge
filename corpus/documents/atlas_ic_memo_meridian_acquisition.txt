@@ -1,0 +1,55 @@
+ATLAS CAPITAL PARTNERS
+INVESTMENT COMMITTEE MEMORANDUM
+PROJECT CLEARWATER: ACQUISITION OF MERIDIAN TECHNOLOGIES, INC.
+April 18, 2024 | STRICTLY CONFIDENTIAL — PARTNER ACCESS ONLY
+
+EXECUTIVE SUMMARY
+
+Atlas Capital Partners Fund IV recommends proceeding with the acquisition of Meridian
+Technologies, Inc. at an enterprise value of $340 million, subject to final legal and
+financial confirmations. This memorandum presents the full investment rationale, risk
+summary, and proposed deal terms for Investment Committee approval.
+
+INVESTMENT RATIONALE
+
+1. DEFENSIBLE MARKET POSITION
+   Meridian's ClearFlow platform holds a strong position in payment reconciliation for U.S.
+   regional banks. Average customer tenure of 4.2 years among the top-10 accounts and a 118%
+   NRR confirm the platform's stickiness. Switching cost is high; implementation cycles of 4–6
+   months create structural retention.
+
+2. FINANCIAL PROFILE
+   FY2023 ARR of $38.1M, 71% gross margins, zero debt. While FY2024 growth has been revised
+   from initial 35% estimates to 22% (reflecting customer concentration dynamics and delayed
+   contract signings), the base business remains highly cash-generative at scale.
+
+3. VALUE CREATION LEVERS
+   (a) Enterprise sales expansion to accelerate new logo growth and reduce top-3 concentration
+       below 45% within 24 months
+   (b) International expansion into UK and EU embedded finance markets (Year 3+)
+   (c) Adjacent product extension: treasury management automation, compliance tooling
+
+RISKS AND MITIGATIONS
+
+  Customer Concentration:     Top 3 = 58% of ARR.
+                               Mitigation: Negotiate 3–5 year contract extensions pre-close.
+  CTO Departure:              Mid-refactor on reconciliation engine.
+                               Mitigation: Retention packages for VP Engineering + top 5 engineers.
+  August 2024 Renewal Risk:   Customer 3 renewal coincides with deal announcement.
+                               Mitigation: Negotiate renewal or assignment clause before signing.
+  Net Cash Adjustment:         $22.6M reported cash includes $4.1M deferred revenue.
+                               Modeled as $18.5M adjusted net cash.
+
+PROPOSED DEAL TERMS
+
+  Enterprise Value:            $340 million
+  Implied ARR Multiple:        8.9x
+  Equity Check (Fund IV):      $240 million
+  Debt Financing:              $100 million (3.2x leverage)
+  Management Rollover:         ~8% of equity
+  Target Signing:              May 2024
+  Target Close:                Q3 2024
+
+RECOMMENDATION: APPROVE for final negotiation and signing.
+
+Classification: PARTNER CONFIDENTIAL — Investment Committee Use Only
