@@ -2,15 +2,63 @@
   "queries": [
     {
       "id": "q001",
-      "query": "What is the onboarding process for new employees?",
-      "expected_doc_ids": [],
-      "role": "viewer"
+      "query": "What is Meridian's annual recurring revenue growth rate and net revenue retention?",
+      "role": "analyst",
+      "expected_doc_ids": ["doc_001", "doc_003"],
+      "notes": "Normal retrieval. Both the 10-K (ARR $38.1M, +34% YoY, NRR 118%) and the Q4 research note (revising growth to 22%) are the primary sources."
     },
     {
       "id": "q002",
-      "query": "What are the Q4 financial targets?",
-      "expected_doc_ids": [],
-      "role": "analyst"
+      "query": "What did Summit Financial Research revise about Meridian's growth estimates and enterprise value target?",
+      "role": "analyst",
+      "expected_doc_ids": ["doc_003"],
+      "notes": "Stale doc case. doc_003 is the current revision ($340M EV, 22% growth). doc_002 (the stale Q3 initiation at $480M) may appear alongside it because absolute freshness differences are negligible at this age — demonstrating the demotion-not-removal behavior."
+    },
+    {
+      "id": "q003",
+      "query": "What risks did Atlas Capital identify in their due diligence assessment of Meridian?",
+      "role": "analyst",
+      "expected_doc_ids": ["doc_005"],
+      "forbidden_doc_ids": ["doc_006", "doc_007", "doc_008", "doc_009", "doc_010", "doc_011", "doc_012"],
+      "notes": "Permissions test. The retriever surfaces partner and vp docs (doc_010, doc_006, doc_007, doc_008) as top semantic matches. After analyst-role filtering, only the sector overview (doc_005) and public docs remain. Validates that no restricted content leaks through."
+    },
+    {
+      "id": "q004",
+      "query": "What is the breakdown of Meridian's ARR by top customers and what is the customer concentration risk?",
+      "role": "vp",
+      "expected_doc_ids": ["doc_012", "doc_001"],
+      "forbidden_doc_ids": ["doc_010", "doc_011"],
+      "notes": "Customer concentration case. doc_012 (vp-level concentration analysis, top 3 = 58.5% ARR) and doc_001 (10-K discloses 58% concentration as primary risk) are the authoritative sources."
+    },
+    {
+      "id": "q005",
+      "query": "How did the Atlas Capital financial model for Project Clearwater change between version 1 and version 2?",
+      "role": "vp",
+      "expected_doc_ids": ["doc_008", "doc_007"],
+      "forbidden_doc_ids": ["doc_010", "doc_011"],
+      "notes": "Valuation and model revision case. doc_008 is the current model (EV $340M, 22% growth, 24% IRR). doc_007 is the superseded v1 (EV $480M, 35% growth, 28% IRR). Both should appear: doc_007 is stale but provides the comparison baseline."
+    },
+    {
+      "id": "q006",
+      "query": "What is the Investment Committee recommendation and proposed deal structure for acquiring Meridian Technologies?",
+      "role": "partner",
+      "expected_doc_ids": ["doc_010"],
+      "notes": "Board/IC/deal terms case. doc_010 (IC memo recommending Meridian acquisition at $340M EV, 8.9x ARR) is the definitive source. Partner-level access required."
+    },
+    {
+      "id": "q007",
+      "query": "What are the operational integration risks for Meridian including the CTO departure and customer renewal exposure?",
+      "role": "vp",
+      "expected_doc_ids": ["doc_009", "doc_006"],
+      "forbidden_doc_ids": ["doc_010", "doc_011"],
+      "notes": "Integration risk case. doc_009 (integration email: 18-month timeline, August 2024 Customer 3 renewal, $4.1M deferred revenue) and doc_006 (DD memo flagging CTO departure in January 2024) are the primary sources."
+    },
+    {
+      "id": "q008",
+      "query": "What did the Atlas LP quarterly update communicate about the Project Clearwater pipeline activity?",
+      "role": "partner",
+      "expected_doc_ids": ["doc_011"],
+      "notes": "Partner-only LP reporting case. doc_011 (Q1 2024 LP letter referencing Clearwater pipeline without naming the target) is the sole source. Partner access required."
     }
   ]
 }
