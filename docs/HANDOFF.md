@@ -223,3 +223,112 @@ Concrete ranking improvements:
 ### Suggested First Action
 
 Fix the frontend role dropdown (`frontend/index.html` — change `viewer`/`analyst`/`admin` to `analyst`/`vp`/`partner`), then commit all uncommitted work from Sessions 2–4.
+
+---
+
+## Session — 2026-04-06 (Session 5: Commit & Consolidation)
+
+### Summary
+
+All work from Sessions 3 and 4 (evaluator harness, test queries, corpus-relative freshness) was committed in a single commit.
+
+- **Commit `5e2db23`** — "Task 5": includes `src/evaluator.py`, `src/freshness.py`, `evals/test_queries.json`, `tests/test_evaluator.py`, `tests/test_freshness.py`, `docs/HANDOFF.md`.
+
+No code changes were made in this session beyond the commit.
+
+### Current State
+
+- **Branch:** `main`
+- **Commits:** `6e55da7` (Initial commit) → `24c34a8` (Initial implementation) → `5e2db23` (Task 5)
+- **Working tree:** clean (untracked files are only auto-generated skill definitions in `.claude/skills/` and `.agents/`, not project code)
+- **Tests:** 46 passing (0 failing)
+  - `tests/test_policies.py` — 6 tests
+  - `tests/test_freshness.py` — 12 tests
+  - `tests/test_context_assembler.py` — 5 tests
+  - `tests/test_main.py` — 6 tests
+  - `tests/test_evaluator.py` — 17 tests
+
+### Remaining Tasks (ordered)
+
+1. **Fix frontend role dropdown** — `frontend/index.html` has options `viewer`, `analyst`, `admin`. Change to `analyst`, `vp`, `partner`. One-minute fix.
+
+2. **Decide on `artifacts/` gitignore** — FAISS index and payloads are binary/generated (~2MB). Either commit them or add to `.gitignore` and require `python3 -m src.indexer` after clone.
+
+3. **Frontend polish** — `app.js` shows `score` but not `freshness_score` or `tags`. Low priority but useful for demos.
+
+### Blockers and Warnings
+
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility. Upgrading deps may break this.
+- **No `__init__.py` in `src/`:** Works via `src.module` import style with repo root on `sys.path`. Certain tooling (e.g., mypy, some IDEs) may need it.
+
+### Suggested First Action
+
+Fix the frontend role dropdown in `frontend/index.html` — change the three `<option>` values from `viewer`/`analyst`/`admin` to `analyst`/`vp`/`partner`. Then open the page in a browser and verify `POST /query` works with each role.
+
+---
+
+## Session — 2026-04-06 (Session 6: Frontend Redesign)
+
+### Summary
+
+Complete frontend redesign from the basic scaffold into a polished, demo-ready interface. Fixed the stale role dropdown and rebuilt all three frontend files from scratch.
+
+**What was done:**
+
+1. **Fixed role alignment** — Replaced `viewer`/`analyst`/`admin` with `analyst`/`vp`/`partner` as radio-chip toggles. Zero occurrences of old invalid roles remain.
+
+2. **Redesigned the UI** — "Midnight Analysis Desk" aesthetic: dark navy-black base (`#08090d`), warm amber/gold accent (`#c8a55a`), Bricolage Grotesque display font, IBM Plex Mono for data. Designed as an internal analysis/context-inspection tool, not a generic search page.
+
+3. **Added rich data display** — Each result card now shows:
+   - `doc_id` with rank number
+   - Content excerpt (4-line clamp)
+   - Relevance score as horizontal bar + numeric value
+   - Freshness score as horizontal bar + numeric value
+   - Tags as muted pills
+   - Left accent stripe colored by score quality (green/amber/red)
+   - Summary bar above results: document count, token count, role
+
+4. **Added UX improvements:**
+   - 3 example query buttons ("ARR growth", "DD risks", "IC memo") that auto-fill query + role and submit
+   - Loading state with skeleton cards and shimmer animation
+   - Network-specific error messaging ("Backend unavailable" with start command vs API errors)
+   - Empty state with hexagon icon and description of what QueryTrace does
+   - No-results state for empty context arrays
+   - Spinner on submit button during loading
+   - `top_k=8` default aligned with project direction
+
+5. **Verified end-to-end** — Server started, `POST /query` tested with all three roles, invalid role returns 400, all data fields (score, freshness_score, tags, total_tokens, doc_id) rendered correctly. 46 tests still passing.
+
+**Design decisions:**
+- Static HTML + CSS + vanilla JS (no frameworks, no build step)
+- Google Fonts loaded from CDN (Bricolage Grotesque, IBM Plex Mono)
+- CSS variables for full theme consistency
+- Responsive layout (mobile stacks search row and metrics)
+- `escapeHTML()` used for all user/API content to prevent XSS
+
+### Current State
+
+- **Branch:** `main`
+- **Commits:** `6e55da7` → `24c34a8` → `5e2db23` (Task 5)
+- **Working tree:** modified `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`, `docs/HANDOFF.md`
+- **Tests:** 46 passing (0 failing)
+
+### Remaining Tasks (ordered)
+
+1. ~~Fix frontend role dropdown~~ — **Done.** Roles are `analyst`/`vp`/`partner`.
+
+2. ~~Frontend polish~~ — **Done.** Score, freshness_score, tags, total_tokens all rendered with metric bars and pills.
+
+3. **Commit frontend work** — `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`, `docs/HANDOFF.md` are modified and uncommitted.
+
+4. **Decide on `artifacts/` gitignore** — FAISS index and payloads are binary/generated (~2MB). Either commit them or add to `.gitignore` and require `python3 -m src.indexer` after clone.
+
+### Blockers and Warnings
+
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility. Upgrading deps may break this.
+- **No `__init__.py` in `src/`:** Works via `src.module` import style with repo root on `sys.path`. Certain tooling may need it.
+- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from `fonts.googleapis.com`. If offline, falls back to `system-ui` and `Menlo`/`monospace`.
+
+### Suggested First Action
+
+Commit the frontend changes, then open `frontend/index.html` in a browser with the server running (`uvicorn src.main:app --reload`) and click each example query button to confirm the full demo flow works visually.

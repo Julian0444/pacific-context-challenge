@@ -3,25 +3,91 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QueryTrace</title>
+  <title>QueryTrace — Context Retrieval</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main>
-    <h1>QueryTrace</h1>
-    <p class="subtitle">Context-aware document retrieval</p>
 
-    <form id="query-form">
-      <input type="text" id="query-input" placeholder="Ask a question..." autocomplete="off" />
-      <select id="role-select">
-        <option value="viewer">Viewer</option>
-        <option value="analyst">Analyst</option>
-        <option value="admin">Admin</option>
-      </select>
-      <button type="submit">Search</button>
-    </form>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark">QT</span>
+        <div class="brand-text">
+          <h1 class="brand-name">QueryTrace</h1>
+          <p class="brand-tagline">Permission-aware context retrieval</p>
+        </div>
+      </div>
+    </div>
+  </header>
 
-    <section id="results"></section>
+  <main class="main">
+
+    <section class="search-section">
+      <form id="query-form" class="search-form">
+        <div class="search-row">
+          <input
+            type="text"
+            id="query-input"
+            class="search-input"
+            placeholder="What do you want to know?"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" id="submit-btn" class="search-btn">
+            <span class="btn-label">Search</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="controls-row">
+          <div class="role-selector">
+            <span class="control-label">Access level</span>
+            <div class="role-options">
+              <label class="role-option">
+                <input type="radio" name="role" value="analyst" checked />
+                <span class="role-chip">Analyst</span>
+              </label>
+              <label class="role-option">
+                <input type="radio" name="role" value="vp" />
+                <span class="role-chip">VP</span>
+              </label>
+              <label class="role-option">
+                <input type="radio" name="role" value="partner" />
+                <span class="role-chip">Partner</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="examples">
+        <span class="examples-label">Try</span>
+        <button class="example-btn" data-query="What is Meridian's ARR growth rate and net revenue retention?" data-role="analyst">ARR growth</button>
+        <button class="example-btn" data-query="What are the risks identified in the due diligence for Project Clearwater?" data-role="vp">DD risks</button>
+        <button class="example-btn" data-query="What is the IC recommendation for the Meridian acquisition?" data-role="partner">IC memo</button>
+      </div>
+    </section>
+
+    <section id="results-section" class="results-section">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M16 12V20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="16" cy="10" r="1" fill="currentColor"/>
+          </svg>
+        </div>
+        <h2 class="empty-title">Enter a query to retrieve context</h2>
+        <p class="empty-description">
+          QueryTrace assembles relevant document context based on your query
+          and access level. Documents are ranked by semantic relevance and
+          freshness, then packed within a token budget.
+        </p>
+      </div>
+    </section>
+
   </main>
 
   <script src="app.js"></script>
