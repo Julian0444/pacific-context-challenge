@@ -332,3 +332,174 @@ Complete frontend redesign from the basic scaffold into a polished, demo-ready i
 ### Suggested First Action
 
 Commit the frontend changes, then open `frontend/index.html` in a browser with the server running (`uvicorn src.main:app --reload`) and click each example query button to confirm the full demo flow works visually.
+
+---
+
+## Session — 2026-04-10 (Session 7: Contract Models & Protocols)
+
+### Summary
+
+Introduced the full Pydantic contract layer (`src/models.py`) and the Protocol interface file (`src/protocols.py`) that will underpin `pipeline.py` + `stages/`. No existing pipeline logic was changed — this session is pure contracts.
+
+**What was done:**
+
+1. **Rewrote `src/models.py`** — 13 typed models covering the full pipeline from upstream to downstream:
+   - `UserContext`, `PolicyConfig` — request context and run-time knobs
+   - `ScoredDocument` — typed shape for retriever output (`extra="ignore"` to absorb `rank`, `file_name`, `type` keys the retriever adds)
+   - `FreshnessScoredDocument` — after `apply_freshness`; adds `freshness_score` + `is_stale`
+   - `BlockedDocument`, `StaleDocument`, `IncludedDocument` — decision outcomes for the trace
+   - `TraceMetrics`, `DecisionTrace` — observability layer; `DecisionTrace` nests all three outcome lists + metrics
+   - `PipelineResult` — internal result before API serialisation; holds `context`, `total_tokens`, optional `trace`
+   - `QueryRequest` — backward compat; adds `policy_name: str = "default"` alongside existing `query`/`role`/`top_k`
+   - `QueryResponse` — backward compat; adds `decision_trace: Optional[DecisionTrace] = None`; `context` + `total_tokens` unchanged
+   - `DocumentChunk` — preserved verbatim; used by the live endpoint
+
+   All domain models: `frozen=True + extra="forbid"`. `ScoredDocument`: `frozen=True + extra="ignore"`. API boundary models: `extra="forbid"` only (no frozen, FastAPI handles construction).
+
+2. **Created `src/protocols.py`** — three `@runtime_checkable` Protocol classes:
+   - `RetrieverProtocol` — `(query: str, top_k: int) → List[Dict]`; satisfied by `src.retriever.retrieve` and any BM25/stub alternative
+   - `RoleStoreProtocol` — dict-like access to roles; decouples `main.py` load from pipeline stages
+   - `MetadataStoreProtocol` — dict-like access to corpus metadata
+
+3. **Created `tests/test_models.py`** — 24 contract tests covering required fields, defaults, immutability, `extra` rejection, and backward-compat API fields.
+
+### Compatibility Decisions
+
+| Decision | Reason |
+|----------|--------|
+| `ScoredDocument` uses `extra="ignore"` | Retriever returns `rank`, `file_name`, `type` — strict rejection would break ingestion |
+| `FreshnessScoredDocument` does NOT inherit `ScoredDocument` | Avoids Pydantic v2 frozen-model inheritance complexity; conversion via `model_dump() \| {...}` |
+| `policy_name` added to `QueryRequest` | New field with safe default — existing clients unaffected |
+| `decision_trace` is `Optional` in `QueryResponse` | Currently always `null`; existing frontend ignores unknown keys |
+| `DocumentChunk` left without frozen/forbid | Active in the live response path — hardening deferred until pipeline.py lands |
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `ae7766f` (Task 6 and backend almost done)
+- **Working tree:** modified `src/models.py`, `CLAUDE.md`; untracked `src/protocols.py`, `tests/test_models.py`, `docs/HANDOFF.md`
+- **Tests:** 70 passing, 0 failing (46 original + 24 new contract tests)
+- **Verified:** `POST /query` returns `query`, `context`, `total_tokens` — frontend unbroken
+
+### Remaining Tasks (ordered)
+
+1. **Commit this session's work** — `src/models.py`, `src/protocols.py`, `tests/test_models.py`, `docs/HANDOFF.md`.
+
+2. **Implement `src/pipeline.py`** — Orchestrator that wires `RetrieverProtocol → filter_by_role → apply_freshness → assemble` using the new typed models; replaces the inline logic in `main.py`. Should populate `DecisionTrace` as it runs.
+
+3. **Implement `src/stages/`** — Individual stage functions typed against the new models (input/output as Pydantic models, not dicts).
+
+4. **Wire `main.py` to `pipeline.py`** — Replace the current inline pipeline with a call to the new orchestrator; `decision_trace` in the response will then be non-null.
+
+5. **Hybrid retrieval** — BM25 + semantic fusion (satisfies `RetrieverProtocol`; no changes to downstream stages needed).
+
+6. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary. Commit for convenience or `.gitignore` + document `python3 -m src.indexer`.
+
+### Blockers and Warnings
+
+- **`ScoredDocument` not yet used by live pipeline** — The retriever still returns raw dicts; `pipeline.py` will need `ScoredDocument.model_validate(raw_dict)` at the ingestion boundary.
+- **`CLAUDE.md` stale** — Says `evaluator.py` is not implemented and `evals/test_queries.json` has placeholders. Both are wrong. Needs a one-time cleanup.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility.
+- **Google Fonts dependency:** Frontend loads from CDN; falls back to system fonts offline.
+
+### Suggested First Action
+
+Commit the session work, then start `src/pipeline.py`: define `run_pipeline(request: QueryRequest, retriever: RetrieverProtocol, roles: RoleStoreProtocol, metadata: MetadataStoreProtocol) → PipelineResult` and move the inline logic from `main.py` into it, converting each stage's dict output to the appropriate typed model.
+
+---
+
+## Session — 2026-04-11 (Session 8: Pipeline Orchestrator)
+
+### Summary
+
+Implemented the explicit pipeline orchestrator (`src/pipeline.py`), introduced policy presets, and rewired `main.py` to be a minimal HTTP boundary. All existing tests pass unchanged alongside 18 new pipeline integration tests.
+
+**What was done:**
+
+1. **Created `src/pipeline.py`** — Five-stage orchestrator with abort-on-first-failure semantics:
+   - `_retrieve_stage` — calls `RetrieverProtocol`, validates each result into `ScoredDocument`
+   - `_permission_stage` — compares access ranks, produces `(permitted, List[BlockedDocument])`
+   - `_freshness_stage` — wraps existing `apply_freshness`, produces `(List[FreshnessScoredDocument], List[StaleDocument])`
+   - `_assemble_stage` — wraps existing `assemble()` or bypasses budget when `skip_budget=True`
+   - `_build_trace` — assembles `DecisionTrace` from all stage outputs
+   - Each stage returns `StageOk | StageErr`. `_unwrap()` raises `PipelineError` on `StageErr`.
+   - `run_pipeline()` is the single public entry point.
+
+2. **Introduced policy presets in `src/policies.py`**:
+   - `naive_top_k` — dangerous baseline: retrieval only, no permission filter, no freshness, no budget enforcement (`skip_permission_filter=True`, `skip_freshness=True`, `skip_budget=True`)
+   - `permission_aware` — retrieval + RBAC, no freshness, budget enforced (`skip_freshness=True`)
+   - `full_policy` — full pipeline: RBAC + freshness + budget
+   - `default` — alias for `full_policy`
+   - `resolve_policy(name, top_k)` resolves a preset and applies the request's `top_k` override
+
+3. **Extended `PolicyConfig`** in `src/models.py` — added `skip_permission_filter`, `skip_freshness`, `skip_budget` (all default `False`, backward-compatible)
+
+4. **Rewired `src/main.py`** — Now a minimal HTTP boundary: validate role → `run_pipeline()` → map `PipelineResult` to `QueryResponse`. No pipeline business logic remains. `decision_trace` is now populated in every response.
+
+5. **Fixed protocol definitions** (P0-1, P0-2 from integration plan):
+   - `MetadataStoreProtocol` — updated to match actual raw metadata shape (`metadata["documents"]` → list)
+   - `RoleStoreProtocol.keys()` — return type changed from `List[str]` to `Iterable[str]`
+
+6. **Added `token_count` to assembler output** (P1-1) — `context_assembler.py` now includes `token_count` in each output dict, required by `IncludedDocument`
+
+7. **Created `tests/test_pipeline.py`** — 18 integration tests covering:
+   - Happy path (default, full_policy)
+   - Trace metrics, user context, policy config in trace
+   - Analyst blocked docs in trace, partner sees all
+   - Stale docs in trace
+   - Token budget enforcement, small budget limits context
+   - All three policy presets (naive_top_k, permission_aware, full_policy)
+   - Retriever failure → PipelineError, empty retrieval, invalid policy name
+
+**Key design decisions:**
+
+| Decision | Reason |
+|----------|--------|
+| Wrap existing stage functions, don't rewrite | Avoid breaking existing tests; typed stages deferred to P3 |
+| `StageOk` / `StageErr` dataclasses, not exceptions | Each stage result is inspectable; pipeline controls flow, not exceptions |
+| `PipelineError` exception for abort | Clean for the HTTP boundary to catch and map to 500 |
+| Permission check reimplemented in pipeline (not calling `filter_by_role`) | Avoids model→dict→model roundtrip; logic is 3 lines |
+| `naive_top_k` skips budget | Spec requires it as the dangerous baseline — retrieval only |
+| `resolve_policy` uses `model_copy(update=...)` for top_k override | PolicyConfig is frozen; can't mutate |
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `ae7766f` (Task 6 and backend almost done)
+- **Working tree:** modified `src/models.py`, `src/protocols.py`, `src/policies.py`, `src/context_assembler.py`, `src/main.py`, `CLAUDE.md`, `docs/HANDOFF.md`; untracked `src/pipeline.py`, `tests/test_pipeline.py`, `tests/test_models.py`, `docs/plans/`
+- **Tests:** 88 passing (0 failing)
+  - `tests/test_policies.py` — 6 tests
+  - `tests/test_freshness.py` — 12 tests
+  - `tests/test_context_assembler.py` — 5 tests
+  - `tests/test_main.py` — 6 tests
+  - `tests/test_evaluator.py` — 17 tests
+  - `tests/test_models.py` — 24 tests
+  - `tests/test_pipeline.py` — 18 tests
+- **Endpoint verified:** `POST /query` returns `query`, `context` (with doc_id/content/score/freshness_score/tags), `total_tokens`, and `decision_trace`
+- **Frontend compatible:** response shape unchanged for existing fields; `decision_trace` is additive
+
+### Remaining Tasks (ordered)
+
+1. **Commit all uncommitted work** — Session 7 (models, protocols, test_models) and Session 8 (pipeline, policies, main rewire, assembler fix, test_pipeline, plans).
+
+2. **Wire `evaluator.py` to `pipeline.py`** (P2-3) — Replace the duplicated inline pipeline in `run_evals()` with calls to `run_pipeline()`. Extract metrics from `PipelineResult.trace`.
+
+3. **Create `src/stages/`** with typed stage functions (P3-1) — Each function accepts and returns Pydantic models, replacing dict↔model conversion in pipeline.py.
+
+4. **Refactor `freshness.py`** to return new dicts instead of mutating in-place (P3-2) — Required before P3-1 can fully land.
+
+5. **Clean up `CLAUDE.md`** (P3-3) — Remove stale claims about evaluator and test_queries.
+
+6. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary.
+
+### Blockers and Warnings
+
+- **`evaluator.py` still has its own inline pipeline** — Runs retrieve → filter → freshness → assemble independently. Should be wired to `run_pipeline()` to avoid logic divergence.
+- **`freshness.py` mutates dicts in-place** — Incompatible with frozen Pydantic models. The pipeline works around this by converting to/from dicts at the boundary, but typed stages (P3-1) require this to be fixed first.
+- **`CLAUDE.md` stale** — Still says `evaluator.py` is not implemented and `evals/test_queries.json` has placeholders.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+- **Google Fonts dependency:** Frontend loads from CDN; falls back to system fonts offline.
+
+### Suggested First Action
+
+Commit all uncommitted work from Sessions 7 and 8. Then wire `evaluator.py` to `run_pipeline()` (P2-3) — this eliminates the last copy of inline pipeline logic.

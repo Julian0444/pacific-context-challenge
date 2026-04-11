@@ -47,6 +47,7 @@ def assemble(chunks: list, token_budget: int = 2048) -> tuple:
             "score": chunk.get("score", 0.0),
             "freshness_score": chunk.get("freshness_score"),
             "tags": chunk.get("tags", []),
+            "token_count": chunk_tokens,
         })
         total_tokens += chunk_tokens
 

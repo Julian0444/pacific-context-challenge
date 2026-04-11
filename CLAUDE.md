@@ -70,3 +70,30 @@ Static HTML/JS in `frontend/`. `app.js` calls `POST /query` at `http://localhost
 ## Environment note
 
 Developed on Python 3.9.6 with LibreSSL 2.8.3. `tf-keras` may be needed for `sentence-transformers` compatibility on this Python version.
+
+
+
+
+
+
+Use the /webapp-testing skill for this task.                                                 
+Do not modify the code unless a small fix is absolutely necessary.                             
+                                                                                               
+Goal:                                                                                          
+Verify the current QueryTrace frontend end-to-end in the browser against the local backend.    
+                                                                                               
+Please:                                                                                        
+- start the backend if needed                                                                  
+- open the static frontend                                                                     
+- verify the role selector shows analyst, vp, partner                                          
+- verify an example query can be submitted successfully                                        
+- verify the UI renders:                                                                       
+  - doc_id                                                                                     
+  - score                                                                                      
+  - freshness_score                                                                            
+  - tags                                                                                       
+  - total_tokens                                                                               
+- verify loading, empty, and error states if practical                                         
+- report exactly what was verified and any issues found                                        
+                                                                                               
+Keep this as a verification pass, not a redesign task.

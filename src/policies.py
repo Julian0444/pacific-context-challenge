@@ -1,12 +1,56 @@
 """
-policies.py — Enforces role-based access control on retrieved document chunks.
+policies.py — Role-based access control and policy presets for the pipeline.
 
-A document is accessible if the requesting role's access_rank >= the document's
-min_role access_rank.
+Policy presets:
+  naive_top_k       — raw retrieval, no filtering, no freshness
+  permission_aware  — retrieval + role-based access control, no freshness
+  full_policy       — full pipeline: retrieval + RBAC + freshness + budget packing
+  default           — alias for full_policy
 """
 
 import json
 
+from src.models import PolicyConfig
+
+
+# ---------------------------------------------------------------------------
+# Policy presets
+# ---------------------------------------------------------------------------
+
+POLICY_PRESETS = {
+    "naive_top_k": PolicyConfig(
+        name="naive_top_k",
+        skip_permission_filter=True,
+        skip_freshness=True,
+        skip_budget=True,
+    ),
+    "permission_aware": PolicyConfig(
+        name="permission_aware",
+        skip_freshness=True,
+    ),
+    "full_policy": PolicyConfig(name="full_policy"),
+    "default": PolicyConfig(name="default"),
+}
+
+
+def resolve_policy(name: str, top_k: int) -> PolicyConfig:
+    """Look up a named policy preset and apply the request's top_k override.
+
+    Raises ValueError if the name is not a known preset.
+    """
+    base = POLICY_PRESETS.get(name)
+    if base is None:
+        raise ValueError(
+            f"Unknown policy: {name!r}. Valid policies: {list(POLICY_PRESETS.keys())}"
+        )
+    if top_k != base.top_k:
+        return base.model_copy(update={"top_k": top_k})
+    return base
+
+
+# ---------------------------------------------------------------------------
+# Role loading and filtering (unchanged from original)
+# ---------------------------------------------------------------------------
 
 def load_roles(roles_path: str) -> dict:
     """Load role definitions from a roles JSON file.

@@ -1,26 +1,218 @@
 """
-models.py — Pydantic request and response schemas for the QueryTrace API.
+models.py — Pydantic contract models for the QueryTrace pipeline.
+
+Organised from upstream to downstream in the pipeline:
+  UserContext → PolicyConfig
+  → ScoredDocument (retriever output)
+  → FreshnessScoredDocument (after freshness scoring)
+  → BlockedDocument / StaleDocument / IncludedDocument (decision outcomes)
+  → TraceMetrics / DecisionTrace (observability)
+  → PipelineResult (internal)
+  → QueryRequest / QueryResponse (API boundary)
+
+All domain models are frozen + extra="forbid" to act as value objects.
+QueryRequest/QueryResponse omit frozen so FastAPI can do its thing.
+DocumentChunk is preserved unchanged for frontend compatibility.
 """
 
-from pydantic import BaseModel
-from typing import List, Optional
+from __future__ import annotations
 
+from typing import List, Optional
+from pydantic import BaseModel, ConfigDict, Field
+
+
+# ---------------------------------------------------------------------------
+# Shared config helper
+# ---------------------------------------------------------------------------
+
+def _strict() -> ConfigDict:
+    """Frozen, no-extra config for internal value-object models."""
+    return ConfigDict(frozen=True, extra="forbid")
+
+
+# ---------------------------------------------------------------------------
+# Context & Policy
+# ---------------------------------------------------------------------------
+
+class UserContext(BaseModel):
+    """Who is making the request and what rank do they hold."""
+    model_config = _strict()
+
+    role: str
+    access_rank: int
+
+
+class PolicyConfig(BaseModel):
+    """Tunable knobs for a single pipeline run."""
+    model_config = _strict()
+
+    name: str = "default"
+    token_budget: int = 2048
+    top_k: int = 5
+    half_life_days: int = 365
+    skip_permission_filter: bool = False
+    skip_freshness: bool = False
+    skip_budget: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Retriever output
+# ---------------------------------------------------------------------------
+
+class ScoredDocument(BaseModel):
+    """One candidate document as returned by the retriever (plain-dict shape)."""
+    model_config = ConfigDict(frozen=True, extra="ignore")  # ignore unknown keys from retriever
+
+    doc_id: str
+    score: float
+    excerpt: str
+    min_role: str
+    tags: List[str] = Field(default_factory=list)
+    date: Optional[str] = None
+    superseded_by: Optional[str] = None
+    # Extra retriever fields kept for completeness
+    title: Optional[str] = None
+    short_summary: Optional[str] = None
+    sensitivity: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Freshness stage output
+# ---------------------------------------------------------------------------
+
+class FreshnessScoredDocument(BaseModel):
+    """ScoredDocument after freshness scoring has been applied."""
+    model_config = _strict()
+
+    doc_id: str
+    score: float
+    excerpt: str
+    min_role: str
+    tags: List[str] = Field(default_factory=list)
+    date: Optional[str] = None
+    superseded_by: Optional[str] = None
+    title: Optional[str] = None
+    short_summary: Optional[str] = None
+    sensitivity: Optional[str] = None
+    freshness_score: float
+    is_stale: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Decision outcomes
+# ---------------------------------------------------------------------------
+
+class BlockedDocument(BaseModel):
+    """A document excluded by role-based access control."""
+    model_config = _strict()
+
+    doc_id: str
+    reason: str = "insufficient_role"
+    required_role: str
+    user_role: str
+
+
+class StaleDocument(BaseModel):
+    """A superseded document included with a freshness penalty."""
+    model_config = _strict()
+
+    doc_id: str
+    superseded_by: str
+    freshness_score: float
+    penalty_applied: float = 0.5
+
+
+class IncludedDocument(BaseModel):
+    """A document that made it into the final assembled context."""
+    model_config = _strict()
+
+    doc_id: str
+    content: str
+    score: float
+    freshness_score: float
+    tags: List[str] = Field(default_factory=list)
+    token_count: int
+
+
+# ---------------------------------------------------------------------------
+# Observability
+# ---------------------------------------------------------------------------
+
+class TraceMetrics(BaseModel):
+    """Aggregate statistics for one pipeline run."""
+    model_config = _strict()
+
+    retrieved_count: int
+    blocked_count: int
+    stale_count: int
+    included_count: int
+    total_tokens: int
+    avg_score: float
+    avg_freshness_score: float
+
+
+class DecisionTrace(BaseModel):
+    """Full audit trail: every decision made during the pipeline run."""
+    model_config = _strict()
+
+    user_context: UserContext
+    policy_config: PolicyConfig
+    blocked: List[BlockedDocument] = Field(default_factory=list)
+    stale: List[StaleDocument] = Field(default_factory=list)
+    included: List[IncludedDocument] = Field(default_factory=list)
+    metrics: TraceMetrics
+
+
+# ---------------------------------------------------------------------------
+# Internal pipeline result
+# ---------------------------------------------------------------------------
+
+class PipelineResult(BaseModel):
+    """What the pipeline hands back before serialisation to the API response."""
+    model_config = _strict()
+
+    context: List[IncludedDocument]
+    total_tokens: int
+    trace: Optional[DecisionTrace] = None
+
+
+# ---------------------------------------------------------------------------
+# API boundary — backward-compatible with existing frontend
+# ---------------------------------------------------------------------------
 
 class QueryRequest(BaseModel):
+    """POST /query request body.
+
+    Backward-compatible: query, role, top_k are unchanged.
+    policy_name added with a safe default.
+    """
+    model_config = ConfigDict(extra="forbid")
+
     query: str
     role: str = "analyst"
     top_k: int = 5
+    policy_name: str = "default"
 
 
 class DocumentChunk(BaseModel):
+    """One document in the query response.  Preserved for frontend compatibility."""
+
     doc_id: str
     content: str
     score: float
     freshness_score: Optional[float] = None
-    tags: List[str] = []
+    tags: List[str] = Field(default_factory=list)
 
 
 class QueryResponse(BaseModel):
+    """POST /query response.
+
+    Backward-compatible: context and total_tokens are unchanged.
+    decision_trace is optional so existing clients ignore it.
+    """
+    model_config = ConfigDict(extra="forbid")
+
     query: str
     context: List[DocumentChunk]
     total_tokens: int
+    decision_trace: Optional[DecisionTrace] = None
