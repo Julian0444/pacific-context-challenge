@@ -110,11 +110,11 @@ All planned items are now complete. The only open items are post-plan hardening 
 - Two passes of hostile review; verdict `risks_noted`
 
 **Remaining (outside original plan scope):**
-1. Fix hostile review MINOR: add `assert result.trace.policy_config.skip_budget is False` to `test_permission_aware_enforces_budget` in `tests/test_pipeline.py`
+1. ~~Fix hostile review MINOR~~ — **DONE (Prompt 6 follow-up)**: added `assert result.trace.policy_config.skip_budget is False` to `test_permission_aware_enforces_budget`
 2. Hostile review Pass 3 → achieve `clean` verdict
-3. Frontend: surface `decision_trace` fields (blocked, stale, dropped, budget_utilization) in the UI
-4. Frontend: comparison view for `naive_top_k` vs `full_policy`
-5. Demo readiness: trace fields visible in browser = full pipeline story demonstrable end-to-end
+3. ~~Frontend: surface `decision_trace` fields (blocked, stale, dropped, budget_utilization) in the UI~~ — **DONE (Prompt 6)**: Decision Trace panel renders all four categories with colored chips and budget utilization bar
+4. ~~Frontend: comparison view for `naive_top_k` vs `full_policy`~~ — **DONE (Prompt 6)**: 3-column compare mode (naive/rbac/full) with `POST /compare` endpoint, policy severity color coding, cross-policy highlights
+5. ~~Demo readiness: trace fields visible in browser~~ — **DONE (Prompt 6)**: Full pipeline story demonstrable; "Sarah as Analyst" scenario button triggers compare mode directly
 
-**Current test state:** 138 passed, 14 skipped, 0 failed
+**Current test state:** 141 passed, 14 skipped, 0 failed
 **Current eval metrics:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0%

@@ -17,7 +17,7 @@ DocumentChunk is preserved unchanged for frontend compatibility.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -231,3 +231,28 @@ class QueryResponse(BaseModel):
     context: List[DocumentChunk]
     total_tokens: int
     decision_trace: Optional[DecisionTrace] = None
+
+
+class CompareRequest(BaseModel):
+    """POST /compare request body.
+
+    Runs the same query/role through multiple named policy presets
+    and returns one QueryResponse per policy.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    query: str
+    role: str = "analyst"
+    top_k: int = 5
+    policies: List[str] = Field(
+        default_factory=lambda: ["naive_top_k", "permission_aware", "full_policy"]
+    )
+
+
+class CompareResponse(BaseModel):
+    """POST /compare response — one QueryResponse per requested policy."""
+    model_config = ConfigDict(extra="forbid")
+
+    query: str
+    role: str
+    results: Dict[str, QueryResponse]

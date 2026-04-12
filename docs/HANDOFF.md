@@ -771,3 +771,111 @@ Wired `src/evaluator.py` to `run_pipeline()`, removed the dead `token_budget` ev
 ### Suggested First Action
 
 Apply the one-line MINOR fix to `test_permission_aware_enforces_budget` (add `assert result.trace.policy_config.skip_budget is False`), then run `python3 -m pytest tests/test_pipeline.py -v` to confirm. Run hostile review Pass 3 to reach `clean` verdict. Then turn to frontend `decision_trace` display.
+
+---
+
+## Session — 2026-04-12 (Session 12 / Prompt 6: Context Policy Lab Frontend)
+
+### Summary
+
+Upgraded the frontend into a full **Context Policy Lab** — a single/compare mode UI with structured Decision Trace rendering. Added a minimal additive `POST /compare` backend endpoint. No existing backend logic was changed.
+
+**What was done:**
+
+1. **Added `POST /compare` endpoint to `src/main.py`** — Strictly additive; calls `run_pipeline()` for each requested policy and returns one `QueryResponse` per policy keyed by policy name. Role and policy validation: invalid role → 400, unknown policy name → 400 (ValueError from `resolve_policy` propagated). `/query` is fully unchanged.
+
+2. **Added `CompareRequest` and `CompareResponse` models to `src/models.py`** — `CompareRequest` accepts `query`, `role`, `top_k`, and `policies` (default: all three presets). `CompareResponse` returns `query`, `role`, and `results: Dict[str, QueryResponse]`. Added `Dict` to typing imports.
+
+3. **Added 3 tests to `tests/test_main.py`** (6 → 9 tests):
+   - `test_compare_returns_all_three_policies` — basic compare returns all three policies with required fields
+   - `test_compare_invalid_role_returns_400`
+   - `test_compare_unknown_policy_returns_400`
+
+4. **Rewrote `frontend/index.html`** — Structural additions:
+   - Mode toggle (Single / Compare) in sticky header
+   - Policy selector in controls row (naive / rbac / full chips with color coding) — visible in single mode only
+   - `#compare-section` (hidden by default) holds the compare grid
+   - "Sarah as Analyst ↔" scenario button triggers compare mode with analyst + ARR query
+   - Preserved all existing role chips, example buttons, results section
+
+5. **Rewrote `frontend/styles.css`** — Major additions (preserving all existing visual language):
+   - Mode toggle pill, `.mode-btn.active` = gold background
+   - Policy chip colors: naive=red (`#b85c5c`), rbac=amber (`#c8a55a`), full=green (`#5a9a6a`)
+   - `.compare-grid` — 3-column CSS grid, expands `.main` to `min(1260px, 100vw)`
+   - `.compare-col` — header with colored band per policy, stats strip, compact cards, trace panel
+   - `.col-badge-{naive,rbac,full}` — severity badges
+   - `.col-stat.stat-{blocked,stale,dropped}` — counts colored red/amber/orange
+   - `.trace-panel` — collapsible audit drawer (`open` class toggles `.trace-body` display)
+   - Four trace chip types: `trace-chip-{included,blocked,stale,dropped}` with per-category colors
+   - `.budget-bar-fill` — budget utilization bar
+   - `.compare-card` — compact doc card for compare columns with `::before` accent stripe
+   - `.doc-flag.flag-blocked` — annotation for docs visible in naive but blocked in full
+   - Responsive: 3 columns → 1 column at 960px
+
+6. **Rewrote `frontend/app.js`** — Complete rewrite preserving all existing functionality:
+   - `currentMode: 'single' | 'compare'` state; `switchMode()` toggles section visibility and `.main.compare-mode`
+   - `runSingleQuery(query, role, policy)` — calls `POST /query` with `policy_name`; renders single result + trace panel
+   - `runCompare(query, role)` — calls `POST /compare`; renders 3-column compare view
+   - `renderCompare(data)` — builds cross-policy highlights: detects which doc_ids are blocked in `full_policy` and flags them in the `naive_top_k` column with `flag-blocked` annotation
+   - `buildTracePanelHTML(trace, startOpen)` — reusable trace panel; starts collapsed in single mode, expanded in compare mode
+   - `wireTraceToggles(container)` — delegates expand/collapse after innerHTML injection
+   - `COMPARE_ORDER = ['naive_top_k', 'permission_aware', 'full_policy']` — canonical column order
+   - Skeleton states for both modes; all error paths route through `renderError(err, container)`
+   - `escapeHTML()` applied to all user and API content
+
+**Key design decisions:**
+
+| Decision | Reason |
+|----------|--------|
+| `POST /compare` calls `run_pipeline()` N times, not a custom path | Guarantees identical semantics to `/query`; single source of truth for pipeline logic |
+| Trace starts expanded in compare mode | Side-by-side comparison is only readable if all three traces are immediately visible |
+| Cross-policy highlight uses `full_policy`'s `blocked_by_permission` list | Accurately identifies docs that naive wrongly surfaces; avoids client-side RBAC logic |
+| `.main.compare-mode` class for wider max-width | Avoids modifying the container on single-mode pages; no layout flash |
+| Sarah-as-Analyst button switches mode + submits | The scenario is meaningless in single-mode; compare mode is the correct context |
+
+**Two CSS bugs found and fixed during verification (not present in pre-verification code):**
+- `[hidden]` attribute was overridden by `.selector-group { display: flex }` (author stylesheet beats user-agent `[hidden] { display: none }`). Fixed by adding `[hidden] { display: none !important }` to reset.
+- No `scroll-padding-top` on `html`, causing sticky header to overlap controls when `scrollIntoView` fired after long compare results. Fixed with `scroll-padding-top: 68px`.
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `54f3c60` (Task 5)
+- **Working tree:** modified `src/main.py`, `src/models.py`, `tests/test_main.py`, `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`, `docs/HANDOFF.md`
+- **Tests:** 141 passed, 14 skipped, 0 failed (confirmed with full output, no truncation)
+- **Frontend:** fully verified end-to-end against live server via Playwright — 51/51 checks pass
+  - Page load: brand, tagline, mode toggle, role/policy chips, scenario button ✓
+  - Single mode: result cards, summary bar, Decision Trace (collapsed→expanded, all 4 categories, chips, budget bar) ✓
+  - Compare mode: 3 columns (NAIVE/RBAC/FULL), stats strip, 3 open trace panels, compact cards ✓
+  - Sarah-as-Analyst: auto-switch to compare, analyst role, ARR query, 7 `flag-blocked` annotations in naive column, full_policy shows 7 blocked vs naive 0 ✓
+  - State recovery: switch back to single, VP query returns results ✓
+  - No JS console errors ✓
+
+**Follow-up fix (same session):**
+- Applied hostile review MINOR: added `assert result.trace.policy_config.skip_budget is False` to `test_permission_aware_enforces_budget` in `tests/test_pipeline.py`. This ensures the test fails if `permission_aware` is ever misconfigured with `skip_budget=True`. 141 passed, 14 skipped, 0 failed after fix.
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `54f3c60` (Task 5) — all Prompt 6 + MINOR fix work is uncommitted
+- **Working tree:** modified `src/main.py`, `src/models.py`, `tests/test_main.py`, `tests/test_pipeline.py`, `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
+- **Tests:** 141 passed, 14 skipped, 0 failed
+- **Frontend:** verified end-to-end via Playwright — 51/51 checks pass (see details above)
+
+### Remaining Tasks (ordered)
+
+1. **Commit this batch** — All modified files listed above. Suggested message: "Prompt 6: Context Policy Lab frontend + /compare endpoint + MINOR test fix".
+
+2. **Hostile review Pass 3** — Re-run hostile review on backend tests to move from `risks_noted` to `clean` verdict. The MINOR fix is now applied.
+
+3. **Remaining DOCX demo items** — Confirm any outstanding DOCX scenarios not yet surfaced in the UI (permissions demo and compare view are covered; check if DOCX specifies any additional user journeys).
+
+### Blockers and Warnings
+
+- **All Prompt 6 work is uncommitted** — 9 modified files need to be committed.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
+
+### Suggested First Action
+
+Commit the full batch, then run hostile review Pass 3 to close the `risks_noted` verdict.

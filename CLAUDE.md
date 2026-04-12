@@ -87,7 +87,7 @@ Every `/query` response includes `decision_trace` with:
 
 ### Contract models (`src/models.py`)
 
-Key types: `ScoredDocument`, `FreshnessScoredDocument`, `BlockedDocument`, `StaleDocument`, `DroppedByBudget`, `IncludedDocument`, `DecisionTrace`, `TraceMetrics`, `PipelineResult`, `QueryRequest`, `QueryResponse`. Domain models are `frozen=True + extra="forbid"`. `ScoredDocument` uses `extra="ignore"` to absorb extra keys the retriever returns.
+Key types: `ScoredDocument`, `FreshnessScoredDocument`, `BlockedDocument`, `StaleDocument`, `DroppedByBudget`, `IncludedDocument`, `DecisionTrace`, `TraceMetrics`, `PipelineResult`, `QueryRequest`, `QueryResponse`, `CompareRequest`, `CompareResponse`. Domain models are `frozen=True + extra="forbid"`. `ScoredDocument` uses `extra="ignore"` to absorb extra keys the retriever returns.
 
 ### Retrieval (`src/retriever.py`)
 
@@ -115,9 +115,19 @@ All three must exist before the server starts. If missing, run `python3 -m src.i
 
 Fully implemented and wired to `run_pipeline()`. `run_evals()` runs 8 corpus-grounded test queries through the production pipeline and computes precision@k, recall, permission_violation_rate, avg_context_docs, avg_freshness_score, plus trace-level metrics (avg_blocked_count, avg_stale_count, avg_dropped_count, avg_budget_utilization). CLI: `python3 -m src.evaluator` (flags: `--k`, `--top-k`). The `--token-budget` flag was removed — budget is policy-owned. Current metrics: precision@5=0.3000, recall=1.0000, permission_violation_rate=0%.
 
+### Compare endpoint (POST /compare in `src/main.py`)
+
+Runs the same query through multiple policy presets side-by-side. Calls `run_pipeline()` for each requested policy — no business logic duplication. Request accepts `query`, `role`, `top_k`, and `policies` (default: all three presets). Returns `CompareResponse` with `results: Dict[str, QueryResponse]` keyed by policy name.
+
 ### Frontend
 
-Static HTML/JS in `frontend/`. `app.js` calls `POST /query` at `http://localhost:8000`. Open `frontend/index.html` directly in a browser (no build step). Displays doc_id, relevance score, freshness score, tags, and total_tokens per result.
+Static HTML/CSS/JS in `frontend/` — no build step. Open `frontend/index.html` directly in a browser with the server running.
+
+Two modes controlled by a header toggle:
+- **Single mode** — calls `POST /query` with a selected policy (naive/rbac/full). Renders result cards with relevance + freshness bars, tags, and a collapsible Decision Trace panel showing included/blocked/stale/dropped chips and budget utilization.
+- **Compare mode** — calls `POST /compare`. Renders three side-by-side policy columns (NAIVE/RBAC/FULL) with severity-colored headers, stats strips (included/tokens/blocked/stale/dropped/ttft), compact doc cards, and expanded Decision Trace panels. Docs in the naive column that are blocked in `full_policy` are flagged with `blocked in full` annotations.
+
+"Sarah as Analyst ↔" scenario button switches to compare mode, sets analyst role and ARR query, and auto-submits — directly demonstrates permission filtering across policies.
 
 ## Environment note
 

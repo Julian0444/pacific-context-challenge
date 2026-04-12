@@ -408,6 +408,7 @@ def test_permission_aware_enforces_budget():
         top_k=12,
         policy="permission_aware",
     )
+    assert result.trace.policy_config.skip_budget is False
     assert result.total_tokens <= result.trace.policy_config.token_budget
 
 

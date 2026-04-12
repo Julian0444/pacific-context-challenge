@@ -12,7 +12,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.models import QueryRequest, QueryResponse, DocumentChunk
+from src.models import QueryRequest, QueryResponse, DocumentChunk, CompareRequest, CompareResponse
 from src.pipeline import run_pipeline, PipelineError
 from src.policies import load_roles
 from src.retriever import retrieve
@@ -77,3 +77,55 @@ def query(request: QueryRequest):
         total_tokens=result.total_tokens,
         decision_trace=result.trace,
     )
+
+
+@app.post("/compare", response_model=CompareResponse)
+def compare(request: CompareRequest):
+    """Run the same query through multiple policy presets side-by-side.
+
+    Returns one QueryResponse per requested policy, keyed by policy name.
+    Orchestrates existing run_pipeline() — no business logic duplication.
+    """
+    if request.role not in _roles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown role: {request.role!r}. Valid roles: {list(_roles.keys())}",
+        )
+
+    results: dict = {}
+    for policy_name in request.policies:
+        query_req = QueryRequest(
+            query=request.query,
+            role=request.role,
+            top_k=request.top_k,
+            policy_name=policy_name,
+        )
+        try:
+            result = run_pipeline(query_req, retrieve, _roles, _metadata)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except PipelineError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Pipeline failed for policy '{policy_name}' at '{e.stage}': {e.error}",
+            )
+
+        context = [
+            DocumentChunk(
+                doc_id=inc.doc_id,
+                content=inc.content,
+                score=inc.score,
+                freshness_score=inc.freshness_score,
+                tags=inc.tags,
+            )
+            for inc in result.context
+        ]
+
+        results[policy_name] = QueryResponse(
+            query=request.query,
+            context=context,
+            total_tokens=result.total_tokens,
+            decision_trace=result.trace,
+        )
+
+    return CompareResponse(query=request.query, role=request.role, results=results)

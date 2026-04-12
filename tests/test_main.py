@@ -61,3 +61,34 @@ def test_query_context_has_freshness_scores():
     data = resp.json()
     for chunk in data["context"]:
         assert "freshness_score" in chunk
+
+
+# ── /compare endpoint tests ──
+
+def test_compare_returns_all_three_policies():
+    resp = client.post("/compare", json={"query": "What is Meridian's ARR growth?"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["query"] == "What is Meridian's ARR growth?"
+    assert set(data["results"].keys()) == {"naive_top_k", "permission_aware", "full_policy"}
+    for policy_result in data["results"].values():
+        assert "context" in policy_result
+        assert "total_tokens" in policy_result
+        assert "decision_trace" in policy_result
+
+
+def test_compare_invalid_role_returns_400():
+    resp = client.post("/compare", json={
+        "query": "test query",
+        "role": "viewer",
+    })
+    assert resp.status_code == 400
+
+
+def test_compare_unknown_policy_returns_400():
+    resp = client.post("/compare", json={
+        "query": "test query",
+        "role": "analyst",
+        "policies": ["unknown_policy"],
+    })
+    assert resp.status_code == 400
