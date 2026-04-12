@@ -154,8 +154,13 @@ def run_pipeline(
     user_ctx = UserContext(role=request.role, access_rank=user_rank)
 
     # Stage 1 — Retrieve
+    # Over-retrieve by 3× to compensate for downstream permission attrition.
+    # For a 12-doc corpus with analyst access (5 of 12 visible), top_k=8
+    # leaves only 2-3 candidates after filtering.  The budget packer still
+    # enforces the token budget regardless of how many candidates enter.
+    retrieve_k = policy.top_k * 3
     candidates: List[ScoredDocument] = _unwrap(
-        _retrieve_stage(request.query, policy.top_k, retriever)
+        _retrieve_stage(request.query, retrieve_k, retriever)
     )
 
     # Stage 2 — Permission filter
