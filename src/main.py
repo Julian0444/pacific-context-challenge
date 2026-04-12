@@ -92,6 +92,9 @@ def compare(request: CompareRequest):
             detail=f"Unknown role: {request.role!r}. Valid roles: {list(_roles.keys())}",
         )
 
+    if not request.policies:
+        raise HTTPException(status_code=400, detail="policies list must not be empty")
+
     results: dict = {}
     for policy_name in request.policies:
         query_req = QueryRequest(

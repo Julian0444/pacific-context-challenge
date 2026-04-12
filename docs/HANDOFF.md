@@ -879,3 +879,82 @@ Upgraded the frontend into a full **Context Policy Lab** — a single/compare mo
 ### Suggested First Action
 
 Commit the full batch, then run hostile review Pass 3 to close the `risks_noted` verdict.
+
+---
+
+## Session — 2026-04-12 (Session 13 / Prompt 6 Pass 3: Compare Hardening & Clean Verdict)
+
+### Summary
+
+Closed the hostile review at `clean` verdict. Applied three targeted fixes to the compare endpoint and its tests — no changes to pipeline logic, frontend, or any other module.
+
+**What was done:**
+
+1. **Empty-policies guard in `POST /compare`** (`src/main.py`) — Added `if not request.policies: raise HTTPException(400, "policies list must not be empty")` before the policy loop. Prevents a vacuous 200 with an empty `results` dict when `policies: []` is sent.
+
+2. **`test_compare_returns_all_three_policies` strengthened** (`tests/test_main.py`) — Replaced the generic query with an analyst-role query against restricted documents (`"investment committee memo deal terms LP update"`, `role="analyst"`, `top_k=12`). Added three new assertions:
+   - `assert policy_result["decision_trace"] is not None` — rules out null trace serialised as present key
+   - `assert naive_trace["metrics"]["blocked_count"] == 0` — naive_top_k skips permission filter
+   - `assert full_trace["metrics"]["blocked_count"] > 0` — full_policy enforces RBAC for analyst
+
+3. **`test_compare_empty_policies_returns_400` added** (`tests/test_main.py`) — Covers the degenerate empty-list case end-to-end.
+
+**Hostile review Pass 3 outcome:**
+- No CRITICAL, no MAJOR, no MINOR findings
+- Two consecutive clean passes (Pass 2 had no new findings; Pass 3 confirmed)
+- Verdict: `clean`
+
+**Remaining open items from prior passes (not addressed — acknowledged as display-quality only):**
+- m-2: `naive_top_k` freshness scores render as 0.0 (indistinguishable from stale docs) — no fix in this batch; a `N/A` display would remove the misleading signal but correctness is unaffected
+- m-3: `POLICY_META` fallback in `app.js` defaults to green FULL-style badge for unknown policy names — cosmetic, no runtime impact
+- n-1: `DocumentChunk` mapping loop is copy-pasted between `/query` and `/compare` — a `_to_chunks()` helper would eliminate it; not a defect
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `d9350f0` (Task 6) — contains all Prompt 6 frontend + `/compare` + Prompt 5 MINOR fix
+- **Working tree:** 2 modified files uncommitted:
+  - `src/main.py` — empty-policies guard
+  - `tests/test_main.py` — strengthened compare test + new empty-policies test
+- **Tests:** 142 passed, 14 skipped, 0 failed (verified: `python3 -m pytest tests/ -q`)
+- **Test breakdown:**
+  - `tests/test_policies.py` — 2 passed, 4 skipped (filter_by_role legacy)
+  - `tests/test_freshness.py` — 7 passed, 5 skipped (apply_freshness legacy)
+  - `tests/test_context_assembler.py` — 5 skipped (assemble() legacy)
+  - `tests/test_main.py` — 11 passed (was 9; +2 from this session)
+  - `tests/test_evaluator.py` — 22 passed
+  - `tests/test_models.py` — 24 passed
+  - `tests/test_pipeline.py` — 28 passed
+  - `tests/test_stages.py` — 29 passed
+  - `tests/test_retriever.py` — 20 passed
+- **Evaluator metrics** (unchanged from Prompt 5):
+  - Avg Precision@5: **0.3000**
+  - Avg Recall: **1.0000**
+  - Permission violation rate: **0%**
+  - Avg freshness score: 7.68e-01
+  - Avg blocked count: 3.38, avg stale count: 1.62, avg dropped count: 0.0
+  - Avg budget utilization: 53%
+- **Hostile review verdict:** `clean` (two consecutive clean passes)
+- **Frontend:** unchanged from Prompt 6 — 51/51 Playwright checks pass
+
+### Remaining Tasks (ordered)
+
+1. **Commit this session's work** — `src/main.py`, `tests/test_main.py`. Suggested message: "Prompt 6 Pass 3: harden /compare tests and add empty-policies guard".
+
+2. **Prompt 7A — Evaluator API exposure** — Surface the evaluator as an API endpoint (`GET /evals` or similar) so the frontend can display live eval metrics on the dashboard. Or alternatively, surface the results as a static JSON that the frontend can fetch.
+
+3. **Prompt 7A — Dashboard / observability panel** — Add an Evals or Metrics panel to the frontend showing precision@5, recall, permission_violation_rate, and avg trace counts. This completes the demo story: query → trace → aggregate metrics.
+
+4. **Demo readiness check** — Confirm all intended user journeys are covered: single query + trace, compare mode, Sarah-as-Analyst scenario, and eval metrics view. Document any gaps before declaring demo-ready.
+
+5. **(Low priority) Display quality fixes** — `naive_top_k` freshness bar shows 0.0 (misleading); `POLICY_META` fallback uses green badge for unknown policies. Both are cosmetic; address if time allows.
+
+### Blockers and Warnings
+
+- **Working tree has 2 uncommitted files** — commit before starting Prompt 7A.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
+
+### Suggested First Action
+
+Commit the 2 modified files (`src/main.py`, `tests/test_main.py`), then plan Prompt 7A scope: decide whether to expose the evaluator via a new API endpoint or as a static artifact, and whether the dashboard panel should show live or cached metrics.
