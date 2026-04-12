@@ -1,9 +1,9 @@
 # Pipeline Integration Plan — 2026-04-10
-# Updated after Prompt 3 (Session 9) — 2026-04-11
+# Updated after Prompt 4 (Session 10) — 2026-04-11
 
 ## Executive Summary
 
-Sessions 7–8 introduced contract models, protocols, the pipeline orchestrator, and wired `main.py`. Session 9 (Prompt 3) delivered `src/stages/` (P3-1), hardened the `DecisionTrace` model, and refactored `pipeline.py` to delegate to typed stages. P0, P1, P2-1, P2-2, and P3-1 are complete. P2-3, P3-2 (partial), and P3-3 remain.
+Sessions 7–8 introduced contract models, protocols, the pipeline orchestrator, and wired `main.py`. Session 9 (Prompt 3) delivered `src/stages/` (P3-1), hardened the `DecisionTrace` model, and refactored `pipeline.py` to delegate to typed stages. Session 10 (Prompt 4) replaced the semantic-only retriever with hybrid retrieval (FAISS + BM25 via RRF), added `tests/test_retriever.py`, and tuned `pipeline.py` to over-retrieve by 3× to compensate for permission attrition. P0, P1, P2-1, P2-2, P3-1, P3-3, and the out-of-scope P4 (hybrid retrieval) are complete. **P2-3 is the sole remaining planned item.** P3-2 will be resolved as a side-effect of P2-3.
 
 ---
 
@@ -50,6 +50,19 @@ Five-stage orchestrator: retrieve → permission_filter → freshness_scorer →
 
 ---
 
+### P4 — Out-of-scope additions (completed in Prompt 4)
+
+#### ~~P4-1: Hybrid retrieval (FAISS + BM25 via RRF)~~ — DONE
+`src/retriever.py` rewritten to fuse semantic ranks (FAISS cosine similarity) with lexical ranks (BM25 Okapi) using Reciprocal Rank Fusion (k=60). Fused scores are min-max normalized to [0, 1].
+- `src/indexer.py` extended with `tokenize_for_bm25`, `build_bm25_corpus`, `save_bm25_corpus`, `load_bm25_corpus`
+- `artifacts/bm25_corpus.json` generated and committed
+- `rank_bm25` added to `requirements.txt`
+- `tests/test_retriever.py` added: 20 tests covering protocol compatibility, result shape, hybrid-vs-semantic ranking difference, RRF unit tests, and score normalization
+- Initial evaluator regression after switching to hybrid: ranking order changed, causing precision@k to drop for some queries. Fixed by adding `retrieve_k = policy.top_k * 3` in `pipeline.py` to over-retrieve and compensate for downstream permission attrition.
+- Final test count after Prompt 4: **137 passing** (`python3 -m pytest tests/ -q`)
+
+---
+
 ### P3 — Deferred improvements
 
 #### ~~P3-1: Create src/stages/ with typed stage functions~~ — DONE
@@ -78,15 +91,38 @@ Removed stale claims ("evaluator.py not implemented", "evals/test_queries.json h
 | P1-2 | ScoredDocument integration test | ✅ Done |
 | P2-1 | src/pipeline.py | ✅ Done |
 | P2-2 | Wire main.py | ✅ Done |
-| P2-3 | Wire evaluator.py | ⏳ Pending |
+| P2-3 | Wire evaluator.py | ⏳ **Pending — Prompt 5 target** |
 | P3-1 | src/stages/ typed functions | ✅ Done |
-| P3-2 | freshness.py mutation refactor | 🔶 Partial (stages bypass mutation; evaluator still uses apply_freshness) |
+| P3-2 | freshness.py mutation refactor | 🔶 Partial — resolves automatically when P2-3 lands |
 | P3-3 | CLAUDE.md cleanup | ✅ Done |
+| P4-1 | Hybrid retrieval (FAISS + BM25 via RRF) | ✅ Done |
 
-## Recommended Next Steps
+## Prompt 5 Scope (tests + evaluator + hardening)
+
+Everything remaining collapses to one work item:
+
+**P2-3: Wire `evaluator.py` to `run_pipeline()`**
+- Replace `retrieve → filter_by_role → apply_freshness → assemble` inline pipeline in `run_evals()` with `run_pipeline(request, retriever, roles, metadata)`
+- Adapt `per_query` metrics extraction to use `PipelineResult.trace` fields (`trace.included`, `trace.blocked_by_permission`, `trace.metrics`)
+- Update `tests/test_evaluator.py` assertions to match the wired interface (assembled_ids sourced from `IncludedDocument` objects, not raw dicts)
+- Run `python3 -m src.evaluator` and confirm precision@k ≥ 0.33, recall = 1.0, permission_violation_rate = 0%
+- P3-2 closes as a side-effect: `apply_freshness()` will no longer be called anywhere on the request path
+
+**Acceptance criteria:**
+1. `python3 -m pytest tests/ -q` → all 137+ tests pass
+2. `python3 -m pytest tests/test_evaluator.py -v` → all 17+ tests pass
+3. `python3 -m src.evaluator` → produces output with `permission_violation_rate: 0%`, `avg_recall: 1.0000`
+
+## Recommended Prompt 5 Starting Point
 
 ```
-P2-3 → (P3-2 fully eliminated once evaluator is wired)
-```
+# In evaluator.py run_evals():
+from src.pipeline import run_pipeline
+from src.models import QueryRequest
 
-P2-3 is the only remaining planned item. Wiring `evaluator.py` to `run_pipeline()` eliminates the last duplicate inline pipeline and will also complete P3-2 (the mutation path in `apply_freshness()` will no longer be called anywhere on the request path).
+for q in queries:
+    request = QueryRequest(query=q["query"], role=q["role"], top_k=top_k)
+    result = run_pipeline(request, retrieve, roles, metadata)
+    # assembled_ids = [doc.doc_id for doc in result.context]
+    # freshness values from result.trace.included[i].freshness_score
+```

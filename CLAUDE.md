@@ -34,7 +34,7 @@ QueryTrace is a retrieval pipeline: natural-language query + user role in, token
 ```
 run_pipeline(request, retriever, roles, metadata)   ← src/pipeline.py
   ↓
-retrieve(query, top_k)          → List[ScoredDocument]      (raw FAISS hits validated into typed models)
+retrieve(query, top_k)          → List[ScoredDocument]      (hybrid: FAISS cosine + BM25 lexical, fused via RRF; validated into typed models)
   ↓
 filter_permissions(docs, ...)   → PermissionResult           (permitted + blocked_by_permission)
   ↓
@@ -89,9 +89,20 @@ Every `/query` response includes `decision_trace` with:
 
 Key types: `ScoredDocument`, `FreshnessScoredDocument`, `BlockedDocument`, `StaleDocument`, `DroppedByBudget`, `IncludedDocument`, `DecisionTrace`, `TraceMetrics`, `PipelineResult`, `QueryRequest`, `QueryResponse`. Domain models are `frozen=True + extra="forbid"`. `ScoredDocument` uses `extra="ignore"` to absorb extra keys the retriever returns.
 
+### Retrieval (`src/retriever.py`)
+
+Hybrid retrieval combining FAISS semantic search and BM25 lexical search via Reciprocal Rank Fusion (RRF). Both rankers score the full corpus; RRF fuses the two 1-based rank dicts: `score(d) = 1/(60 + rank_sem) + 1/(60 + rank_bm25)`. Fused scores are min-max normalized to [0, 1]. `retrieve()` is the default (hybrid). `semantic_retrieve()` is provided for comparison. Both satisfy `RetrieverProtocol`.
+
+The pipeline over-retrieves by 3× (`retrieve_k = policy.top_k * 3`) to compensate for downstream permission attrition before the budget packer clamps the final set.
+
 ### Indexing (`src/indexer.py`)
 
-Embeds full document text with `all-MiniLM-L6-v2`, builds a FAISS `IndexFlatIP` (cosine similarity via L2-normalized vectors). Persists to `artifacts/querytrace.index` + `artifacts/index_documents.json`. The index must exist before the server starts — if missing, run `python3 -m src.indexer`.
+Embeds full document text with `all-MiniLM-L6-v2`, builds a FAISS `IndexFlatIP` (cosine similarity via L2-normalized vectors). Also tokenizes document text for BM25 (stopword-filtered). Persists three artifacts:
+- `artifacts/querytrace.index` — FAISS index (384-dim vectors)
+- `artifacts/index_documents.json` — ordered document payloads matching FAISS row order
+- `artifacts/bm25_corpus.json` — tokenized corpus for BM25 (same row order)
+
+All three must exist before the server starts. If missing, run `python3 -m src.indexer`.
 
 ### Corpus & access control
 

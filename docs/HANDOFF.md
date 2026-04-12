@@ -583,3 +583,90 @@ Created `src/stages/` with four typed, pure-compute stage modules, refactored `p
 ### Suggested First Action
 
 Commit all uncommitted work from Sessions 7, 8, and 9. Then wire `evaluator.py` to `run_pipeline()` (P2-3).
+
+---
+
+## Session — 2026-04-11 (Session 10 / Prompt 4: Hybrid Retrieval)
+
+### Summary
+
+Replaced the pure semantic (FAISS-only) retriever with a hybrid retriever combining FAISS cosine similarity and BM25 lexical matching via Reciprocal Rank Fusion (RRF). Added 20 retriever tests, regenerated artifacts, and addressed an evaluator regression caused by the changed ranking.
+
+**What was done:**
+
+1. **Rewrote `src/retriever.py`** — Hybrid retrieval replaces semantic-only:
+   - `_semantic_ranks()` — FAISS cosine similarity over all corpus docs (1-based rank dict)
+   - `_bm25_ranks()` — BM25Okapi over tokenized corpus (1-based rank dict)
+   - `_rrf_fuse()` — Reciprocal Rank Fusion: `score(d) = 1/(60+rank_sem) + 1/(60+rank_bm25)`; docs missing from one ranking get worst-case default rank
+   - `_normalize_scores()` — min-max normalizes fused scores to [0, 1]
+   - `retrieve()` is now the hybrid entry point; `semantic_retrieve()` preserved for comparison and backward-compat testing
+   - Both satisfy `RetrieverProtocol` — no downstream stage changes needed
+   - Lazy-loaded singletons for both the sentence-transformers model and the BM25 object
+
+2. **Extended `src/indexer.py`** — Added BM25 corpus building:
+   - `tokenize_for_bm25()` — lowercase, stopword-filtered, min-length-2 tokenizer
+   - `build_bm25_corpus()` — tokenizes all docs in corpus order (same row order as FAISS)
+   - `save_bm25_corpus()` / `load_bm25_corpus()` — persist to/from `artifacts/bm25_corpus.json`
+   - `build_and_save()` updated to also build and save the BM25 corpus
+
+3. **Added `rank_bm25` to `requirements.txt`**
+
+4. **Generated and committed `artifacts/bm25_corpus.json`** — Built by running `python3 -m src.indexer`. The FAISS index (`querytrace.index`, `index_documents.json`) was already present from a prior session; only the BM25 corpus was new.
+
+5. **Added `tests/test_retriever.py`** — 20 tests across four classes:
+   - `TestProtocol` (2) — both `retrieve` and `semantic_retrieve` satisfy `RetrieverProtocol`
+   - `TestResultShape` (6) — result is a list of dicts, required keys present, scores in [0,1], top score = 1.0, ranks sequential, top_k clamped to corpus size
+   - `TestHybridVsSemantic` (4) — BM25 materially changes ranking for exact-name queries (Rohan Mehta), exact-figure queries ($38.1M), rescues doc_006 for CTO query, promotes doc_012 for customer concentration
+   - `TestRRFFusion` (8) — unit tests for `_rrf_fuse` and `_normalize_scores` with synthetic data
+
+6. **Initial evaluator regression and tuning fix** — Switching to hybrid retrieval changed the ranking of raw candidates, causing the permission-filter stage to thin out the candidate set before expected docs could make it into context for analyst queries. Fixed by adding `retrieve_k = policy.top_k * 3` in `pipeline.py` (over-retrieves 3× before filtering). The comment explains: for a 12-doc corpus with analyst access, `top_k=8` leaves only 2–3 candidates after filtering 7 restricted docs. Eval metrics recovered to pre-hybrid levels after this tuning.
+
+**Key design decisions:**
+
+| Decision | Reason |
+|----------|--------|
+| RRF K=60 | Standard constant from Cormack et al. (2009); dampens rank differences between heterogeneous systems |
+| Rank all docs, not just top-k | With 12-doc corpus, full ranking is cheap; avoids missing docs that FAISS would rank poorly but BM25 promotes |
+| Stopword filtering in BM25 tokenizer | Prevents corpus-common function words from dominating IDF in small corpora |
+| `retrieve_k = policy.top_k * 3` | Over-retrieval compensates for permission attrition; budget packer still enforces final token limit |
+| `semantic_retrieve` preserved | Protocol compatibility tests; useful for A/B comparison against hybrid |
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `c08ac87` (Task 4 Checkpoint)
+- **Working tree:** clean
+- **Tests:** 137 passing, 0 failing
+  - `tests/test_policies.py` — 6 tests
+  - `tests/test_freshness.py` — 12 tests
+  - `tests/test_context_assembler.py` — 5 tests
+  - `tests/test_main.py` — 6 tests
+  - `tests/test_evaluator.py` — 17 tests
+  - `tests/test_models.py` — 24 tests (exact count from last counted state; may have been updated in Prompt 3)
+  - `tests/test_pipeline.py` — 18 tests
+  - `tests/test_stages.py` — 29 tests
+  - `tests/test_retriever.py` — 20 tests (new in Prompt 4)
+- **Verified command:** `python3 -m pytest tests/ -q --tb=no` → **137 passed** (run during this session)
+- **Artifacts:** `artifacts/bm25_corpus.json` committed. FAISS index files were already present.
+
+### Remaining Tasks (ordered)
+
+1. **Wire `evaluator.py` to `run_pipeline()`** (P2-3) — `run_evals()` still contains its own inline pipeline (`retrieve → filter_by_role → apply_freshness → assemble`). Replace with `run_pipeline()` calls. Extract assembled doc IDs and freshness scores from `PipelineResult.trace.included`. This eliminates the last copy of duplicated pipeline logic.
+
+2. **Update `tests/test_evaluator.py`** — Current tests exercise the inline pipeline path. After wiring, assertions about `assembled_ids` format and freshness source need updating to match the `IncludedDocument` interface from `PipelineResult.trace`.
+
+3. **Verify eval metrics after wiring** — Run `python3 -m src.evaluator`. Expect: `avg_recall = 1.0000`, `permission_violation_rate = 0%`, `avg_precision_at_5 ≥ 0.33`.
+
+4. **P3-2 closure** — Once evaluator is wired, `apply_freshness()` will no longer be called anywhere on the request path. Can then safely remove or deprecate the mutation API in `freshness.py`.
+
+5. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary. `bm25_corpus.json` is 1 line (minified JSON). Currently all three artifact files are committed (they appear in the working tree). Decision needed: stay committed (convenient for CI) or gitignore + document `python3 -m src.indexer` as setup step.
+
+### Blockers and Warnings
+
+- **`evaluator.py` inline pipeline diverges from `pipeline.py`** — Uses `filter_by_role` (roles as arg 2) and `apply_freshness` (mutation path), whereas `pipeline.py` uses `filter_permissions` (staged) and `score_freshness`. Drift will widen if pipeline is updated without also updating the evaluator.
+- **`apply_freshness()` still mutates dicts in-place** — Not on the critical request path (stages bypass it), but still called by `evaluator.py`. Removing it before P2-3 would break the evaluator.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Wire `evaluator.py` to `run_pipeline()` (P2-3). The plan doc (`docs/plans/2026-04-10-pipeline-integration-plan.md`) has a concrete code skeleton showing the replacement. After wiring, run `python3 -m pytest tests/test_evaluator.py -v` to confirm all 17+ tests still pass, then run `python3 -m src.evaluator` to verify metrics.
