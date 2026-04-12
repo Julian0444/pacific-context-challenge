@@ -503,3 +503,83 @@ Implemented the explicit pipeline orchestrator (`src/pipeline.py`), introduced p
 ### Suggested First Action
 
 Commit all uncommitted work from Sessions 7 and 8. Then wire `evaluator.py` to `run_pipeline()` (P2-3) — this eliminates the last copy of inline pipeline logic.
+
+---
+
+## Session — 2026-04-11 (Session 9 / Prompt 3: Typed Stages & Trace Hardening)
+
+### Summary
+
+Created `src/stages/` with four typed, pure-compute stage modules, refactored `pipeline.py` to delegate to them, and hardened the `DecisionTrace` model with missing observability fields. A hostile review pass identified gaps that were fixed before closing the session.
+
+**What was done:**
+
+1. **Created `src/stages/`** — four typed stage modules with named result dataclasses (no I/O, no side effects):
+   - `permission_filter.py` — `filter_permissions(docs, user_ctx, roles) → PermissionResult`; handles unknown `min_role` values by blocking rather than aborting.
+   - `freshness_scorer.py` — `score_freshness(docs, metadata, half_life_days) → FreshnessResult`; calls `compute_freshness()` directly and constructs new typed objects (no in-place mutation). Tracks stale docs with `penalty_applied` field.
+   - `budget_packer.py` — `pack_budget(docs, token_budget, enforce_budget) → BudgetResult`; ranks by 50/50 combined score, tracks documents dropped by budget as `DroppedByBudget`.
+   - `trace_builder.py` — `build_trace(...) → DecisionTrace`; aggregates all stage outputs including `ttft_proxy_ms` and `budget_utilization`.
+
+2. **Refactored `src/pipeline.py`** — Stage wrapper functions now delegate entirely to `src/stages/`. Stage results are named dataclasses (`PermissionResult`, `FreshnessResult`, `BudgetResult`) instead of raw tuples. Added `time.monotonic()` timing for `ttft_proxy_ms`.
+
+3. **Hardened `src/models.py`** (hostile review fixes):
+   - Added `DroppedByBudget` model — docs that scored well but were cut by the token budget.
+   - Renamed `DecisionTrace.blocked` → `blocked_by_permission` and `stale` → `demoted_as_stale` for unambiguous field names.
+   - Added `DecisionTrace.dropped_by_budget`, `total_tokens`, and `ttft_proxy_ms`.
+   - Added `TraceMetrics.dropped_count` and `budget_utilization`.
+
+4. **Added `tests/test_stages.py`** — 435-line test file with unit tests for each stage in isolation (synthetic inputs, no FAISS) and pipeline-level integration tests for blocked/stale/dropped-by-budget scenarios.
+
+5. **Updated `tests/test_models.py`** and **`tests/test_pipeline.py`** — Added coverage for new model fields and updated assertions for renamed `DecisionTrace` fields.
+
+**Hostile review findings and fixes:**
+
+| Finding | Fix |
+|---------|-----|
+| `DecisionTrace.blocked` and `stale` were ambiguous — same names used in `policies.py` for different semantics | Renamed to `blocked_by_permission` and `demoted_as_stale` |
+| No tracking of documents dropped by the token budget | Added `DroppedByBudget` model + `dropped_by_budget` list on `DecisionTrace` |
+| `TraceMetrics` had no `dropped_count` or `budget_utilization` | Both fields added |
+| No latency signal on the trace | Added `ttft_proxy_ms` (wall-clock time of `run_pipeline()`) |
+| Pipeline stage functions had logic inline instead of delegating to typed stages | Extracted into `src/stages/`; pipeline wrappers are now thin error boundaries only |
+| Stage results were raw tuples — fragile destructuring | Replaced with frozen dataclasses (`PermissionResult`, `FreshnessResult`, `BudgetResult`) |
+
+**Key design decisions:**
+
+- `freshness_scorer.py` calls `compute_freshness()` directly (bypasses `apply_freshness()` which mutates dicts). The mutation API in `freshness.py` is preserved for backward-compat with `evaluator.py` but is no longer on the critical path.
+- `budget_packer.py` handles `enforce_budget=False` (the `naive_top_k` preset) via the same function — no separate code path.
+- Unknown `min_role` values in `permission_filter.py` produce a blocked entry instead of raising, preventing a bad corpus doc from aborting an otherwise valid query.
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `71f0258` (Task 2 completed)
+- **Working tree:** modified `src/models.py` (staged), `src/pipeline.py` (unstaged), `tests/test_models.py` (staged), `tests/test_pipeline.py` (unstaged), `CLAUDE.md` (unstaged), `docs/HANDOFF.md` (unstaged), `docs/plans/2026-04-10-pipeline-integration-plan.md` (unstaged); untracked `src/stages/`, `tests/test_stages.py`
+- **Tests:** 117 passing (0 failing)
+  - `tests/test_policies.py` — 6 tests
+  - `tests/test_freshness.py` — 12 tests
+  - `tests/test_context_assembler.py` — 5 tests
+  - `tests/test_main.py` — 6 tests
+  - `tests/test_evaluator.py` — 17 tests
+  - `tests/test_models.py` — updated (staged)
+  - `tests/test_pipeline.py` — updated (unstaged)
+  - `tests/test_stages.py` — 29 new tests (untracked)
+
+### Remaining Tasks (ordered)
+
+1. **Commit all work** — `src/models.py`, `src/pipeline.py`, `src/stages/`, `tests/test_models.py`, `tests/test_pipeline.py`, `tests/test_stages.py`, `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`.
+
+2. **Wire `evaluator.py` to `pipeline.py`** (P2-3) — `run_evals()` still contains its own inline pipeline. Replace with `run_pipeline()` calls. This eliminates the last copy of duplicated pipeline logic.
+
+3. **`freshness.py` mutation** (P3-2 remainder) — `apply_freshness()` still mutates dicts in-place. The stages layer works around this, but a clean refactor would return new dicts. Low urgency now that stages bypass the mutation.
+
+4. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary; either commit or require `python3 -m src.indexer` after clone.
+
+### Blockers and Warnings
+
+- **`evaluator.py` still has its own inline pipeline** — Diverges from `pipeline.py` and won't benefit from future stage improvements. Wire to `run_pipeline()` before adding more policy presets.
+- **`freshness.py` `apply_freshness()` still mutates** — Not on the critical request path anymore (stages bypass it) but still called by `evaluator.py`'s inline pipeline.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit all uncommitted work from Sessions 7, 8, and 9. Then wire `evaluator.py` to `run_pipeline()` (P2-3).

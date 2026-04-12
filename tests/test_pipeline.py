@@ -101,6 +101,9 @@ def test_trace_metrics_populated():
     assert m.avg_score > 0
     assert m.blocked_count >= 0
     assert m.stale_count >= 0
+    assert m.dropped_count >= 0
+    assert 0.0 <= m.budget_utilization <= 1.0
+    assert result.trace.ttft_proxy_ms > 0
 
 
 def test_included_documents_have_token_count():
@@ -133,14 +136,14 @@ def test_analyst_blocked_docs_in_trace():
         role="analyst",
         top_k=12,
     )
-    blocked_ids = {b.doc_id for b in result.trace.blocked}
+    blocked_ids = {b.doc_id for b in result.trace.blocked_by_permission}
     included_ids = {d.doc_id for d in result.context}
 
     # Blocked docs must not appear in included
     assert blocked_ids.isdisjoint(included_ids)
 
     # If any docs were blocked, they must have the right fields
-    for b in result.trace.blocked:
+    for b in result.trace.blocked_by_permission:
         assert isinstance(b, BlockedDocument)
         assert b.user_role == "analyst"
         assert b.reason == "insufficient_role"
@@ -153,7 +156,7 @@ def test_partner_sees_all():
         role="partner",
         top_k=12,
     )
-    assert len(result.trace.blocked) == 0
+    assert len(result.trace.blocked_by_permission) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -167,8 +170,8 @@ def test_stale_docs_in_trace():
         role="partner",
         top_k=12,
     )
-    stale_ids = {s.doc_id for s in result.trace.stale}
-    for s in result.trace.stale:
+    stale_ids = {s.doc_id for s in result.trace.demoted_as_stale}
+    for s in result.trace.demoted_as_stale:
         assert isinstance(s, StaleDocument)
         assert s.superseded_by  # non-empty
         assert s.freshness_score >= 0
@@ -185,7 +188,7 @@ def test_token_budget_respected():
 
 def test_small_budget_limits_context():
     req = QueryRequest(query="Meridian revenue ARR", role="partner", top_k=12)
-    from src.pipeline import _assemble_stage, _retrieve_stage, _permission_stage, _freshness_stage, _unwrap
+    from src.pipeline import _retrieve_stage, _permission_stage, _freshness_stage, _budget_stage, _unwrap
     from src.policies import resolve_policy
     from src.models import UserContext
 
@@ -193,11 +196,11 @@ def test_small_budget_limits_context():
     user_ctx = UserContext(role="partner", access_rank=3)
 
     candidates = _unwrap(_retrieve_stage(req.query, policy.top_k, retrieve))
-    permitted, blocked = _unwrap(_permission_stage(candidates, user_ctx, _roles, policy))
-    scored, stale = _unwrap(_freshness_stage(permitted, _metadata, policy))
-    included, total_tokens = _unwrap(_assemble_stage(scored, policy))
+    perm_result = _unwrap(_permission_stage(candidates, user_ctx, _roles, policy))
+    fresh_result = _unwrap(_freshness_stage(perm_result.permitted, _metadata, policy))
+    budget_result = _unwrap(_budget_stage(fresh_result.scored, policy))
 
-    assert total_tokens <= 200
+    assert budget_result.total_tokens <= 200
 
 
 # ---------------------------------------------------------------------------
@@ -214,9 +217,9 @@ def test_naive_top_k_dangerous_baseline():
     )
     assert isinstance(result, PipelineResult)
     # No blocking even though analyst normally can't see partner docs
-    assert len(result.trace.blocked) == 0
+    assert len(result.trace.blocked_by_permission) == 0
     # No stale tracking
-    assert len(result.trace.stale) == 0
+    assert len(result.trace.demoted_as_stale) == 0
     # Freshness scores should be 0.0 (skipped)
     for doc in result.context:
         assert doc.freshness_score == 0.0
@@ -240,7 +243,7 @@ def test_permission_aware_filters_but_no_freshness():
     assert "doc_010" not in included_ids  # partner-only
     assert "doc_011" not in included_ids  # partner-only
     # No stale tracking (freshness skipped)
-    assert len(result.trace.stale) == 0
+    assert len(result.trace.demoted_as_stale) == 0
     # Freshness scores are 0.0
     for doc in result.context:
         assert doc.freshness_score == 0.0

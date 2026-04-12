@@ -134,6 +134,16 @@ class IncludedDocument(BaseModel):
     token_count: int
 
 
+class DroppedByBudget(BaseModel):
+    """A document that scored high enough but was cut by the token budget."""
+    model_config = _strict()
+
+    doc_id: str
+    token_count: int
+    score: float
+    freshness_score: float
+
+
 # ---------------------------------------------------------------------------
 # Observability
 # ---------------------------------------------------------------------------
@@ -145,8 +155,10 @@ class TraceMetrics(BaseModel):
     retrieved_count: int
     blocked_count: int
     stale_count: int
+    dropped_count: int
     included_count: int
     total_tokens: int
+    budget_utilization: float
     avg_score: float
     avg_freshness_score: float
 
@@ -157,9 +169,12 @@ class DecisionTrace(BaseModel):
 
     user_context: UserContext
     policy_config: PolicyConfig
-    blocked: List[BlockedDocument] = Field(default_factory=list)
-    stale: List[StaleDocument] = Field(default_factory=list)
     included: List[IncludedDocument] = Field(default_factory=list)
+    blocked_by_permission: List[BlockedDocument] = Field(default_factory=list)
+    demoted_as_stale: List[StaleDocument] = Field(default_factory=list)
+    dropped_by_budget: List[DroppedByBudget] = Field(default_factory=list)
+    total_tokens: int
+    ttft_proxy_ms: float = 0.0
     metrics: TraceMetrics
 
 

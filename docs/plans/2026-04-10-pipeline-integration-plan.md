@@ -1,9 +1,9 @@
 # Pipeline Integration Plan — 2026-04-10
-# Updated after Prompt 2 (Session 8) — 2026-04-11
+# Updated after Prompt 3 (Session 9) — 2026-04-11
 
 ## Executive Summary
 
-Session 7 introduced 13 Pydantic contract models (`src/models.py`) and 3 Protocol interfaces (`src/protocols.py`). Session 8 (Prompt 2) delivered the full pipeline orchestrator and wired `main.py`. P0 and P1 items are complete. P2-1 and P2-2 are complete. P2-3 and all P3 items remain.
+Sessions 7–8 introduced contract models, protocols, the pipeline orchestrator, and wired `main.py`. Session 9 (Prompt 3) delivered `src/stages/` (P3-1), hardened the `DecisionTrace` model, and refactored `pipeline.py` to delegate to typed stages. P0, P1, P2-1, P2-2, and P3-1 are complete. P2-3, P3-2 (partial), and P3-3 remain.
 
 ---
 
@@ -52,14 +52,19 @@ Five-stage orchestrator: retrieve → permission_filter → freshness_scorer →
 
 ### P3 — Deferred improvements
 
-#### P3-1: Create src/stages/ with typed stage functions — **PENDING**
-Individual modules where each function accepts/returns Pydantic models instead of dicts. Blocked on P3-2.
+#### ~~P3-1: Create src/stages/ with typed stage functions~~ — DONE
+`src/stages/` created with four typed pure-compute stage modules:
+- `permission_filter.py` — `filter_permissions() → PermissionResult`
+- `freshness_scorer.py` — `score_freshness() → FreshnessResult` (calls `compute_freshness()` directly, no mutation)
+- `budget_packer.py` — `pack_budget() → BudgetResult` (tracks `over_budget` as `DroppedByBudget`)
+- `trace_builder.py` — `build_trace() → DecisionTrace`
+`pipeline.py` refactored to delegate to these stages. Stage results are named frozen dataclasses, not raw tuples.
 
-#### P3-2: Refactor freshness.py to return new dicts instead of mutating in-place — **PENDING**
-Required before P3-1. Current pipeline works around mutation via model_dump/re-validate at boundaries.
+#### P3-2: Refactor freshness.py to return new dicts instead of mutating in-place — **PARTIAL**
+`freshness_scorer.py` in stages calls `compute_freshness()` directly and constructs new typed objects — no mutation. The mutation path in `freshness.py:apply_freshness()` still exists but is no longer on the critical request path. `evaluator.py` still calls `apply_freshness()` via its own inline pipeline. Fully eliminating the mutation API requires wiring evaluator to `run_pipeline()` first (P2-3).
 
-#### P3-3: Clean up CLAUDE.md — **PENDING**
-Still contains stale claims: "evaluator.py — not yet implemented", "evals/test_queries.json — placeholder entries", and appended webapp-testing instructions.
+#### ~~P3-3: Clean up CLAUDE.md~~ — DONE
+Removed stale claims ("evaluator.py not implemented", "evals/test_queries.json has placeholders", leaked task prompt). CLAUDE.md now reflects the pipeline orchestrator, stage-based structure, policy presets, and `DecisionTrace` behavior.
 
 ---
 
@@ -74,14 +79,14 @@ Still contains stale claims: "evaluator.py — not yet implemented", "evals/test
 | P2-1 | src/pipeline.py | ✅ Done |
 | P2-2 | Wire main.py | ✅ Done |
 | P2-3 | Wire evaluator.py | ⏳ Pending |
-| P3-1 | src/stages/ typed functions | ⏳ Pending |
-| P3-2 | freshness.py mutation refactor | ⏳ Pending |
-| P3-3 | CLAUDE.md cleanup | ⏳ Pending |
+| P3-1 | src/stages/ typed functions | ✅ Done |
+| P3-2 | freshness.py mutation refactor | 🔶 Partial (stages bypass mutation; evaluator still uses apply_freshness) |
+| P3-3 | CLAUDE.md cleanup | ✅ Done |
 
 ## Recommended Next Steps
 
 ```
-P2-3 → P3-3 → P3-2 → P3-1
+P2-3 → (P3-2 fully eliminated once evaluator is wired)
 ```
 
-P2-3 first (eliminates the last duplicate pipeline). P3-3 is a 5-minute doc fix. P3-2 unblocks P3-1.
+P2-3 is the only remaining planned item. Wiring `evaluator.py` to `run_pipeline()` eliminates the last duplicate inline pipeline and will also complete P3-2 (the mutation path in `apply_freshness()` will no longer be called anywhere on the request path).

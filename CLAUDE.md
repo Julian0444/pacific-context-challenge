@@ -29,23 +29,65 @@ QueryTrace is a retrieval pipeline: natural-language query + user role in, token
 
 ### Pipeline (POST /query in `src/main.py`)
 
+`main.py` is a minimal HTTP boundary: validate role → `run_pipeline()` → map `PipelineResult` to `QueryResponse`.
+
 ```
-retrieve(query, top_k)        → raw semantic hits from FAISS (dicts with doc_id, score, excerpt, min_role, etc.)
+run_pipeline(request, retriever, roles, metadata)   ← src/pipeline.py
   ↓
-filter_by_role(chunks, role)  → drops docs where role's access_rank < doc's min_role rank
+retrieve(query, top_k)          → List[ScoredDocument]      (raw FAISS hits validated into typed models)
   ↓
-apply_freshness(chunks, meta) → attaches freshness_score; superseded docs get 0.5× penalty (demoted, not removed)
+filter_permissions(docs, ...)   → PermissionResult           (permitted + blocked_by_permission)
   ↓
-assemble(chunks, budget)      → sorts by 50/50 similarity+freshness, greedily packs within tiktoken token budget (default 2048)
+score_freshness(docs, metadata) → FreshnessResult            (scored + demoted_as_stale; 0.5× penalty for superseded)
   ↓
-QueryResponse                 → list of DocumentChunk + total_tokens
+pack_budget(docs, budget)       → BudgetResult               (packed + over_budget + budget_utilization)
+  ↓
+build_trace(...)                → DecisionTrace              (full audit trace with metrics + ttft_proxy_ms)
+  ↓
+PipelineResult → QueryResponse  (context list, total_tokens, decision_trace)
 ```
 
-Roles and metadata are loaded once at module level in `main.py`. The sentence-transformers model is lazy-loaded as a singleton in `retriever.py`.
+Roles and metadata are loaded once at startup in `main.py`. The sentence-transformers model is lazy-loaded as a singleton in `retriever.py`.
 
-### Data flow between modules
+### Stage-based structure (`src/stages/`)
 
-The retriever returns plain dicts (not Pydantic models). These dicts flow through `policies` and `freshness` as-is — each module reads/writes specific keys (`min_role`, `freshness_score`). Only `main.py` converts to `DocumentChunk` at the end. The assembler reads `content` falling back to `excerpt`.
+Each stage is a standalone pure-compute function with typed inputs and a named result dataclass. No I/O, no side effects.
+
+| Module | Function | Result type |
+|--------|----------|-------------|
+| `permission_filter.py` | `filter_permissions(docs, user_ctx, roles)` | `PermissionResult` |
+| `freshness_scorer.py` | `score_freshness(docs, metadata, half_life_days)` | `FreshnessResult` |
+| `budget_packer.py` | `pack_budget(docs, token_budget, enforce_budget)` | `BudgetResult` |
+| `trace_builder.py` | `build_trace(...)` | `DecisionTrace` |
+
+`pipeline.py` wraps each call in `StageOk`/`StageErr` and aborts on first failure via `PipelineError`.
+
+### Policy presets (`src/policies.py`)
+
+| Name | Permission filter | Freshness | Budget |
+|------|-------------------|-----------|--------|
+| `naive_top_k` | off | off | off (dangerous baseline) |
+| `permission_aware` | on | off | on |
+| `full_policy` | on | on | on |
+| `default` | on | on | on (alias for full_policy) |
+
+`resolve_policy(name, top_k)` looks up a preset and applies the request's `top_k` override.
+
+### DecisionTrace
+
+Every `/query` response includes `decision_trace` with:
+- `user_context` — role and access_rank
+- `policy_config` — which preset was used and its flags
+- `included` — documents packed into context
+- `blocked_by_permission` — documents the role cannot access
+- `demoted_as_stale` — superseded documents (included with 0.5× freshness penalty)
+- `dropped_by_budget` — documents that scored well but exceeded the token budget
+- `metrics` — counts, `avg_score`, `avg_freshness_score`, `budget_utilization`
+- `total_tokens` and `ttft_proxy_ms`
+
+### Contract models (`src/models.py`)
+
+Key types: `ScoredDocument`, `FreshnessScoredDocument`, `BlockedDocument`, `StaleDocument`, `DroppedByBudget`, `IncludedDocument`, `DecisionTrace`, `TraceMetrics`, `PipelineResult`, `QueryRequest`, `QueryResponse`. Domain models are `frozen=True + extra="forbid"`. `ScoredDocument` uses `extra="ignore"` to absorb extra keys the retriever returns.
 
 ### Indexing (`src/indexer.py`)
 
@@ -58,42 +100,14 @@ Embeds full document text with `all-MiniLM-L6-v2`, builds a FAISS `IndexFlatIP` 
 - Access rule: user's `access_rank` >= document's `min_role` rank
 - Two stale/superseded pairs: doc_002→doc_003 (research notes), doc_007→doc_008 (financial models)
 
-### Stubs remaining
+### Evaluation harness (`src/evaluator.py`)
 
-- `src/evaluator.py` — not yet implemented (all methods raise `NotImplementedError`)
-- `evals/test_queries.json` — placeholder entries with empty `expected_doc_ids`
+Fully implemented. `run_evals()` runs 8 corpus-grounded test queries through the pipeline and computes precision@k, recall, permission_violation_rate, avg_context_docs, avg_freshness_score. CLI: `python3 -m src.evaluator`. Currently uses its own inline pipeline (not yet wired to `run_pipeline()`).
 
 ### Frontend
 
-Static HTML/JS in `frontend/`. `app.js` calls `POST /query` at `http://localhost:8000`. Open `frontend/index.html` directly in a browser (no build step).
+Static HTML/JS in `frontend/`. `app.js` calls `POST /query` at `http://localhost:8000`. Open `frontend/index.html` directly in a browser (no build step). Displays doc_id, relevance score, freshness score, tags, and total_tokens per result.
 
 ## Environment note
 
 Developed on Python 3.9.6 with LibreSSL 2.8.3. `tf-keras` may be needed for `sentence-transformers` compatibility on this Python version.
-
-
-
-
-
-
-Use the /webapp-testing skill for this task.                                                 
-Do not modify the code unless a small fix is absolutely necessary.                             
-                                                                                               
-Goal:                                                                                          
-Verify the current QueryTrace frontend end-to-end in the browser against the local backend.    
-                                                                                               
-Please:                                                                                        
-- start the backend if needed                                                                  
-- open the static frontend                                                                     
-- verify the role selector shows analyst, vp, partner                                          
-- verify an example query can be submitted successfully                                        
-- verify the UI renders:                                                                       
-  - doc_id                                                                                     
-  - score                                                                                      
-  - freshness_score                                                                            
-  - tags                                                                                       
-  - total_tokens                                                                               
-- verify loading, empty, and error states if practical                                         
-- report exactly what was verified and any issues found                                        
-                                                                                               
-Keep this as a verification pass, not a redesign task.

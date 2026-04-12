@@ -4,36 +4,28 @@ pipeline.py — Explicit orchestrator for the QueryTrace retrieval pipeline.
 Flow:
   retrieve → permission_filter → freshness_scorer → budget_packer → trace_builder
 
-Each stage returns a StageResult (StageOk | StageErr).  The pipeline
-inspects the result after each stage and aborts on the first failure via
-PipelineError.  No I/O is performed here — all external dependencies are
-injected via Protocol.
+Each stage returns a typed result.  The pipeline wraps each call in
+StageOk / StageErr and aborts on first failure via PipelineError.
+No I/O is performed here — all external dependencies are injected
+via Protocol.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, Union
+import time
+from dataclasses import dataclass
+from typing import Any, List, Union
 
 from src.models import (
-    BlockedDocument,
-    DecisionTrace,
     FreshnessScoredDocument,
-    IncludedDocument,
     PipelineResult,
-    PolicyConfig,
     QueryRequest,
     ScoredDocument,
-    StaleDocument,
-    TraceMetrics,
     UserContext,
 )
 from src.policies import resolve_policy
 from src.protocols import MetadataStoreProtocol, RetrieverProtocol, RoleStoreProtocol
-
-# Existing stage functions — wrapped, not rewritten
-from src.freshness import apply_freshness
-from src.context_assembler import assemble, _count_tokens
+from src.stages import filter_permissions, score_freshness, pack_budget, build_trace
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +65,7 @@ def _unwrap(result: StageResult) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Stage 1: Retrieve
+# Stage wrappers (thin error boundaries around typed stages)
 # ---------------------------------------------------------------------------
 
 def _retrieve_stage(
@@ -90,55 +82,17 @@ def _retrieve_stage(
         return StageErr(stage="retrieve", error=str(e))
 
 
-# ---------------------------------------------------------------------------
-# Stage 2: Permission filter
-# ---------------------------------------------------------------------------
-
-def _permission_stage(
-    docs: List[ScoredDocument],
-    user_ctx: UserContext,
-    roles: RoleStoreProtocol,
-    policy: PolicyConfig,
-) -> StageResult:
-    """Drop documents the user's role cannot access.  Returns (permitted, blocked)."""
+def _permission_stage(docs, user_ctx, roles, policy) -> StageResult:
     if policy.skip_permission_filter:
-        return StageOk((docs, []))
-
+        from src.stages.permission_filter import PermissionResult
+        return StageOk(PermissionResult(permitted=docs, blocked=[]))
     try:
-        user_rank = user_ctx.access_rank
-        permitted: List[ScoredDocument] = []
-        blocked: List[BlockedDocument] = []
-
-        for doc in docs:
-            doc_role_meta = roles.get(doc.min_role) if hasattr(roles, "get") else roles[doc.min_role]
-            doc_rank = doc_role_meta["access_rank"] if doc_role_meta else float("inf")
-
-            if doc_rank <= user_rank:
-                permitted.append(doc)
-            else:
-                blocked.append(
-                    BlockedDocument(
-                        doc_id=doc.doc_id,
-                        required_role=doc.min_role,
-                        user_role=user_ctx.role,
-                    )
-                )
-
-        return StageOk((permitted, blocked))
+        return StageOk(filter_permissions(docs, user_ctx, roles))
     except Exception as e:
         return StageErr(stage="permission_filter", error=str(e))
 
 
-# ---------------------------------------------------------------------------
-# Stage 3: Freshness scorer
-# ---------------------------------------------------------------------------
-
-def _freshness_stage(
-    docs: List[ScoredDocument],
-    metadata: MetadataStoreProtocol,
-    policy: PolicyConfig,
-) -> StageResult:
-    """Score documents by recency.  Returns (scored_docs, stale_entries)."""
+def _freshness_stage(docs, metadata, policy) -> StageResult:
     if policy.skip_freshness:
         scored = [
             FreshnessScoredDocument(
@@ -146,143 +100,23 @@ def _freshness_stage(
             )
             for doc in docs
         ]
-        return StageOk((scored, []))
-
+        from src.stages.freshness_scorer import FreshnessResult
+        return StageOk(FreshnessResult(scored=scored, stale=[]))
     try:
-        # Convert to dicts for the existing apply_freshness wrapper
-        raw_dicts = [doc.model_dump() for doc in docs]
-        scored_dicts = apply_freshness(raw_dicts, metadata, policy.half_life_days)
-
-        scored: List[FreshnessScoredDocument] = []
-        stale: List[StaleDocument] = []
-
-        for d in scored_dicts:
-            is_stale = bool(d.get("superseded_by"))
-            fd = FreshnessScoredDocument(
-                doc_id=d["doc_id"],
-                score=d["score"],
-                excerpt=d["excerpt"],
-                min_role=d["min_role"],
-                tags=d.get("tags", []),
-                date=d.get("date"),
-                superseded_by=d.get("superseded_by"),
-                title=d.get("title"),
-                short_summary=d.get("short_summary"),
-                sensitivity=d.get("sensitivity"),
-                freshness_score=d["freshness_score"],
-                is_stale=is_stale,
-            )
-            scored.append(fd)
-
-            if is_stale and d.get("superseded_by"):
-                stale.append(
-                    StaleDocument(
-                        doc_id=d["doc_id"],
-                        superseded_by=d["superseded_by"],
-                        freshness_score=d["freshness_score"],
-                    )
-                )
-
-        return StageOk((scored, stale))
+        return StageOk(score_freshness(docs, metadata, policy.half_life_days))
     except Exception as e:
         return StageErr(stage="freshness", error=str(e))
 
 
-# ---------------------------------------------------------------------------
-# Stage 4: Budget packer
-# ---------------------------------------------------------------------------
-
-def _assemble_stage(
-    docs: List[FreshnessScoredDocument],
-    policy: PolicyConfig,
-) -> StageResult:
-    """Rank by combined score and greedily pack within token budget.
-
-    When policy.skip_budget is True, all docs pass through with no budget cap.
-    Returns (included_docs, total_tokens).
-    """
-    if policy.skip_budget:
-        # Dangerous baseline: include everything, no budget enforcement
-        try:
-            total_tokens = 0
-            included: List[IncludedDocument] = []
-            for doc in docs:
-                text = doc.excerpt
-                tk = _count_tokens(text)
-                total_tokens += tk
-                included.append(
-                    IncludedDocument(
-                        doc_id=doc.doc_id,
-                        content=text,
-                        score=doc.score,
-                        freshness_score=doc.freshness_score,
-                        tags=doc.tags,
-                        token_count=tk,
-                    )
-                )
-            return StageOk((included, total_tokens))
-        except Exception as e:
-            return StageErr(stage="assemble", error=str(e))
-
+def _budget_stage(docs, policy) -> StageResult:
     try:
-        raw_dicts = [doc.model_dump() for doc in docs]
-        context_list, total_tokens = assemble(raw_dicts, policy.token_budget)
-
-        included = [
-            IncludedDocument(
-                doc_id=c["doc_id"],
-                content=c["content"],
-                score=c["score"],
-                freshness_score=c.get("freshness_score", 0.0),
-                tags=c.get("tags", []),
-                token_count=c["token_count"],
-            )
-            for c in context_list
-        ]
-        return StageOk((included, total_tokens))
+        return StageOk(pack_budget(
+            docs,
+            token_budget=policy.token_budget,
+            enforce_budget=not policy.skip_budget,
+        ))
     except Exception as e:
-        return StageErr(stage="assemble", error=str(e))
-
-
-# ---------------------------------------------------------------------------
-# Stage 5: Trace builder
-# ---------------------------------------------------------------------------
-
-def _build_trace(
-    user_ctx: UserContext,
-    policy: PolicyConfig,
-    retrieved_count: int,
-    blocked: List[BlockedDocument],
-    stale: List[StaleDocument],
-    included: List[IncludedDocument],
-    total_tokens: int,
-) -> DecisionTrace:
-    """Assemble the full audit trace from all stage outputs."""
-    avg_score = (
-        sum(d.score for d in included) / len(included) if included else 0.0
-    )
-    avg_freshness = (
-        sum(d.freshness_score for d in included) / len(included) if included else 0.0
-    )
-
-    metrics = TraceMetrics(
-        retrieved_count=retrieved_count,
-        blocked_count=len(blocked),
-        stale_count=len(stale),
-        included_count=len(included),
-        total_tokens=total_tokens,
-        avg_score=round(avg_score, 6),
-        avg_freshness_score=round(avg_freshness, 6),
-    )
-
-    return DecisionTrace(
-        user_context=user_ctx,
-        policy_config=policy,
-        blocked=blocked,
-        stale=stale,
-        included=included,
-        metrics=metrics,
-    )
+        return StageErr(stage="budget_packer", error=str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +131,7 @@ def run_pipeline(
 ) -> PipelineResult:
     """Execute the full retrieval pipeline.
 
-    Sequence: retrieve → permission_filter → freshness → assemble → trace.
+    Sequence: retrieve → permission_filter → freshness → budget_packer → trace.
     Aborts on first stage failure with PipelineError.
 
     Args:
@@ -312,6 +146,8 @@ def run_pipeline(
     Raises:
         PipelineError: if any stage fails.
     """
+    t0 = time.monotonic()
+
     # Resolve policy preset and build user context
     policy = resolve_policy(request.policy_name, request.top_k)
     user_rank = roles[request.role]["access_rank"]
@@ -323,23 +159,32 @@ def run_pipeline(
     )
 
     # Stage 2 — Permission filter
-    permitted, blocked = _unwrap(
-        _permission_stage(candidates, user_ctx, roles, policy)
-    )
+    perm_result = _unwrap(_permission_stage(candidates, user_ctx, roles, policy))
 
     # Stage 3 — Freshness scorer
-    scored, stale = _unwrap(
-        _freshness_stage(permitted, metadata, policy)
-    )
+    fresh_result = _unwrap(_freshness_stage(perm_result.permitted, metadata, policy))
 
     # Stage 4 — Budget packer
-    included, total_tokens = _unwrap(
-        _assemble_stage(scored, policy)
-    )
+    budget_result = _unwrap(_budget_stage(fresh_result.scored, policy))
+
+    ttft_proxy_ms = (time.monotonic() - t0) * 1000.0
 
     # Stage 5 — Trace builder
-    trace = _build_trace(
-        user_ctx, policy, len(candidates), blocked, stale, included, total_tokens,
+    trace = build_trace(
+        user_ctx=user_ctx,
+        policy=policy,
+        retrieved_count=len(candidates),
+        included=budget_result.packed,
+        blocked=perm_result.blocked,
+        stale=fresh_result.stale,
+        dropped=budget_result.over_budget,
+        total_tokens=budget_result.total_tokens,
+        budget_utilization=budget_result.budget_utilization,
+        ttft_proxy_ms=ttft_proxy_ms,
     )
 
-    return PipelineResult(context=included, total_tokens=total_tokens, trace=trace)
+    return PipelineResult(
+        context=budget_result.packed,
+        total_tokens=budget_result.total_tokens,
+        trace=trace,
+    )

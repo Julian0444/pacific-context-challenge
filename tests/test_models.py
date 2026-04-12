@@ -16,6 +16,7 @@ from src.models import (
     BlockedDocument,
     StaleDocument,
     IncludedDocument,
+    DroppedByBudget,
     TraceMetrics,
     DecisionTrace,
     PipelineResult,
@@ -190,12 +191,16 @@ def test_trace_metrics_valid():
         retrieved_count=8,
         blocked_count=2,
         stale_count=1,
+        dropped_count=0,
         included_count=5,
         total_tokens=1800,
+        budget_utilization=0.88,
         avg_score=0.78,
         avg_freshness_score=0.72,
     )
     assert tm.included_count == 5
+    assert tm.dropped_count == 0
+    assert tm.budget_utilization == 0.88
 
 
 # ---------------------------------------------------------------------------
@@ -206,19 +211,25 @@ def test_decision_trace_empty_lists():
     dt = DecisionTrace(
         user_context=UserContext(role="analyst", access_rank=1),
         policy_config=PolicyConfig(),
+        total_tokens=900,
         metrics=TraceMetrics(
             retrieved_count=5,
             blocked_count=0,
             stale_count=0,
+            dropped_count=0,
             included_count=5,
             total_tokens=900,
+            budget_utilization=0.44,
             avg_score=0.82,
             avg_freshness_score=0.76,
         ),
     )
-    assert dt.blocked == []
-    assert dt.stale == []
+    assert dt.blocked_by_permission == []
+    assert dt.demoted_as_stale == []
+    assert dt.dropped_by_budget == []
     assert dt.included == []
+    assert dt.total_tokens == 900
+    assert dt.ttft_proxy_ms == 0.0
 
 
 # ---------------------------------------------------------------------------
