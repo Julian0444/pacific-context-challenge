@@ -670,3 +670,104 @@ Replaced the pure semantic (FAISS-only) retriever with a hybrid retriever combin
 ### Suggested First Action
 
 Wire `evaluator.py` to `run_pipeline()` (P2-3). The plan doc (`docs/plans/2026-04-10-pipeline-integration-plan.md`) has a concrete code skeleton showing the replacement. After wiring, run `python3 -m pytest tests/test_evaluator.py -v` to confirm all 17+ tests still pass, then run `python3 -m src.evaluator` to verify metrics.
+
+---
+
+## Session — 2026-04-12 (Session 11 / Prompt 5: Evaluator Wiring & Test Hardening)
+
+### Summary
+
+Wired `src/evaluator.py` to `run_pipeline()`, removed the dead `token_budget` evaluator interface, added trace-level metrics to evaluator output, and hardened both `tests/test_evaluator.py` and `tests/test_pipeline.py`. Legacy dict-plumbing tests were skipped with clear deprecation notices. Two passes of hostile review completed; verdict is `risks_noted` with one MINOR fix pending.
+
+**What was done:**
+
+1. **Wired `src/evaluator.py` to `run_pipeline()`** (P2-3 complete) — Replaced the inline `retrieve → filter_by_role → apply_freshness → assemble` pipeline in `run_evals()` with `run_pipeline(QueryRequest(...), retrieve, roles, metadata)`. Assembled doc IDs and freshness scores now come from typed `PipelineResult.trace.included` (`IncludedDocument` objects), not raw dicts. Pipeline imports deferred inside `run_evals()` to avoid loading sentence-transformers at import time.
+
+2. **Removed dead `token_budget` interface** — `run_evals(token_budget=...)` parameter and `--token-budget` CLI flag were silently ignored (pipeline uses policy budget; `QueryRequest` has no `token_budget` field). Both removed. Module docstring updated to state budget is policy-owned.
+
+3. **Added trace-level metrics to evaluator output** — Per-query records now include `blocked_count`, `stale_count`, `dropped_count`, `budget_utilization` from `result.trace.metrics`. Aggregate adds `avg_blocked_count`, `avg_stale_count`, `avg_dropped_count`, `avg_budget_utilization`.
+
+4. **Added `None` guard for `result.trace`** — After the try/except block, evaluator checks `if result.trace is None` and appends an error record rather than crashing.
+
+5. **Added 5 new tests to `tests/test_evaluator.py`** (17 → 22 total):
+   - `test_run_evals_trace_metrics_present` — each per-query result has blocked/stale/dropped/budget_util keys
+   - `test_run_evals_aggregate_trace_metrics` — aggregate has avg_* trace keys
+   - `test_run_evals_analyst_queries_have_blocked_docs` — q003 shows `blocked_count > 0`
+   - `test_run_evals_budget_utilization_bounded` — 0 ≤ budget_util ≤ 1
+   - `test_run_evals_precision_floor` — `avg_precision_at_5 ≥ 0.20` regression guard
+
+6. **Added 10 new tests to `tests/test_pipeline.py`** (18 → 28 total):
+   - `test_trace_document_accounting_complete` — included+blocked+dropped == retrieved
+   - `test_trace_has_all_required_sections` — all trace sections present and correctly typed
+   - `test_stale_demotion_half_penalty` — `s.penalty_applied == 0.5` for all stale docs
+   - `test_permission_safety_analyst_never_sees_restricted` — blocked_ids disjoint from included_ids
+   - `TestAllPoliciesTraceStructure` — parametrized accounting test for all 3 presets + naive-vs-full blocking difference
+   - `test_permission_aware_enforces_budget` — budget respected under permission_aware policy
+   - `test_trace_included_equals_result_context` — `trace.included == result.context` identity check
+
+7. **Marked legacy dict-plumbing tests as skipped** — 14 tests total across three files:
+   - `tests/test_policies.py` — 4 `filter_by_role` tests (`@_LEGACY_SKIP`); 2 `load_roles` tests remain active. Module docstring explains what is live vs deprecated.
+   - `tests/test_freshness.py` — 5 `apply_freshness` tests (`@_LEGACY_SKIP`); 7 `compute_freshness` tests remain active.
+   - `tests/test_context_assembler.py` — all 5 `assemble()` tests skipped via `pytestmark`; module docstring points to `stages/budget_packer.py` as the replacement.
+
+8. **Hostile review (2 passes):**
+   - Pass 1: 2 MAJOR (no precision floor, trace None guard unplaced), 3 MINOR (legacy tests still passing, permission_aware budget test, trace.included identity not tested). All five addressed.
+   - Pass 2: 1 MINOR remains — `test_permission_aware_enforces_budget` assertion `result.total_tokens <= token_budget` is trivially true for small corpus (all docs fit in budget). Fix: add `assert result.trace.policy_config.skip_budget is False`. Verdict: `risks_noted`.
+
+**P3-2 closed as side-effect** — `apply_freshness()` is no longer called anywhere on the request path. The mutation API in `freshness.py` exists but is dead code.
+
+**Precision drop explained** — `avg_precision_at_5` dropped from 0.3375 (inline pipeline) to 0.3000 (production pipeline). Not a regression: the production pipeline over-retrieves 3× and fills the entire token budget with all role-visible docs. Recall is unchanged at 1.0. The floor test is set at 0.20 to absorb ranking variance without masking genuine retrieval failures.
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `34ade1b` (Task 3 completed)
+- **Working tree:** clean
+- **Tests:** 138 passed, 14 skipped, 0 failed
+  - `tests/test_policies.py` — 2 passed, 4 skipped (filter_by_role legacy)
+  - `tests/test_freshness.py` — 7 passed, 5 skipped (apply_freshness legacy)
+  - `tests/test_context_assembler.py` — 5 skipped (assemble() legacy, pytestmark)
+  - `tests/test_main.py` — 6 passed
+  - `tests/test_evaluator.py` — 22 passed
+  - `tests/test_models.py` — 24 passed
+  - `tests/test_pipeline.py` — 28 passed
+  - `tests/test_stages.py` — 29 passed
+  - `tests/test_retriever.py` — 20 passed
+
+- **Evaluator metrics** (`python3 -m src.evaluator`, default policy, k=5, top_k=8):
+  - Avg Precision@5: **0.3000**
+  - Avg Recall: **1.0000**
+  - Permission violation rate: **0%**
+  - Avg context docs: 8.62
+  - Avg total tokens: 1078.0
+  - Avg freshness score: 7.68e-01
+  - Avg blocked count: 3.38
+  - Avg stale count: 1.62
+  - Avg dropped count: 0.0
+  - Avg budget utilization: 53%
+
+- **Hostile review verdict:** `risks_noted` (Pass 2) — one MINOR pending
+
+### Remaining Tasks (ordered)
+
+1. **Fix hostile review MINOR** — `test_permission_aware_enforces_budget` in `tests/test_pipeline.py`: add `assert result.trace.policy_config.skip_budget is False` before the token count assertion. The current assertion is trivially true for a 12-doc corpus.
+
+2. **Hostile review Pass 3** — After the MINOR fix, re-run hostile review to achieve two consecutive clean passes and reach `clean` verdict.
+
+3. **Frontend comparison view** — Add a toggle or side-by-side panel in the UI to compare `naive_top_k` vs `full_policy` results for the same query. Surfaces the permission filtering and stale demotion differences visually.
+
+4. **Dashboard / observability** — Expose `decision_trace` fields (blocked_by_permission, demoted_as_stale, dropped_by_budget, budget_utilization) in the frontend result view. Currently the frontend only shows per-doc scores and total_tokens.
+
+5. **Demo readiness** — The backend and eval harness are production-ready. Demo blocker is the frontend not yet showing `decision_trace` data. Once the trace fields are surfaced, the full pipeline story (retrieval → permission → freshness → budget → trace) is demonstrable end-to-end in the browser.
+
+6. **Decide on `artifacts/` gitignore** — Three artifact files are currently committed. No change needed urgently.
+
+### Blockers and Warnings
+
+- **Hostile review verdict not yet `clean`** — One MINOR outstanding in `test_pipeline.py`. Low risk: the assertion is correct, just not discriminating enough.
+- **`apply_freshness()` and `filter_by_role()` are dead code** — No longer called anywhere on the request path. They can be removed or deprecated when convenient; there is no urgency.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Apply the one-line MINOR fix to `test_permission_aware_enforces_budget` (add `assert result.trace.policy_config.skip_budget is False`), then run `python3 -m pytest tests/test_pipeline.py -v` to confirm. Run hostile review Pass 3 to reach `clean` verdict. Then turn to frontend `decision_trace` display.

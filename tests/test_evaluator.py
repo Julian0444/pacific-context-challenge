@@ -120,3 +120,58 @@ def test_run_evals_freshness_is_meaningful(eval_results):
         f"Freshness scores are too small ({agg['avg_freshness_score']:.2e}) — "
         "corpus-relative dating may not be active"
     )
+
+
+# ---- trace-level metrics in evaluator output --------------------------------
+
+def test_run_evals_trace_metrics_present(eval_results):
+    """Each per-query result should expose trace-level metrics."""
+    for r in eval_results["per_query"]:
+        if "error" in r:
+            continue
+        assert "blocked_count" in r
+        assert "stale_count" in r
+        assert "dropped_count" in r
+        assert "budget_utilization" in r
+
+
+def test_run_evals_aggregate_trace_metrics(eval_results):
+    """Aggregate should include avg trace metrics."""
+    agg = eval_results["aggregate"]
+    assert "avg_blocked_count" in agg
+    assert "avg_stale_count" in agg
+    assert "avg_dropped_count" in agg
+    assert "avg_budget_utilization" in agg
+
+
+def test_run_evals_analyst_queries_have_blocked_docs(eval_results):
+    """Analyst queries hitting vp/partner docs must show blocked_count > 0."""
+    # q003 is the explicit permission-wall query for analyst
+    r = next(r for r in eval_results["per_query"] if r["id"] == "q003")
+    assert r["blocked_count"] > 0, (
+        "Analyst permission-wall query should have blocked docs in trace"
+    )
+
+
+def test_run_evals_budget_utilization_bounded(eval_results):
+    """Budget utilization should be in [0, 1] for all queries."""
+    for r in eval_results["per_query"]:
+        if "error" in r:
+            continue
+        assert 0.0 <= r["budget_utilization"] <= 1.0
+
+
+def test_run_evals_precision_floor(eval_results):
+    """Precision@5 must not silently collapse below a minimum threshold.
+
+    Current production baseline is 0.30 (all role-visible docs packed into
+    context; small expected sets dilute precision).  Floor is set at 0.20 to
+    absorb minor ranking variance without false alarms while still catching
+    a genuine retrieval failure.
+    """
+    agg = eval_results["aggregate"]
+    assert agg["avg_precision_at_5"] >= 0.20, (
+        f"Precision@5 dropped below floor "
+        f"({agg['avg_precision_at_5']:.4f} < 0.20) — "
+        "check retrieval ranking or expected_doc_ids"
+    )

@@ -113,7 +113,7 @@ All three must exist before the server starts. If missing, run `python3 -m src.i
 
 ### Evaluation harness (`src/evaluator.py`)
 
-Fully implemented. `run_evals()` runs 8 corpus-grounded test queries through the pipeline and computes precision@k, recall, permission_violation_rate, avg_context_docs, avg_freshness_score. CLI: `python3 -m src.evaluator`. Currently uses its own inline pipeline (not yet wired to `run_pipeline()`).
+Fully implemented and wired to `run_pipeline()`. `run_evals()` runs 8 corpus-grounded test queries through the production pipeline and computes precision@k, recall, permission_violation_rate, avg_context_docs, avg_freshness_score, plus trace-level metrics (avg_blocked_count, avg_stale_count, avg_dropped_count, avg_budget_utilization). CLI: `python3 -m src.evaluator` (flags: `--k`, `--top-k`). The `--token-budget` flag was removed — budget is policy-owned. Current metrics: precision@5=0.3000, recall=1.0000, permission_violation_rate=0%.
 
 ### Frontend
 

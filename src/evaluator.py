@@ -2,8 +2,10 @@
 evaluator.py — Runs the QueryTrace pipeline against test queries and reports
 retrieval quality metrics (precision@k, recall) and permission safety metrics.
 
-Evaluates against the FINAL assembled context, not raw retriever candidates,
-since that is what QueryTrace actually surfaces to the user.
+Evaluates against the final assembled context produced by run_pipeline(), which
+is exactly what the HTTP endpoint surfaces to users.  The token budget is owned
+by the pipeline's policy preset (PolicyConfig.token_budget); it is not a
+per-eval knob.
 
 Usage:
     python3 -m src.evaluator
@@ -67,33 +69,33 @@ def run_evals(
     queries: list,
     k: int = 5,
     top_k: int = 8,
-    token_budget: int = 2048,
 ) -> dict:
-    """Run all test queries through the full pipeline and compute metrics.
+    """Run all test queries through the pipeline orchestrator and compute metrics.
 
-    Pipeline executed per query:
-        retrieve(query, top_k)
-        → filter_by_role(role)
-        → apply_freshness()
-        → assemble(token_budget)
+    Each query is executed via run_pipeline():
+        retrieve(query, top_k × 3)  →  permission_filter  →  freshness_scorer
+        →  budget_packer  →  trace_builder
+
+    Metrics are extracted from PipelineResult and DecisionTrace, not raw dicts.
+    The token budget is set by the pipeline's policy preset (default 2048) and
+    is not configurable here.
 
     Args:
-        queries:      List of query dicts from load_test_queries().
-        k:            k for precision@k (default 5).
-        top_k:        Candidates to retrieve from FAISS (default 8).
-        token_budget: Token budget for context assembly (default 2048).
+        queries: List of query dicts from load_test_queries().
+        k:       k for precision@k (default 5).
+        top_k:   Top-k passed to QueryRequest (pipeline over-retrieves by 3×).
 
     Returns:
         {
-            "per_query": [...],   # one result dict per query
+            "per_query": [...],   # one result dict per query (includes trace metrics)
             "aggregate": {...},   # summary metrics across all queries
         }
     """
     # Lazy import to avoid loading models at import time
     from src.retriever import retrieve
-    from src.policies import load_roles, filter_by_role
-    from src.freshness import apply_freshness
-    from src.context_assembler import assemble
+    from src.policies import load_roles
+    from src.pipeline import run_pipeline
+    from src.models import QueryRequest
 
     roles = load_roles(_ROLES_PATH)
     with open(_METADATA_PATH) as f:
@@ -109,10 +111,8 @@ def run_evals(
         forbidden_ids = q.get("forbidden_doc_ids", [])
 
         try:
-            raw = retrieve(query_text, top_k=top_k)
-            filtered = filter_by_role(raw, role, roles)
-            scored = apply_freshness(filtered, metadata)
-            context, total_tokens = assemble(scored, token_budget=token_budget)
+            request = QueryRequest(query=query_text, role=role, top_k=top_k)
+            result = run_pipeline(request, retrieve, roles, metadata)
         except Exception as exc:
             per_query.append({
                 "id": qid,
@@ -122,16 +122,24 @@ def run_evals(
             })
             continue
 
-        assembled_ids = [c["doc_id"] for c in context]
+        if result.trace is None:
+            per_query.append({
+                "id": qid,
+                "query": query_text,
+                "role": role,
+                "error": "pipeline returned PipelineResult with trace=None",
+            })
+            continue
+
+        assembled_ids = [doc.doc_id for doc in result.context]
         prec = precision_at_k(assembled_ids, expected_ids, k=k)
         rec = _recall(assembled_ids, expected_ids)
         violations = [did for did in assembled_ids if did in forbidden_ids]
 
-        freshness_vals = [
-            c["freshness_score"] for c in context if c.get("freshness_score") is not None
-        ]
+        freshness_vals = [doc.freshness_score for doc in result.context]
         avg_fresh = sum(freshness_vals) / len(freshness_vals) if freshness_vals else 0.0
 
+        trace = result.trace
         per_query.append({
             "id": qid,
             "query": query_text,
@@ -142,9 +150,14 @@ def run_evals(
             f"precision_at_{k}": round(prec, 4),
             "recall": round(rec, 4),
             "permission_violations": violations,
-            "context_docs": len(context),
-            "total_tokens": total_tokens,
+            "context_docs": len(result.context),
+            "total_tokens": result.total_tokens,
             "avg_freshness_score": round(avg_fresh, 8),
+            # Trace-level metrics
+            "blocked_count": trace.metrics.blocked_count,
+            "stale_count": trace.metrics.stale_count,
+            "dropped_count": trace.metrics.dropped_count,
+            "budget_utilization": trace.metrics.budget_utilization,
         })
 
     valid = [r for r in per_query if "error" not in r]
@@ -163,6 +176,12 @@ def run_evals(
         "avg_total_tokens": round(sum(r["total_tokens"] for r in valid) / n, 1) if n else 0.0,
         "avg_freshness_score": round(
             sum(r["avg_freshness_score"] for r in valid) / n, 8
+        ) if n else 0.0,
+        "avg_blocked_count": round(sum(r["blocked_count"] for r in valid) / n, 2) if n else 0.0,
+        "avg_stale_count": round(sum(r["stale_count"] for r in valid) / n, 2) if n else 0.0,
+        "avg_dropped_count": round(sum(r["dropped_count"] for r in valid) / n, 2) if n else 0.0,
+        "avg_budget_utilization": round(
+            sum(r["budget_utilization"] for r in valid) / n, 4
         ) if n else 0.0,
     }
 
@@ -200,6 +219,8 @@ def _print_results(results: dict, k: int) -> None:
         print(
             f"  P@{k}={r[prec_key]:.2f}  Recall={r['recall']:.2f}"
             f"  Docs={r['context_docs']}  Tokens={r['total_tokens']}"
+            f"  Blocked={r['blocked_count']}  Stale={r['stale_count']}"
+            f"  Dropped={r['dropped_count']}  BudgetUtil={r['budget_utilization']:.0%}"
         )
         if r["permission_violations"]:
             print(f"  ⚠ PERMISSION VIOLATIONS: {r['permission_violations']}")
@@ -217,6 +238,10 @@ def _print_results(results: dict, k: int) -> None:
     print(f"  Avg context docs     : {agg['avg_context_docs']}")
     print(f"  Avg total tokens     : {agg['avg_total_tokens']}")
     print(f"  Avg freshness score  : {agg['avg_freshness_score']:.2e}")
+    print(f"  Avg blocked count    : {agg['avg_blocked_count']}")
+    print(f"  Avg stale count      : {agg['avg_stale_count']}")
+    print(f"  Avg dropped count    : {agg['avg_dropped_count']}")
+    print(f"  Avg budget util      : {agg['avg_budget_utilization']:.0%}")
     print("=" * 72)
     print()
 
@@ -228,9 +253,8 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=5,
                         help="k for precision@k (default 5)")
     parser.add_argument("--top-k", type=int, default=8,
-                        help="FAISS retrieval candidates (default 8)")
-    parser.add_argument("--token-budget", type=int, default=2048,
-                        help="Assembler token budget (default 2048)")
+                        help="Retrieval candidates passed to QueryRequest (default 8); "
+                             "pipeline internally over-retrieves by 3×")
     args = parser.parse_args()
 
     queries = load_test_queries(args.evals)
@@ -241,7 +265,6 @@ def main() -> None:
         queries,
         k=args.k,
         top_k=args.top_k,
-        token_budget=args.token_budget,
     )
     _print_results(results, k=args.k)
 

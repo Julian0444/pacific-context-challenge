@@ -53,7 +53,16 @@ def test_compute_freshness_newer_scores_higher():
     assert older > 0.4
 
 
-# ---- apply_freshness --------------------------------------------------------
+# ---- apply_freshness (LEGACY) -----------------------------------------------
+# apply_freshness() mutates plain dicts and is no longer called on any request
+# path.  Freshness scoring now goes through stages/freshness_scorer.py
+# (score_freshness), tested in tests/test_stages.py::TestFreshnessScorer.
+# These tests are skipped to avoid misleading confidence in dead code.
+
+_LEGACY_SKIP = pytest.mark.skip(
+    reason="legacy: apply_freshness() replaced by stages/freshness_scorer.py"
+)
+
 
 def _make_chunk(doc_id, score=0.9):
     return {"doc_id": doc_id, "score": score}
@@ -67,6 +76,7 @@ def _make_metadata(doc_id, date, superseded_by=None):
     }
 
 
+@_LEGACY_SKIP
 def test_apply_freshness_attaches_score():
     chunks = [_make_chunk("doc_001")]
     metadata = {"documents": [_make_metadata("doc_001", datetime.now().strftime("%Y-%m-%d"))]}
@@ -75,6 +85,7 @@ def test_apply_freshness_attaches_score():
     assert result[0]["freshness_score"] > 0.9
 
 
+@_LEGACY_SKIP
 def test_apply_freshness_demotes_stale():
     today = datetime.now().strftime("%Y-%m-%d")
     chunks = [
@@ -93,6 +104,7 @@ def test_apply_freshness_demotes_stale():
     assert stale["freshness_score"] < fresh["freshness_score"]
 
 
+@_LEGACY_SKIP
 def test_apply_freshness_preserves_order():
     today = datetime.now().strftime("%Y-%m-%d")
     chunks = [_make_chunk("a"), _make_chunk("b")]
@@ -104,6 +116,7 @@ def test_apply_freshness_preserves_order():
     assert [c["doc_id"] for c in result] == ["a", "b"]
 
 
+@_LEGACY_SKIP
 def test_apply_freshness_corpus_relative_meaningful_scores():
     """With corpus-relative dating, scores span a useful range (not all ~0)."""
     chunks = [
@@ -124,6 +137,7 @@ def test_apply_freshness_corpus_relative_meaningful_scores():
     assert newest["freshness_score"] > oldest["freshness_score"]
 
 
+@_LEGACY_SKIP
 def test_apply_freshness_stale_pair_visible_demotion():
     """Superseded doc is visibly penalized when both it and its replacement are present."""
     chunks = [

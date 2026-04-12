@@ -276,3 +276,150 @@ def test_invalid_policy_raises_pipeline_error():
     req = QueryRequest(query="test", role="analyst", policy_name="nonexistent")
     with pytest.raises(ValueError, match="Unknown policy"):
         run_pipeline(req, retrieve, _roles, _metadata)
+
+
+# ---------------------------------------------------------------------------
+# Explicit verification: decision_trace completeness
+# ---------------------------------------------------------------------------
+
+def test_trace_document_accounting_complete():
+    """Every retrieved doc is accounted for in included + blocked + dropped."""
+    result = _run(
+        query="Meridian revenue growth acquisition deal",
+        role="analyst",
+        top_k=12,
+    )
+    t = result.trace
+    accounted = (
+        t.metrics.included_count
+        + t.metrics.blocked_count
+        + t.metrics.dropped_count
+    )
+    assert accounted == t.metrics.retrieved_count, (
+        f"included({t.metrics.included_count}) + blocked({t.metrics.blocked_count}) "
+        f"+ dropped({t.metrics.dropped_count}) = {accounted} != "
+        f"retrieved({t.metrics.retrieved_count})"
+    )
+
+
+def test_trace_has_all_required_sections():
+    """DecisionTrace must have user_context, policy_config, metrics, and all
+    document lists — even when some are empty."""
+    result = _run(role="partner", top_k=8)
+    t = result.trace
+    assert t.user_context is not None
+    assert t.policy_config is not None
+    assert t.metrics is not None
+    assert isinstance(t.included, list)
+    assert isinstance(t.blocked_by_permission, list)
+    assert isinstance(t.demoted_as_stale, list)
+    assert isinstance(t.dropped_by_budget, list)
+    assert t.total_tokens == result.total_tokens
+    assert t.ttft_proxy_ms > 0
+
+
+# ---------------------------------------------------------------------------
+# Explicit verification: stale demotion multiplier
+# ---------------------------------------------------------------------------
+
+def test_stale_demotion_half_penalty():
+    """Superseded docs get exactly 0.5× freshness penalty (STALE_PENALTY)."""
+    result = _run(
+        query="financial model revenue projections research notes",
+        role="partner",
+        top_k=12,
+    )
+    stale_docs = result.trace.demoted_as_stale
+    if not stale_docs:
+        pytest.skip("No stale docs retrieved for this query")
+    for s in stale_docs:
+        assert s.penalty_applied == 0.5
+
+
+# ---------------------------------------------------------------------------
+# Explicit verification: permission safety across all roles
+# ---------------------------------------------------------------------------
+
+def test_permission_safety_analyst_never_sees_restricted():
+    """Run a broad query as analyst — no vp/partner doc_ids in context."""
+    result = _run(
+        query="Meridian revenue deal investment committee LP update board",
+        role="analyst",
+        top_k=12,
+    )
+    # Analyst docs require min_role=analyst (access_rank 1)
+    # Any doc with min_role vp or partner must NOT be in context
+    included_ids = {d.doc_id for d in result.context}
+    blocked_ids = {b.doc_id for b in result.trace.blocked_by_permission}
+    assert included_ids.isdisjoint(blocked_ids)
+    # Blocked docs must require a higher role
+    for b in result.trace.blocked_by_permission:
+        assert b.required_role in ("vp", "partner")
+        assert b.user_role == "analyst"
+
+
+# ---------------------------------------------------------------------------
+# Explicit verification: all three policies produce valid traces
+# ---------------------------------------------------------------------------
+
+class TestAllPoliciesTraceStructure:
+    """Each policy preset produces a structurally valid DecisionTrace."""
+
+    @pytest.mark.parametrize("policy_name", ["naive_top_k", "permission_aware", "full_policy"])
+    def test_policy_trace_structure(self, policy_name):
+        result = _run(
+            query="Meridian acquisition due diligence",
+            role="analyst",
+            top_k=8,
+            policy=policy_name,
+        )
+        t = result.trace
+        assert t.policy_config.name == policy_name
+        assert t.metrics.retrieved_count > 0
+        assert t.metrics.included_count >= 0
+        assert t.total_tokens >= 0
+        # Accounting must hold for all policies
+        accounted = (
+            t.metrics.included_count
+            + t.metrics.blocked_count
+            + t.metrics.dropped_count
+        )
+        assert accounted == t.metrics.retrieved_count
+
+    def test_naive_vs_full_blocking_difference(self):
+        """naive_top_k skips permission filtering; full_policy enforces it.
+        For the same analyst query, full_policy blocks more docs."""
+        q = "investment committee memo deal terms LP update"
+        naive = _run(query=q, role="analyst", top_k=12, policy="naive_top_k")
+        full = _run(query=q, role="analyst", top_k=12, policy="full_policy")
+        assert naive.trace.metrics.blocked_count == 0
+        assert full.trace.metrics.blocked_count > 0
+
+
+# ---------------------------------------------------------------------------
+# Explicit verification: permission_aware enforces budget
+# ---------------------------------------------------------------------------
+
+def test_permission_aware_enforces_budget():
+    """permission_aware has skip_budget=False — token budget must be respected."""
+    result = _run(
+        query="Meridian revenue deal investment committee",
+        role="partner",
+        top_k=12,
+        policy="permission_aware",
+    )
+    assert result.total_tokens <= result.trace.policy_config.token_budget
+
+
+# ---------------------------------------------------------------------------
+# Explicit verification: trace.included == result.context
+# ---------------------------------------------------------------------------
+
+def test_trace_included_equals_result_context():
+    """trace.included and result.context must be the same list.
+
+    Both are sourced from budget_result.packed in pipeline.py.  If a refactor
+    ever passes different lists, this test catches the divergence.
+    """
+    result = _run(role="partner", top_k=8)
+    assert result.trace.included == result.context

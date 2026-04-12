@@ -1,7 +1,18 @@
-"""Tests for context_assembler.py — token-budgeted context assembly."""
+"""Tests for context_assembler.py — token-budgeted context assembly.
+
+LEGACY: assemble() is no longer on the request path.  Budget packing is now
+handled by src/stages/budget_packer.py (pack_budget), which is tested in
+tests/test_stages.py::TestBudgetPacker.  These tests are retained as
+documentation of the old dict-based API but are skipped to avoid misleading
+confidence in dead code.
+"""
 
 import pytest
 from src.context_assembler import assemble
+
+pytestmark = pytest.mark.skip(
+    reason="legacy: assemble() replaced by stages/budget_packer.py on all request paths"
+)
 
 
 def _make_chunk(doc_id, content="Short content.", score=0.9, freshness_score=0.8, tags=None):
