@@ -182,3 +182,26 @@ All original plan items remain complete. Prompt 7B was a polish and demo-readine
 1. ~~Manual browser verification~~ — **DONE** (44/44 Playwright checks pass)
 2. Remove dead code — `apply_freshness()` and `filter_by_role()` are unreachable on the request path
 3. `run_evals()` corpus re-read — reloads roles/metadata independently of `main.py`'s loaded copies; cosmetic, no correctness impact
+
+---
+
+## Prompt 8 Outcome (completed 2026-04-13)
+
+Final hardening / submission-readiness pass. No architecture changes. Four targeted fixes applied.
+
+**Completed in Prompt 8:**
+
+- **Bug fix — `/query` invalid policy returned 500** (`src/main.py`): Added `except ValueError` guard matching the one already present in `/compare`. Invalid `policy_name` now returns `400` with a clear error message. Test added: `test_query_invalid_policy_returns_400`.
+- **XSS fix — trace chip `title` attributes** (`frontend/app.js`): `required_role` and `superseded_by` values in blocked/stale chip `title` attributes were unescaped; wrapped in `escapeHTML()`.
+- **Stale docstring fix** (`src/protocols.py`): `MetadataStoreProtocol` docstring referenced dead `freshness.apply_freshness`; updated to `stages.freshness_scorer.score_freshness`.
+- **Stale comment fix** (`src/freshness.py`): `compute_freshness()` docstring referenced dead `apply_freshness`; updated to "the stages layer".
+- **Browser verification (65 Playwright checks):** 0 UI failures. All demo flows confirmed: light theme, Single mode (full + naive), Compare mode (Analyst wall / VP / Partner scenarios), Evals dashboard, mode switching, 0 JS console errors.
+
+**Current test state after Prompt 8:** 149 passed, 14 skipped, 0 failed
+**Current eval metrics:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
+**Hostile review verdict:** `clean` (no new review — Prompt 8 changes are bug fixes only)
+
+**Modified files (uncommitted at end of session):**
+- `frontend/app.js`, `src/main.py`, `src/protocols.py`, `src/freshness.py`, `tests/test_main.py`
+
+**Prompt 8 status: COMPLETE. Project is submission-ready.**

@@ -1238,3 +1238,98 @@ None. Project is demo-ready.
 ### Suggested First Action
 
 Commit the 2 documentation files. No further work is required before submission.
+
+---
+
+## Session — 2026-04-13 (Session 18 / Prompt 8: Final Hardening & Submission-Readiness)
+
+### Summary
+
+End-to-end reviewer pass across the full product experience. Four targeted fixes applied; one real bug (silent 500 on invalid policy for `/query`) caught and resolved. Browser verification confirmed all demo flows intact.
+
+**What was done:**
+
+1. **Fixed `/query` invalid-policy returns 500** (`src/main.py`) — `ValueError` raised by `resolve_policy()` inside `run_pipeline()` was not caught by the `/query` handler (only `/compare` had the `except ValueError` guard). Added `except ValueError as e: raise HTTPException(400, ...)` to `/query`. Before the fix: `POST /query` with `policy_name="bogus"` returned `500 Internal Server Error`. After: returns `400` with `"Unknown policy: 'bogus'. Valid policies: [...]"`.
+
+2. **Added test for the above** (`tests/test_main.py`) — `test_query_invalid_policy_returns_400` added (tests: 17 → 18 total in that file; suite total: 148 → 149 passed).
+
+3. **Fixed XSS in trace chip `title` attributes** (`frontend/app.js`) — Two `title="..."` attributes in `buildTracePanelHTML()` used unescaped API data:
+   - Blocked chip: `title="requires: ${d.required_role}"` → `title="requires: ${escapeHTML(d.required_role)}"`
+   - Stale chip: `title="superseded by: ${d.superseded_by} · ..."` → `title="superseded by: ${escapeHTML(d.superseded_by)} · ..."`
+   (The `<em>` inline text in both chips was also fixed to use `escapeHTML`.)
+
+4. **Fixed stale docstring in `src/protocols.py`** — `MetadataStoreProtocol` docstring still said "matches the shape that `freshness.apply_freshness` expects" — updated to reference `stages.freshness_scorer.score_freshness`, which is the actual live caller.
+
+5. **Fixed stale comment in `src/freshness.py`** — `compute_freshness()` docstring said "In practice, `apply_freshness` passes the newest corpus date" — updated to "the stages layer passes the newest corpus date".
+
+**Browser verification (Playwright, 65 checks):**
+
+All 11 sections passed. 62/65 raw checks reported as passed; the 3 "failed" were test-script logic bugs (case-sensitive string comparisons against ALL-CAPS UI labels), confirmed as UI-correct in a targeted follow-up pass:
+- Partner FULL column shows `"0\nBLOCKED"` (correct format; test checked wrong order)
+- Evals "RECALL" label is ALL-CAPS (test checked mixed-case `"Recall"`)
+- Evals "PERMISSION VIOLATIONS" label is ALL-CAPS (test checked `"Violation"` against `.lower()`)
+
+**What was verified end-to-end:**
+- Light theme: `rgb(245, 241, 234)` warm cream background
+- Single mode: result cards, summary bar, relevance + freshness bars, tags, doc-id labels, Decision Trace expand/collapse, blocked chips, budget bar
+- Naive policy: 12 `.metric-na` elements show "N/A — skipped by policy"; 0 freshness bars; 12 docs returned
+- Analyst wall ↔: 3 compare columns (NAIVE/RBAC/FULL), 7 `flag-blocked` annotations, 3 open trace panels, analyst banner
+- VP deal view ↔: 3 columns, VP role in banner
+- Partner view ↔: 3 columns, partner banner, FULL column `"0\nBLOCKED"` confirmed
+- Mode switching: Compare → Single, Evals → Single, all clean
+- Evals dashboard: PRECISION@5=0.3000, RECALL=1.0000, PERMISSION VIOLATIONS=0.0%, 8-row table, "Queries run: 8 · Failed: 0"
+- 0 JS console errors
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `3d2738a` (Task 7B DONE)
+- **Working tree:** 5 modified files (uncommitted — this session's work):
+  - `frontend/app.js` — escapeHTML fixes on blocked + stale chip title attributes
+  - `src/main.py` — `except ValueError` guard added to `/query`
+  - `src/protocols.py` — stale docstring updated
+  - `src/freshness.py` — stale comment updated
+  - `tests/test_main.py` — `test_query_invalid_policy_returns_400` added
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified fresh run this session)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (verified fresh run this session)
+- **Browser verification:** COMPLETE — 65/65 checks, 0 UI failures (3 false negatives were test-script bugs)
+- **Hostile review:** `clean` (Prompt 7A — no new review this session; changes are targeted bug fixes only)
+- **Demo status:** READY
+
+### DOCX Scope Match
+
+The project delivers the full promised scope of a **Permission-Aware Context Gateway / Context Policy Lab**:
+
+| Deliverable | Status |
+|-------------|--------|
+| Hybrid retrieval (FAISS semantic + BM25 lexical via RRF) | ✅ Done |
+| RBAC permission filtering (analyst < vp < partner) | ✅ Done |
+| Freshness scoring with stale-pair demotion (0.5× penalty) | ✅ Done |
+| Token budget packing | ✅ Done |
+| Full `DecisionTrace` audit (included/blocked/stale/dropped + metrics) | ✅ Done |
+| Four policy presets (`naive_top_k`, `permission_aware`, `full_policy`, `default`) | ✅ Done |
+| `POST /query` endpoint with policy selector | ✅ Done |
+| `POST /compare` endpoint for side-by-side policy comparison | ✅ Done |
+| `GET /evals` endpoint with cached evaluator results | ✅ Done |
+| Three-mode frontend (Single / Compare / Evals) | ✅ Done |
+| Three one-click compare scenarios (Analyst / VP / Partner) | ✅ Done |
+| Evaluation harness (8 queries, P@5, recall, violation rate, trace metrics) | ✅ Done |
+
+### Remaining Tasks
+
+1. **Commit this batch** — 5 modified files: `frontend/app.js`, `src/main.py`, `src/protocols.py`, `src/freshness.py`, `tests/test_main.py`
+
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; 14 tests already skipped and labelled as legacy. Safe to delete when convenient; no urgency.
+
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s already-loaded copies. Cosmetic only; no correctness impact.
+
+### Blockers and Warnings
+
+None. Project is submission-ready.
+
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility on this Python version.
+- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts if offline.
+
+### Suggested First Action
+
+Commit the 5 modified files. No further work is required before submission.

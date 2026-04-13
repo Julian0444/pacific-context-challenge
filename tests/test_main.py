@@ -56,6 +56,16 @@ def test_query_invalid_role_returns_422():
     assert resp.status_code == 400
 
 
+def test_query_invalid_policy_returns_400():
+    resp = client.post("/query", json={
+        "query": "test",
+        "role": "analyst",
+        "policy_name": "bogus_policy",
+    })
+    assert resp.status_code == 400
+    assert "Unknown policy" in resp.json()["detail"]
+
+
 def test_query_context_has_freshness_scores():
     resp = client.post("/query", json={"query": "Meridian financial model"})
     data = resp.json()

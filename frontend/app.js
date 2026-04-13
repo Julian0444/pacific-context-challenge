@@ -641,14 +641,14 @@ function buildTracePanelHTML(trace, startOpen) {
   const blockedChips = (trace.blocked_by_permission || [])
     .map(
       (d) =>
-        `<span class="trace-chip trace-chip-blocked" title="requires: ${d.required_role}">${escapeHTML(d.doc_id)}<em> ·${d.required_role}</em></span>`
+        `<span class="trace-chip trace-chip-blocked" title="requires: ${escapeHTML(d.required_role)}">${escapeHTML(d.doc_id)}<em> ·${escapeHTML(d.required_role)}</em></span>`
     )
     .join("") || `<span class="trace-chip-empty">none</span>`;
 
   const staleChips = (trace.demoted_as_stale || [])
     .map(
       (d) =>
-        `<span class="trace-chip trace-chip-stale" title="superseded by: ${d.superseded_by} · penalty: ${d.penalty_applied}×">${escapeHTML(d.doc_id)}<em> →${d.superseded_by}</em></span>`
+        `<span class="trace-chip trace-chip-stale" title="superseded by: ${escapeHTML(d.superseded_by)} · penalty: ${d.penalty_applied}×">${escapeHTML(d.doc_id)}<em> →${escapeHTML(d.superseded_by)}</em></span>`
     )
     .join("") || `<span class="trace-chip-empty">none</span>`;
 

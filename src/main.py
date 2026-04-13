@@ -58,6 +58,8 @@ def query(request: QueryRequest):
     # Delegate to the pipeline
     try:
         result = run_pipeline(request, retrieve, _roles, _metadata)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except PipelineError as e:
         raise HTTPException(
             status_code=500,

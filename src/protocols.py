@@ -46,7 +46,7 @@ class MetadataStoreProtocol(Protocol):
 
     Must support ``metadata["documents"]`` → list of doc dicts.
     Each doc dict has at least: id, date, superseded_by.
-    This matches the shape that ``freshness.apply_freshness`` expects.
+    This matches the shape that ``stages.freshness_scorer.score_freshness`` expects.
     """
 
     def __getitem__(self, key: str) -> Any: ...

@@ -26,7 +26,7 @@ def compute_freshness(
         date_str: ISO 8601 date string (YYYY-MM-DD) for the document.
         half_life_days: Number of days for the score to decay by half.
         reference_date: The "now" reference point (YYYY-MM-DD). If None,
-            uses today. In practice, apply_freshness passes the newest
+            uses today. In practice, the stages layer passes the newest
             corpus date so scores are time-independent.
 
     Returns:
