@@ -1190,3 +1190,51 @@ None blocking. The only pending item is manual browser verification (cannot be d
 ### Suggested First Action
 
 Commit the 3 documentation files, then open `frontend/index.html` in a browser with the server running.
+
+---
+
+## Session — 2026-04-12 (Session 17 / Browser Verification: Prompt 7B Demo-Ready)
+
+### Summary
+
+Browser verification pass using `webapp-testing` Playwright skill. **44 passed / 0 failed / 0 warnings.** Prompt 7B is complete and demo-ready. No code changes in this session.
+
+**What was verified:**
+
+- **Light theme:** body background confirmed `rgb(245, 241, 234)` — warm cream as intended
+- **Page load:** QueryTrace brand, 3 mode buttons, empty state with "Permission-Aware Context Gateway" title and "Analyst wall ↔" hint
+- **Scenario rows:** "SINGLE" and "COMPARE" rows both visible and labelled; all 3 scenario buttons present
+- **Single mode:** 5 analyst docs, summary bar, relevance bars, Decision Trace expand/collapse, 13 chips, budget bar
+- **Analyst wall ↔:** 7 `blocked in full` flags on NAIVE column; NAIVE blocked=0, FULL blocked=7; NAIVE freshness shows "N/A" (12 labels); 3 trace panels open by default
+- **VP deal view ↔:** 3 columns, FULL blocked=2, compare banner shows VP role
+- **Partner view ↔:** 3 columns, FULL blocked=0 (full access confirmed), partner role in banner
+- **Mode switching:** Compare → Single: results visible, policy selector restored; Single → Evals: search section hidden
+- **Evals tab:** 10 metric cards, Precision@5=0.3000, Recall=1.0000, Violations=0.0%, 8-row table, footer "Queries run: 8 · Failed: 0"
+- **naive_top_k freshness N/A:** 12 N/A labels confirmed in single mode
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `551972e` (Task 7B almost2 — CLAUDE.md + HANDOFF + plan docs)
+- **Working tree:** modified `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md` (this pass only)
+- **Tests:** 148 passed, 14 skipped, 0 failed
+- **Evaluator:** precision@5=0.3000, recall=1.0000, violations=0%
+- **Browser verification:** COMPLETE — 44/44 Playwright checks
+- **Hostile review:** `clean` (Prompt 7A; Prompt 7B was frontend/docs only)
+- **Demo status:** READY
+
+### Remaining Tasks (ordered)
+
+1. **Commit this documentation batch** — `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
+
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; safe to delete when convenient
+
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` reloads roles/metadata independently of `main.py`'s loaded copies; cosmetic, no correctness impact
+
+### Blockers and Warnings
+
+None. Project is demo-ready.
+
+### Suggested First Action
+
+Commit the 2 documentation files. No further work is required before submission.

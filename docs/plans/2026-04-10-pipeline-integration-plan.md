@@ -170,10 +170,15 @@ All original plan items remain complete. Prompt 7B was a polish and demo-readine
 **Current eval metrics:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
 **Hostile review verdict:** `clean` (from Prompt 7A — no new review; Prompt 7B changes are frontend/docs only)
 
-**Uncommitted files (as of end of Prompt 7B):**
-- `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`, `README.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`, `CLAUDE.md`
+**All Prompt 7B files committed across two commits:**
+- `df2c929 Task 7B almost` — frontend polish + README
+- `551972e Task 7B almost2` — CLAUDE.md + HANDOFF.md + this plan
+
+**Browser verification (completed 2026-04-12):** `webapp-testing` Playwright run — 44 passed / 0 failed / 0 warnings. Confirmed: light theme `rgb(245,241,234)`, Single/Compare/Evals modes, Analyst wall (7 blocked), VP deal view (2 blocked), Partner view (0 blocked), NAIVE freshness N/A, Evals P@5=0.3000/Recall=1.0000/Violations=0%.
+
+**Prompt 7B status: COMPLETE and demo-ready.**
 
 **Remaining optional items (non-blocking):**
-1. Manual browser verification — confirm light theme renders, 3 compare scenarios work, Evals tab displays
+1. ~~Manual browser verification~~ — **DONE** (44/44 Playwright checks pass)
 2. Remove dead code — `apply_freshness()` and `filter_by_role()` are unreachable on the request path
 3. `run_evals()` corpus re-read — reloads roles/metadata independently of `main.py`'s loaded copies; cosmetic, no correctness impact
