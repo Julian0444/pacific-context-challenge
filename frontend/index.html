@@ -23,6 +23,7 @@
       <div class="mode-toggle" role="group" aria-label="View mode">
         <button class="mode-btn active" data-mode="single" aria-pressed="true">Single</button>
         <button class="mode-btn" data-mode="compare" aria-pressed="false">Compare</button>
+        <button class="mode-btn" data-mode="evals" aria-pressed="false">Evals</button>
       </div>
     </div>
   </header>
@@ -126,6 +127,17 @@
       </div>
       <div class="compare-grid" id="compare-grid">
         <!-- Columns injected by app.js -->
+      </div>
+    </section>
+
+    <!-- Evals dashboard (hidden by default) -->
+    <section id="evals-section" class="evals-section" hidden>
+      <div class="evals-header">
+        <h2 class="evals-title">Evaluation Dashboard</h2>
+        <p class="evals-subtitle">Pipeline quality metrics across 8 corpus-grounded test queries</p>
+      </div>
+      <div id="evals-content">
+        <!-- Injected by app.js -->
       </div>
     </section>
 

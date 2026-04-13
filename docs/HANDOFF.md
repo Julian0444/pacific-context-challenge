@@ -958,3 +958,96 @@ Closed the hostile review at `clean` verdict. Applied three targeted fixes to th
 ### Suggested First Action
 
 Commit the 2 modified files (`src/main.py`, `tests/test_main.py`), then plan Prompt 7A scope: decide whether to expose the evaluator via a new API endpoint or as a static artifact, and whether the dashboard panel should show live or cached metrics.
+
+---
+
+## Session — 2026-04-12 (Session 14 / Prompt 7A: Evaluator API + Dashboard)
+
+### Summary
+
+Exposed the evaluator as a structured HTTP endpoint (`GET /evals`) and added a third frontend mode ("Evals" dashboard) that consumes it. Hostile review reached `clean` verdict in two passes. No changes to `/query`, `/compare`, or any pipeline/stage logic.
+
+**What was done:**
+
+1. **Added `GET /evals` to `src/main.py`** — Strictly additive route. Imports `load_test_queries` and `run_evals` from `src/evaluator`. On first call: loads test queries from `evals/test_queries.json`, runs `run_evals(queries, k=5, top_k=8)`, stores result in module-level `_evals_cache`. Subsequent calls return the cached dict immediately (~1.6ms vs. ~5–10s cold). No changes to `/query` or `/compare`.
+
+2. **Added 6 new tests to `tests/test_main.py`** (11 → 17 tests):
+   - `test_evals_returns_200` — status + top-level keys
+   - `test_evals_has_aggregate_keys` — all 12 aggregate metric keys present
+   - `test_evals_has_eight_queries` — per-query list has exactly 8 entries
+   - `test_evals_no_permission_violations` — no successful query has violations (skips error records)
+   - `test_evals_per_query_has_required_keys` — added during hostile review Pass 1; asserts `{id, role, precision_at_5, recall, permission_violations}` in every non-error record (locks the dynamic `precision_at_{k}` key contract at per-query level)
+   - `test_evals_caching_returns_identical_results` — two calls return identical JSON
+
+3. **Added Evals dashboard to frontend** — Third mode "Evals" in the header toggle (Single | Compare | Evals):
+   - Mode switch hides the search section and shows `#evals-section`
+   - Auto-fetches `GET /evals` on first tab switch (lazy — not on page load)
+   - **Aggregate metrics grid** — 10 stat cards (Precision@5, Recall, Permission Violations, Avg Context Docs, Avg Total Tokens, Avg Freshness, Avg Blocked, Avg Stale, Avg Dropped, Avg Budget Util)
+   - **Per-query breakdown table** — 8 rows: Query ID | Role | P@5 | Recall | Docs | Tokens | Freshness | Blocked | Stale | Dropped | Budget | Violations
+   - Loading spinner while evals run; error state routes to existing `renderError()`
+   - All values read from structured `GET /evals` JSON — no CLI output parsing
+   - `escapeHTML()` applied to all string content from the API
+
+4. **Hostile review — two passes, `clean` verdict:**
+   - Pass 1 findings: M-1 (`test_evals_no_permission_violations` failed misleadingly on error records), M-2 (per-query key `precision_at_5` untested — only aggregate was tested), M-3 (evaluator re-reads corpus files independently — noted, not fixed), N-1 (duplicate `@media (max-width: 640px)` CSS block — noted), N-2 (CSS color vars injected into style attribute — safe, noted)
+   - Pass 1 fixes: M-1 resolved (added `if "error" in r: continue`); M-2 resolved (`test_evals_per_query_has_required_keys` added)
+   - Pass 2: no new findings above NIT. Verdict: `clean`
+
+**Key design decisions:**
+
+| Decision | Reason |
+|----------|--------|
+| Module-level `_evals_cache` | `run_evals()` is ~5–10s cold; cache makes endpoint usable from browser without timeout |
+| Route calls `load_test_queries()` + `run_evals()` directly | No duplication of evaluation logic — route is a thin dispatch, evaluator owns all metric computation |
+| Frontend lazy-fetches on first Evals tab switch | Avoids slow startup; user explicitly requests the metrics view |
+| `evalsLoaded` only set on success | Failed fetches retry on re-switch to Evals mode |
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `9568cf2` (Hostile review) — all Prompt 7A work is **uncommitted**
+- **Modified files (uncommitted):**
+  - `src/main.py` — `GET /evals` route + imports + `_evals_cache`
+  - `tests/test_main.py` — 6 new `/evals` tests
+  - `frontend/app.js` — Evals mode, `runEvals()`, `renderEvals()`, `fmtPct()`
+  - `frontend/index.html` — "Evals" mode button + `#evals-section`
+  - `frontend/styles.css` — Evals dashboard styles (metrics grid, table, loading spinner)
+- **Tests:** 148 passed, 14 skipped, 0 failed
+  - `tests/test_main.py` — 17 passed (6 query + 4 compare + 6 evals + 1 health)
+  - All other test files unchanged from Prompt 6
+- **Evaluator metrics** (unchanged):
+  - Avg Precision@5: **0.3000**
+  - Avg Recall: **1.0000**
+  - Permission violation rate: **0%**
+  - Avg context docs: 8.62 | Avg total tokens: 1078.0
+  - Avg freshness score: 7.68e-01
+  - Avg blocked: 3.38 | avg stale: 1.62 | avg dropped: 0.0 | avg budget util: 53%
+- **Hostile review verdict:** `clean` (Pass 2 confirmed no new findings)
+- **Browser visual verification:** **Not confirmed.** JS syntax verified (`node --check`), endpoint verified via `curl` (200, correct JSON shape, 1.6ms cached response). Playwright was not available locally. The Evals tab visual rendering requires manual browser check.
+
+### Remaining Tasks (ordered)
+
+1. **Commit this batch** — 5 modified files. Suggested message: "Prompt 7A: GET /evals endpoint + frontend Evals dashboard".
+
+2. **Browser visual verification** — Open `frontend/index.html` with server running (`uvicorn src.main:app --reload`) and click the "Evals" tab. Confirm: loading spinner appears, then 10 metric cards + 8-row table render, numbers display in IBM Plex Mono, switching back to Single/Compare modes works cleanly.
+
+3. **Prompt 7B — Display quality fixes (low priority):**
+   - `naive_top_k` freshness scores render as `0.0` in compare mode (freshness is skipped for that policy — a `N/A` display would remove the misleading signal)
+   - `POLICY_META` fallback in `app.js` defaults to green FULL-style badge for unknown policy names (cosmetic)
+   - Duplicate `@media (max-width: 640px)` CSS block (NITs from hostile review — merge into one)
+
+4. **Demo readiness check** — Confirm all user journeys work end-to-end: single query + trace, compare mode, Sarah-as-Analyst scenario, eval metrics view. Once browser-verified, the full pipeline story is demonstrable without CLI.
+
+5. **`apply_freshness()` and `filter_by_role()` dead code** — Still present in `freshness.py` and `policies.py`. Can be removed when convenient; no urgency.
+
+### Blockers and Warnings
+
+- **All Prompt 7A work is uncommitted** — 5 modified files need a commit before the next session begins.
+- **Browser verification pending** — Evals tab was not opened in a real browser. Functional correctness is verified via tests and curl; visual layout is unconfirmed.
+- **`run_evals()` re-reads corpus files** — Hostile review M-3 (noted, not fixed): `run_evals()` calls `load_roles()` and `open(metadata)` independently of the already-loaded `_roles`/`_metadata` in `main.py`. Not a correctness issue; noted for future cleanup.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
+
+### Suggested First Action
+
+Commit the 5 uncommitted files, then open `frontend/index.html` in a browser with the server running and click the "Evals" tab to complete the visual verification that was not possible from the CLI.

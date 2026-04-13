@@ -110,3 +110,68 @@ def test_compare_unknown_policy_returns_400():
         "policies": ["unknown_policy"],
     })
     assert resp.status_code == 400
+
+
+# ── /evals endpoint tests ──
+
+_EXPECTED_AGGREGATE_KEYS = {
+    "queries_run",
+    "queries_failed",
+    "avg_precision_at_5",
+    "avg_recall",
+    "permission_violation_rate",
+    "avg_context_docs",
+    "avg_total_tokens",
+    "avg_freshness_score",
+    "avg_blocked_count",
+    "avg_stale_count",
+    "avg_dropped_count",
+    "avg_budget_utilization",
+}
+
+
+def test_evals_returns_200():
+    resp = client.get("/evals")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "per_query" in data
+    assert "aggregate" in data
+
+
+def test_evals_has_aggregate_keys():
+    data = client.get("/evals").json()
+    actual_keys = set(data["aggregate"].keys())
+    assert _EXPECTED_AGGREGATE_KEYS.issubset(actual_keys), (
+        f"Missing aggregate keys: {_EXPECTED_AGGREGATE_KEYS - actual_keys}"
+    )
+
+
+def test_evals_has_eight_queries():
+    data = client.get("/evals").json()
+    assert len(data["per_query"]) == 8
+
+
+def test_evals_no_permission_violations():
+    data = client.get("/evals").json()
+    for r in data["per_query"]:
+        if "error" in r:
+            continue  # skip error records — they have no permission_violations key
+        assert r.get("permission_violations") == [], (
+            f"Query {r['id']} has permission violations: {r.get('permission_violations')}"
+        )
+
+
+def test_evals_per_query_has_required_keys():
+    data = client.get("/evals").json()
+    required = {"id", "role", "precision_at_5", "recall", "permission_violations"}
+    for r in data["per_query"]:
+        if "error" in r:
+            continue  # error records only have id, query, role, error
+        missing = required - set(r.keys())
+        assert not missing, f"Query {r.get('id')} missing keys: {missing}"
+
+
+def test_evals_caching_returns_identical_results():
+    resp1 = client.get("/evals")
+    resp2 = client.get("/evals")
+    assert resp1.json() == resp2.json()

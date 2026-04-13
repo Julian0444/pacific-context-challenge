@@ -1398,6 +1398,203 @@ body {
   }
 }
 
+/* ─── Evals Dashboard ─── */
+
+.evals-section {
+  margin-top: 0.5rem;
+}
+
+.evals-header {
+  margin-bottom: 1.5rem;
+}
+
+.evals-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.evals-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+/* Aggregate metric cards grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1.75rem;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  animation: cardIn 0.3s var(--ease) both;
+}
+
+.metric-card-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.metric-card-value {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Per-query table */
+.evals-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.evals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.evals-table thead {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.evals-table th {
+  padding: 0.6rem 0.65rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.6rem;
+  white-space: nowrap;
+}
+
+.evals-table td {
+  padding: 0.55rem 0.65rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.evals-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.evals-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.evals-table tbody tr:hover {
+  background: rgba(200, 165, 90, 0.04);
+}
+
+.evals-id-cell {
+  font-weight: 600;
+  color: var(--accent) !important;
+}
+
+.evals-role-chip {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.4rem;
+}
+
+.mono-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.val-blocked { color: var(--trace-blocked) !important; font-weight: 600; }
+.val-stale { color: var(--trace-stale) !important; font-weight: 600; }
+.val-dropped { color: var(--trace-dropped) !important; font-weight: 600; }
+.val-violation { color: var(--trace-blocked) !important; font-weight: 700; }
+.val-ok { color: var(--score-high) !important; }
+
+.evals-row-violation {
+  background: var(--trace-blocked-bg) !important;
+}
+
+.evals-row-error td {
+  color: var(--text-tertiary) !important;
+}
+
+.evals-error-cell {
+  font-style: italic;
+  color: var(--trace-blocked) !important;
+}
+
+.evals-footer {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  margin-top: 0.75rem;
+  text-align: right;
+}
+
+/* Evals loading state */
+.evals-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  gap: 1rem;
+}
+
+.evals-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.evals-loading-text {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 960px) {
+  .metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .evals-table {
+    font-size: 0.62rem;
+  }
+}
+
 @media (max-width: 640px) {
   .main {
     padding: 1.25rem 1rem 3rem;

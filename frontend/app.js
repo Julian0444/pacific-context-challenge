@@ -37,10 +37,13 @@ const compareGrid = document.getElementById("compare-grid");
 const compareBannerText = document.getElementById("compare-banner-text");
 const mainEl = document.getElementById("main");
 const singlePolicySelector = document.getElementById("single-policy-selector");
+const evalsSection = document.getElementById("evals-section");
+const evalsContent = document.getElementById("evals-content");
 
 // ── Mode state ──
 
-let currentMode = "single"; // "single" | "compare"
+let currentMode = "single"; // "single" | "compare" | "evals"
+let evalsLoaded = false;
 
 // ── Mode toggle ──
 
@@ -61,10 +64,21 @@ function switchMode(mode) {
   });
 
   const isCompare = mode === "compare";
-  singlePolicySelector.hidden = isCompare;
-  resultsSection.hidden = isCompare;
+  const isEvals = mode === "evals";
+
+  singlePolicySelector.hidden = isCompare || isEvals;
+  resultsSection.hidden = isCompare || isEvals;
   compareSection.hidden = !isCompare;
+  evalsSection.hidden = !isEvals;
   mainEl.classList.toggle("compare-mode", isCompare);
+
+  // Hide query form in evals mode — it's not relevant
+  document.querySelector(".search-section").hidden = isEvals;
+
+  // Auto-fetch evals on first switch
+  if (isEvals && !evalsLoaded) {
+    runEvals();
+  }
 }
 
 // ── Form submission ──
@@ -484,6 +498,114 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked) {
         </div>
       </div>
     </article>`;
+}
+
+// ── Evals dashboard ──
+
+async function runEvals() {
+  evalsContent.innerHTML = skeletonEvalsHTML();
+  try {
+    const res = await fetch(`${API_BASE}/evals`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Server returned ${res.status}`);
+    }
+    const data = await res.json();
+    evalsLoaded = true;
+    renderEvals(data);
+  } catch (err) {
+    renderError(err, evalsContent);
+  }
+}
+
+function skeletonEvalsHTML() {
+  return `
+    <div class="evals-loading">
+      <div class="evals-loading-spinner"></div>
+      <p class="evals-loading-text">Running 8 pipeline queries…</p>
+    </div>`;
+}
+
+function renderEvals(data) {
+  const agg = data.aggregate;
+  const queries = data.per_query;
+
+  const cards = [
+    { label: "Precision@5", value: (agg.avg_precision_at_5 ?? 0).toFixed(4), color: "var(--accent)" },
+    { label: "Recall", value: (agg.avg_recall ?? 0).toFixed(4), color: "var(--score-high)" },
+    { label: "Permission Violations", value: fmtPct(agg.permission_violation_rate ?? 0), color: agg.permission_violation_rate > 0 ? "var(--trace-blocked)" : "var(--score-high)" },
+    { label: "Avg Context Docs", value: (agg.avg_context_docs ?? 0).toFixed(1), color: "var(--text-secondary)" },
+    { label: "Avg Total Tokens", value: (agg.avg_total_tokens ?? 0).toFixed(0), color: "var(--text-secondary)" },
+    { label: "Avg Freshness", value: (agg.avg_freshness_score ?? 0).toFixed(4), color: "var(--fresh-high)" },
+    { label: "Avg Blocked", value: (agg.avg_blocked_count ?? 0).toFixed(1), color: "var(--trace-blocked)" },
+    { label: "Avg Stale", value: (agg.avg_stale_count ?? 0).toFixed(1), color: "var(--trace-stale)" },
+    { label: "Avg Dropped", value: (agg.avg_dropped_count ?? 0).toFixed(1), color: "var(--trace-dropped)" },
+    { label: "Avg Budget Util", value: fmtPct(agg.avg_budget_utilization ?? 0), color: "var(--accent)" },
+  ];
+
+  const cardsHTML = cards
+    .map(
+      (c, i) => `
+      <div class="metric-card" style="animation-delay: ${i * 40}ms">
+        <span class="metric-card-label">${escapeHTML(c.label)}</span>
+        <span class="metric-card-value" style="color: ${c.color}">${escapeHTML(c.value)}</span>
+      </div>`
+    )
+    .join("");
+
+  const headerRow = `
+    <tr>
+      <th>Query</th>
+      <th>Role</th>
+      <th>P@5</th>
+      <th>Recall</th>
+      <th>Docs</th>
+      <th>Tokens</th>
+      <th>Freshness</th>
+      <th>Blocked</th>
+      <th>Stale</th>
+      <th>Dropped</th>
+      <th>Budget</th>
+      <th>Violations</th>
+    </tr>`;
+
+  const bodyRows = queries
+    .map((q) => {
+      if (q.error) {
+        return `<tr class="evals-row-error"><td>${escapeHTML(q.id)}</td><td colspan="11" class="evals-error-cell">${escapeHTML(q.error)}</td></tr>`;
+      }
+      const hasViolation = q.permission_violations && q.permission_violations.length > 0;
+      return `
+        <tr class="${hasViolation ? "evals-row-violation" : ""}">
+          <td class="evals-id-cell">${escapeHTML(q.id)}</td>
+          <td><span class="evals-role-chip">${escapeHTML(q.role)}</span></td>
+          <td class="mono-cell">${(q.precision_at_5 ?? 0).toFixed(2)}</td>
+          <td class="mono-cell">${(q.recall ?? 0).toFixed(2)}</td>
+          <td class="mono-cell">${q.context_docs ?? 0}</td>
+          <td class="mono-cell">${q.total_tokens ?? 0}</td>
+          <td class="mono-cell">${(q.avg_freshness_score ?? 0).toFixed(3)}</td>
+          <td class="mono-cell${q.blocked_count > 0 ? " val-blocked" : ""}">${q.blocked_count ?? 0}</td>
+          <td class="mono-cell${q.stale_count > 0 ? " val-stale" : ""}">${q.stale_count ?? 0}</td>
+          <td class="mono-cell${q.dropped_count > 0 ? " val-dropped" : ""}">${q.dropped_count ?? 0}</td>
+          <td class="mono-cell">${fmtPct(q.budget_utilization ?? 0)}</td>
+          <td class="mono-cell${hasViolation ? " val-violation" : " val-ok"}">${hasViolation ? q.permission_violations.join(", ") : "none"}</td>
+        </tr>`;
+    })
+    .join("");
+
+  evalsContent.innerHTML = `
+    <div class="metrics-grid">${cardsHTML}</div>
+    <div class="evals-table-wrap">
+      <table class="evals-table">
+        <thead>${headerRow}</thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+    <p class="evals-footer">Queries run: ${agg.queries_run ?? 0} · Failed: ${agg.queries_failed ?? 0}</p>`;
+}
+
+function fmtPct(v) {
+  return (v * 100).toFixed(1) + "%";
 }
 
 // ── Build Decision Trace panel HTML ──

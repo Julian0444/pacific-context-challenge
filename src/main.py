@@ -8,6 +8,7 @@ No pipeline business logic lives here.
 
 import json
 import os
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,7 @@ from src.models import QueryRequest, QueryResponse, DocumentChunk, CompareReques
 from src.pipeline import run_pipeline, PipelineError
 from src.policies import load_roles
 from src.retriever import retrieve
+from src.evaluator import load_test_queries, run_evals
 
 app = FastAPI(title="QueryTrace", version="0.2.0")
 
@@ -34,6 +36,9 @@ _roles = load_roles(_ROLES_PATH)
 
 with open(_METADATA_PATH, "r") as _f:
     _metadata = json.load(_f)
+
+_EVALS_PATH = os.path.join(os.path.dirname(__file__), "..", "evals", "test_queries.json")
+_evals_cache: Optional[dict] = None
 
 
 @app.get("/health")
@@ -132,3 +137,13 @@ def compare(request: CompareRequest):
         )
 
     return CompareResponse(query=request.query, role=request.role, results=results)
+
+
+@app.get("/evals")
+def evals():
+    """Return cached evaluator results (runs on first call, cached thereafter)."""
+    global _evals_cache
+    if _evals_cache is None:
+        queries = load_test_queries(_EVALS_PATH)
+        _evals_cache = run_evals(queries, k=5, top_k=8)
+    return _evals_cache

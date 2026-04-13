@@ -119,13 +119,18 @@ Fully implemented and wired to `run_pipeline()`. `run_evals()` runs 8 corpus-gro
 
 Runs the same query through multiple policy presets side-by-side. Calls `run_pipeline()` for each requested policy — no business logic duplication. Request accepts `query`, `role`, `top_k`, and `policies` (default: all three presets). Returns `CompareResponse` with `results: Dict[str, QueryResponse]` keyed by policy name.
 
+### Evals endpoint (GET /evals in `src/main.py`)
+
+Returns cached evaluator results as structured JSON. On first call: loads `evals/test_queries.json`, runs `run_evals(queries, k=5, top_k=8)` through the production pipeline, and stores the result in a module-level cache. Subsequent calls return the cached dict (~1.6ms). Response shape: `{ "per_query": [...], "aggregate": {...} }`. The route is a thin dispatch — all metric logic lives in `src/evaluator.py`.
+
 ### Frontend
 
 Static HTML/CSS/JS in `frontend/` — no build step. Open `frontend/index.html` directly in a browser with the server running.
 
-Two modes controlled by a header toggle:
+Three modes controlled by a header toggle:
 - **Single mode** — calls `POST /query` with a selected policy (naive/rbac/full). Renders result cards with relevance + freshness bars, tags, and a collapsible Decision Trace panel showing included/blocked/stale/dropped chips and budget utilization.
 - **Compare mode** — calls `POST /compare`. Renders three side-by-side policy columns (NAIVE/RBAC/FULL) with severity-colored headers, stats strips (included/tokens/blocked/stale/dropped/ttft), compact doc cards, and expanded Decision Trace panels. Docs in the naive column that are blocked in `full_policy` are flagged with `blocked in full` annotations.
+- **Evals mode** — calls `GET /evals` (lazy on first tab switch). Renders 10 aggregate metric cards (precision@5, recall, permission_violation_rate, avg_context_docs, avg_total_tokens, avg_freshness_score, avg_blocked_count, avg_stale_count, avg_dropped_count, avg_budget_utilization) and an 8-row per-query breakdown table.
 
 "Sarah as Analyst ↔" scenario button switches to compare mode, sets analyst role and ARR query, and auto-submits — directly demonstrates permission filtering across policies.
 

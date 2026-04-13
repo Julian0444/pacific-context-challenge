@@ -122,6 +122,30 @@ All planned items are now complete. The only open items are post-plan hardening 
 - `test_compare_empty_policies_returns_400` added
 - `tests/test_main.py`: 9 → 11 tests
 
-**Current test state:** 142 passed, 14 skipped, 0 failed
+**Current test state after Prompt 6:** 142 passed, 14 skipped, 0 failed
 **Current eval metrics:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0%
-**Hostile review verdict:** `clean` (two consecutive clean passes — Pass 2 and Pass 3)
+**Hostile review verdict (Prompt 6):** `clean` (two consecutive clean passes — Pass 2 and Pass 3)
+
+---
+
+## Prompt 7A Outcome (completed 2026-04-12)
+
+All original plan items remain complete. Prompt 7A added evaluator HTTP exposure and frontend Evals dashboard — both outside the original plan scope.
+
+**Completed in Prompt 7A:**
+- `GET /evals` endpoint added to `src/main.py` — calls `run_evals()` via existing evaluator; module-level cache (`_evals_cache`) for ~1.6ms warm responses vs. ~5–10s cold. Additive: no changes to `/query` or `/compare`.
+- 6 new tests in `tests/test_main.py` (11 → 17): status, aggregate keys, 8-query count, no violations (with error-record guard), per-query key shape (`precision_at_5` contract), caching identity
+- Frontend third mode "Evals": lazy-fetches `GET /evals` on first tab switch; 10 aggregate metric cards + 8-row per-query breakdown table; structured JSON consumed directly (no CLI text parsing)
+- Hostile review: Pass 1 found 2 MINOR (misleading test assertion on error records; per-query key untested) + 1 MINOR noted (evaluator re-reads corpus files) + 2 NIT. Both MINORs fixed. Pass 2 clean. Verdict: `clean`
+
+**Current test state after Prompt 7A:** 148 passed, 14 skipped, 0 failed
+**Current eval metrics:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
+**Hostile review verdict (Prompt 7A):** `clean`
+
+**Uncommitted files (as of end of Prompt 7A):**
+- `src/main.py`, `tests/test_main.py`, `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`
+
+**Remaining post-plan items:**
+1. Commit Prompt 7A batch
+2. Browser visual verification of Evals tab (not yet performed — only curl + JS syntax check done)
+3. Prompt 7B display-quality fixes: `naive_top_k` freshness shows `0.0` (misleading); `POLICY_META` unknown-policy badge fallback; duplicate CSS `@media` block
