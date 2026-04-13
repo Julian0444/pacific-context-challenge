@@ -149,3 +149,31 @@ All original plan items remain complete. Prompt 7A added evaluator HTTP exposure
 1. Commit Prompt 7A batch
 2. Browser visual verification of Evals tab (not yet performed — only curl + JS syntax check done)
 3. Prompt 7B display-quality fixes: `naive_top_k` freshness shows `0.0` (misleading); `POLICY_META` unknown-policy badge fallback; duplicate CSS `@media` block
+
+---
+
+## Prompt 7B Outcome (completed 2026-04-12)
+
+All original plan items remain complete. Prompt 7B was a polish and demo-readiness pass — no backend changes.
+
+**Completed in Prompt 7B:**
+
+- **Light theme migration** (`frontend/styles.css` full rewrite): warm parchment palette (`--bg-page: #f5f1ea`, `--bg-card: #ffffff`, amber `#8b6914`), shadow system added, duplicate `@media` blocks merged (4 → 2)
+- **VP and Partner compare scenarios** added to `frontend/index.html`: "VP deal view ↔" and "Partner view ↔" alongside the existing "Analyst wall ↔" (renamed from "Sarah as Analyst ↔"). Two-row scenario layout ("Single" / "Compare") with role-dot indicators
+- **`naive_top_k` freshness N/A fix** (`frontend/app.js`): freshness score now renders as "N/A — skipped by policy" instead of misleading `0.00` in both single and compare card views. `skipFreshness: true` added to POLICY_META
+- **POLICY_META fallback badge fix**: unknown policy variant changed from `"full"` (green) to `"unknown"` (neutral grey `col-badge-unknown`)
+- **README complete rewrite**: old TODO-list stub replaced with demo table, pipeline diagram, policy preset matrix, corpus access control docs, curl examples, evaluator metrics, artifact regeneration instructions
+- **CLAUDE.md**: fixed `uvicorn` command to `python3 -m uvicorn`; updated frontend scenario reference
+- **Verification pass**: `python3 -m pytest -q` → 148 passed, 14 skipped, 0 failed; `python3 -m src.evaluator` → precision@5=0.3000, recall=1.0000, violations=0%; JS syntax clean; all 3 endpoints verified via curl
+
+**Current test state after Prompt 7B:** 148 passed, 14 skipped, 0 failed
+**Current eval metrics:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
+**Hostile review verdict:** `clean` (from Prompt 7A — no new review; Prompt 7B changes are frontend/docs only)
+
+**Uncommitted files (as of end of Prompt 7B):**
+- `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`, `README.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`, `CLAUDE.md`
+
+**Remaining optional items (non-blocking):**
+1. Manual browser verification — confirm light theme renders, 3 compare scenarios work, Evals tab displays
+2. Remove dead code — `apply_freshness()` and `filter_by_role()` are unreachable on the request path
+3. `run_evals()` corpus re-read — reloads roles/metadata independently of `main.py`'s loaded copies; cosmetic, no correctness impact

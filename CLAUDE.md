@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pip install -r requirements.txt
 
 # Run the API server (from repo root)
-uvicorn src.main:app --reload
+python3 -m uvicorn src.main:app --reload
 # API at http://localhost:8000, docs at http://localhost:8000/docs
 
 # Rebuild the FAISS index after changing corpus documents
@@ -132,7 +132,7 @@ Three modes controlled by a header toggle:
 - **Compare mode** — calls `POST /compare`. Renders three side-by-side policy columns (NAIVE/RBAC/FULL) with severity-colored headers, stats strips (included/tokens/blocked/stale/dropped/ttft), compact doc cards, and expanded Decision Trace panels. Docs in the naive column that are blocked in `full_policy` are flagged with `blocked in full` annotations.
 - **Evals mode** — calls `GET /evals` (lazy on first tab switch). Renders 10 aggregate metric cards (precision@5, recall, permission_violation_rate, avg_context_docs, avg_total_tokens, avg_freshness_score, avg_blocked_count, avg_stale_count, avg_dropped_count, avg_budget_utilization) and an 8-row per-query breakdown table.
 
-"Sarah as Analyst ↔" scenario button switches to compare mode, sets analyst role and ARR query, and auto-submits — directly demonstrates permission filtering across policies.
+Three one-click compare scenarios in the UI: "Analyst wall ↔" (analyst, ARR query — 7 docs blocked), "VP deal view ↔" (vp, financial model query), "Partner view ↔" (partner, IC memo query). Each auto-switches to Compare mode and submits. `naive_top_k` freshness displays as "N/A" since freshness scoring is skipped for that policy.
 
 ## Environment note
 

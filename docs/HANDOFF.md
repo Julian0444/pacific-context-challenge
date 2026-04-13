@@ -1103,7 +1103,7 @@ Light theme migration, VP/Partner scenario triggers, freshness N/A fix, POLICY_M
 
 - **Branch:** `main`
 - **Last commit:** `0f9f548` (Task 7A)
-- **Working tree:** 4 modified files uncommitted:
+- **Working tree:** 5 modified files uncommitted:
   - `frontend/app.js` — freshness N/A, fallback badge, VP/Partner scenario JS
   - `frontend/index.html` — two-row scenarios, VP/Partner buttons, improved empty state
   - `frontend/styles.css` — full light theme rewrite
@@ -1116,7 +1116,7 @@ Light theme migration, VP/Partner scenario triggers, freshness N/A fix, POLICY_M
 
 ### Remaining Tasks (ordered)
 
-1. **Commit this batch** — `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`, `README.md`, `docs/HANDOFF.md`
+1. **Commit this batch** — `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`, `README.md`, `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
 
 2. **Browser visual verification** — Open `frontend/index.html` with server running, confirm:
    - Light theme renders correctly (cream background, white cards, warm amber accent)
@@ -1138,3 +1138,55 @@ Light theme migration, VP/Partner scenario triggers, freshness N/A fix, POLICY_M
 ### Suggested First Action
 
 Commit the batch, then open `frontend/index.html` in a browser with `python3 -m uvicorn src.main:app --reload` running. Click "Analyst wall ↔" to verify the permission wall compare scenario, then switch to the Evals tab.
+
+---
+
+## Session — 2026-04-12 (Session 16 / Documentation Pass: Handoff + CLAUDE.md + Plan)
+
+### Summary
+
+Documentation-only pass after Prompt 7B code was committed as `df2c929 Task 7B almost`. No code changes. Updated CLAUDE.md, integration plan, and HANDOFF.md to reflect the completed Prompt 7B state.
+
+**What was done:**
+
+1. **CLAUDE.md** — two stale items fixed:
+   - `uvicorn src.main:app --reload` → `python3 -m uvicorn src.main:app --reload` (uvicorn not on PATH on this system)
+   - Frontend scenario reference updated: "Sarah as Analyst ↔" → correct three-scenario description with "Analyst wall ↔", "VP deal view ↔", "Partner view ↔"
+
+2. **Integration plan** — Prompt 7B Outcome section appended (light theme, VP/Partner scenarios, freshness N/A fix, README rewrite, verification results)
+
+3. **HANDOFF.md** — Session 15's commit list and file count corrected; this entry added
+
+### Current State
+
+- **Branch:** `main`
+- **Commits:** `df2c929` (Task 7B almost — contains Prompt 7B frontend polish + README rewrite)
+- **Working tree:** 3 modified files uncommitted (this documentation pass only):
+  - `CLAUDE.md` — uvicorn command + scenario reference
+  - `docs/HANDOFF.md` — this entry
+  - `docs/plans/2026-04-10-pipeline-integration-plan.md` — Prompt 7B outcome section
+- **Tests:** 148 passed, 14 skipped, 0 failed
+- **Evaluator:** precision@5=0.3000, recall=1.0000, violations=0%
+- **Hostile review:** `clean` (Prompt 7A — no new review; Prompt 7B was frontend/docs only)
+
+### Remaining Tasks (ordered)
+
+1. **Commit this documentation batch** — `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
+
+2. **Browser visual verification** — Open `frontend/index.html` with `python3 -m uvicorn src.main:app --reload` running. Confirm:
+   - Light theme renders (cream background, white cards, warm amber accent)
+   - "Single" and "Compare" scenario rows visible and labelled
+   - "Analyst wall ↔" shows 7 blocked in full/rbac, 0 in naive
+   - "VP deal view ↔" and "Partner view ↔" trigger compare mode with correct roles
+   - Naive column freshness shows "freshness N/A" not 0.00
+   - Evals tab renders 10 metric cards + 8-row per-query table
+
+3. **Optional: Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path
+
+### Blockers and Warnings
+
+None blocking. The only pending item is manual browser verification (cannot be done from CLI).
+
+### Suggested First Action
+
+Commit the 3 documentation files, then open `frontend/index.html` in a browser with the server running.
