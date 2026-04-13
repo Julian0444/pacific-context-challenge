@@ -10,16 +10,19 @@ const POLICY_META = {
     label: "NAIVE",
     desc: "raw retrieval · no filters",
     variant: "naive",
+    skipFreshness: true,
   },
   permission_aware: {
     label: "RBAC",
     desc: "role-based access control · budget enforced",
     variant: "rbac",
+    skipFreshness: false,
   },
   full_policy: {
     label: "FULL",
     desc: "rbac · freshness · budget",
     variant: "full",
+    skipFreshness: false,
   },
 };
 
@@ -289,7 +292,7 @@ function renderSingleResult(data, role, policy) {
     </div>`;
 
   const cardsHTML = data.context
-    .map((chunk, i) => singleCardHTML(chunk, i))
+    .map((chunk, i) => singleCardHTML(chunk, i, policy))
     .join("");
 
   const traceHTML = trace
@@ -304,11 +307,12 @@ function renderSingleResult(data, role, policy) {
 
 // ── Render: single result card ──
 
-function singleCardHTML(chunk, index) {
+function singleCardHTML(chunk, index, policy) {
   const score = chunk.score ?? 0;
   const freshness = chunk.freshness_score ?? 0;
   const scorePct = Math.round(score * 100);
   const freshPct = Math.round(freshness * 100);
+  const skipFreshness = (POLICY_META[policy] || {}).skipFreshness === true;
 
   const accentColor =
     score > 0.6
@@ -322,6 +326,21 @@ function singleCardHTML(chunk, index) {
     .join("");
 
   const contentPreview = escapeHTML(chunk.content || "").slice(0, 480);
+
+  const freshnessMetricHTML = skipFreshness
+    ? `<div class="metric">
+        <div class="metric-label">Freshness</div>
+        <span class="metric-na">N/A — skipped by policy</span>
+       </div>`
+    : `<div class="metric">
+        <div class="metric-label">Freshness</div>
+        <div class="metric-bar-container">
+          <div class="metric-bar">
+            <div class="metric-bar-fill freshness" style="width: ${freshPct}%"></div>
+          </div>
+          <span class="metric-value">${freshness.toFixed(2)}</span>
+        </div>
+       </div>`;
 
   return `
     <article class="result-card" style="--card-accent: ${accentColor}; animation-delay: ${index * 50}ms">
@@ -340,15 +359,7 @@ function singleCardHTML(chunk, index) {
             <span class="metric-value">${score.toFixed(2)}</span>
           </div>
         </div>
-        <div class="metric">
-          <div class="metric-label">Freshness</div>
-          <div class="metric-bar-container">
-            <div class="metric-bar">
-              <div class="metric-bar-fill freshness" style="width: ${freshPct}%"></div>
-            </div>
-            <span class="metric-value">${freshness.toFixed(2)}</span>
-          </div>
-        </div>
+        ${freshnessMetricHTML}
       </div>
       ${tagsHTML ? `<div class="card-tags">${tagsHTML}</div>` : ""}
     </article>`;
@@ -383,7 +394,8 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx) {
   const meta = POLICY_META[policyName] || {
     label: policyName.toUpperCase(),
     desc: "",
-    variant: "full",
+    variant: "unknown",
+    skipFreshness: false,
   };
   const trace = result.decision_trace;
   const metrics = trace?.metrics;
@@ -430,7 +442,7 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx) {
             const wouldBeBlocked =
               policyName === "naive_top_k" &&
               highlights.blockedInFull.has(doc.doc_id);
-            return buildCompareCardHTML(doc, i, wouldBeBlocked);
+            return buildCompareCardHTML(doc, i, wouldBeBlocked, policyName);
           })
           .join("")
       : `<div class="col-empty">No documents included</div>`;
@@ -457,11 +469,12 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx) {
 
 // ── Build compact compare card ──
 
-function buildCompareCardHTML(doc, index, wouldBeBlocked) {
+function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
   const score = doc.score ?? 0;
   const freshness = doc.freshness_score ?? 0;
   const scorePct = Math.min(100, Math.round(score * 100));
   const freshPct = Math.min(100, Math.round(freshness * 100));
+  const skipFreshness = (POLICY_META[policyName] || {}).skipFreshness === true;
 
   const accentColor =
     score > 0.6
@@ -475,6 +488,15 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked) {
     : "";
 
   const contentSnippet = escapeHTML((doc.content || "").slice(0, 160));
+
+  const freshnessHTML = skipFreshness
+    ? `<div class="mini-metric"><span class="mini-na">freshness N/A</span></div>`
+    : `<div class="mini-metric">
+        <span class="mini-bar-wrap">
+          <span class="mini-bar" style="width: ${freshPct}%; background: var(--fresh-high)"></span>
+        </span>
+        <span class="mini-val">${freshness.toFixed(2)}</span>
+       </div>`;
 
   return `
     <article class="compare-card" style="--card-accent: ${accentColor}; animation-delay: ${index * 35}ms">
@@ -490,12 +512,7 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked) {
           </span>
           <span class="mini-val">${score.toFixed(2)}</span>
         </div>
-        <div class="mini-metric">
-          <span class="mini-bar-wrap">
-            <span class="mini-bar" style="width: ${freshPct}%; background: var(--fresh-high)"></span>
-          </span>
-          <span class="mini-val">${freshness.toFixed(2)}</span>
-        </div>
+        ${freshnessHTML}
       </div>
     </article>`;
 }

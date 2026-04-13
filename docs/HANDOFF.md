@@ -1051,3 +1051,90 @@ Exposed the evaluator as a structured HTTP endpoint (`GET /evals`) and added a t
 ### Suggested First Action
 
 Commit the 5 uncommitted files, then open `frontend/index.html` in a browser with the server running and click the "Evals" tab to complete the visual verification that was not possible from the CLI.
+
+---
+
+## Session — 2026-04-12 (Session 15 / Prompt 7B: Light Theme + Demo Polish)
+
+### Summary
+
+Light theme migration, VP/Partner scenario triggers, freshness N/A fix, POLICY_META fallback fix, duplicate @media cleanup, and complete README rewrite.
+
+**What was done:**
+
+1. **Light theme migration** (`frontend/styles.css` — full rewrite):
+   - `:root` rewritten to warm parchment palette: `--bg-page: #f5f1ea`, `--bg-card: #ffffff`, warm amber accent `#8b6914`, policy colors re-tuned for legibility on light backgrounds
+   - Shadow system added (`--shadow-card`, `--shadow-card-hover`, `--shadow-header`) — warm shadows replace dark-theme glow effects; applied to header, result cards, compare columns, compare cards, trace panels, mode toggle, and chips
+   - Compare column docs area uses `--bg-surface` tint to separate doc cards from white column background
+   - Evals table alternating row direction fixed: `rgba(255,255,255,0.015)` → `rgba(28,26,23,0.02)`
+   - Two duplicate `@media (max-width: 640px)` blocks merged; two `@media (max-width: 960px)` blocks merged (4 → 2 total)
+
+2. **Scenario discoverability** (`frontend/index.html`):
+   - Examples row redesigned into two labelled groups: "Single" (3 single-mode queries) and "Compare" (3 compare-mode scenarios)
+   - Added VP and Partner compare scenarios: "VP deal view ↔" and "Partner view ↔"
+   - Role-dot indicators on all example buttons (amber=analyst, teal=VP, green=partner)
+   - Scenario buttons styled with per-role color border coding
+   - Empty state updated to "Permission-Aware Context Gateway" with `.empty-hint` pointing to "Analyst wall ↔"
+   - Evals subtitle made more descriptive
+
+3. **Bug fixes** (`frontend/app.js`):
+   - `naive_top_k` freshness shows "N/A — skipped by policy" / "freshness N/A" instead of `0.00` in both single and compare card views (`skipFreshness: true` in POLICY_META, propagated to `singleCardHTML` and `buildCompareCardHTML`)
+   - POLICY_META fallback badge changed from `variant: "full"` (misleading green) to `variant: "unknown"` (neutral grey `.col-badge-unknown`)
+   - New CSS classes: `.col-badge-unknown`, `.col-header-unknown`, `.metric-na`, `.mini-na`, `.empty-hint`, `.examples-row`, `.ex-role-dot`, `.dot-{analyst,vp,partner}`, `.scenario-btn.dot-*-border`
+
+4. **README rewritten** — old stub with TODO list replaced with:
+   - Fastest-path demo table (Analyst wall, VP deal view, Partner view, Evals)
+   - Pipeline stage diagram
+   - Policy preset table with feature matrix
+   - Corpus access control table and stale pair documentation
+   - DecisionTrace field documentation
+   - All three API endpoints with curl examples
+   - Test / evaluator commands with current metrics
+   - Artifact regeneration instructions
+   - Full project structure
+
+5. **Verification**:
+   - 148 passed, 14 skipped, 0 failed
+   - Evaluator: precision@5=0.3000, recall=1.0000, violations=0%
+   - All three endpoints verified via curl: `/query` (analyst, blocked=7), `/compare` (all 3 policies), `/evals` (8 queries, 0 failed)
+   - JS syntax check: OK
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `0f9f548` (Task 7A)
+- **Working tree:** 4 modified files uncommitted:
+  - `frontend/app.js` — freshness N/A, fallback badge, VP/Partner scenario JS
+  - `frontend/index.html` — two-row scenarios, VP/Partner buttons, improved empty state
+  - `frontend/styles.css` — full light theme rewrite
+  - `README.md` — complete rewrite
+  - `docs/HANDOFF.md` — this entry
+- **Tests:** 148 passed, 14 skipped, 0 failed
+- **Evaluator:** precision@5=0.3000, recall=1.0000, violations=0%
+- **Hostile review:** `clean` (from Prompt 7A — no new review performed this session, changes are frontend/docs only)
+- **Frontend:** JS syntax verified. Browser visual verification not performed from CLI.
+
+### Remaining Tasks (ordered)
+
+1. **Commit this batch** — `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`, `README.md`, `docs/HANDOFF.md`
+
+2. **Browser visual verification** — Open `frontend/index.html` with server running, confirm:
+   - Light theme renders correctly (cream background, white cards, warm amber accent)
+   - "Single" and "Compare" scenario rows both visible and labelled
+   - VP deal view ↔ and Partner view ↔ scenario buttons trigger compare mode with correct role
+   - Analyst wall ↔ shows 7 blocked in full/rbac, 0 in naive
+   - Naive column freshness shows "freshness N/A" instead of 0.00
+   - Evals tab renders 10 metric cards + 8-row table
+
+3. **Optional: Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are no longer called on the request path. Safe to delete when convenient.
+
+4. **Optional: Evaluator corpus re-read** — `run_evals()` reloads roles and metadata independently of `main.py`'s already-loaded copies. Not a bug; cosmetic cleanup.
+
+### Blockers and Warnings
+
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
+
+### Suggested First Action
+
+Commit the batch, then open `frontend/index.html` in a browser with `python3 -m uvicorn src.main:app --reload` running. Click "Analyst wall ↔" to verify the permission wall compare scenario, then switch to the Evals tab.

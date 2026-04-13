@@ -89,12 +89,30 @@
       </form>
 
       <div class="examples">
-        <span class="examples-label">Try</span>
-        <button class="example-btn" data-query="What is Meridian's ARR growth rate and net revenue retention?" data-role="analyst" data-mode="single">ARR growth</button>
-        <button class="example-btn" data-query="What are the risks identified in the due diligence for Project Clearwater?" data-role="vp" data-mode="single">DD risks</button>
-        <button class="example-btn" data-query="What is the IC recommendation for the Meridian acquisition?" data-role="partner" data-mode="single">IC memo</button>
-        <span class="examples-sep"></span>
-        <button class="example-btn scenario-btn" data-query="What is Meridian's ARR growth rate and net revenue retention?" data-role="analyst" data-mode="compare" title="Run as analyst across all three policies to see permission filtering in action">Sarah as Analyst ↔</button>
+        <div class="examples-row">
+          <span class="examples-label">Single</span>
+          <button class="example-btn" data-query="What is Meridian's ARR growth rate and net revenue retention?" data-role="analyst" data-mode="single" title="Analyst · sees public filings and analyst-tier research only">
+            <span class="ex-role-dot dot-analyst"></span>ARR growth
+          </button>
+          <button class="example-btn" data-query="What are the risks identified in the due diligence for Project Clearwater?" data-role="vp" data-mode="single" title="VP · sees deal memos, financial models, and diligence reports">
+            <span class="ex-role-dot dot-vp"></span>DD risks
+          </button>
+          <button class="example-btn" data-query="What is the IC recommendation for the Meridian acquisition?" data-role="partner" data-mode="single" title="Partner · full corpus access including IC memos and LP updates">
+            <span class="ex-role-dot dot-partner"></span>IC memo
+          </button>
+        </div>
+        <div class="examples-row">
+          <span class="examples-label">Compare</span>
+          <button class="example-btn scenario-btn dot-analyst-border" data-query="What is Meridian's ARR growth rate and net revenue retention?" data-role="analyst" data-mode="compare" title="Permission wall — analyst is blocked from 7 VP/partner docs that naive retrieval surfaces">
+            <span class="ex-role-dot dot-analyst"></span>Analyst wall ↔
+          </button>
+          <button class="example-btn scenario-btn dot-vp-border" data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?" data-role="vp" data-mode="compare" title="VP deal view — compare what VP sees across naive, RBAC, and full policies">
+            <span class="ex-role-dot dot-vp"></span>VP deal view ↔
+          </button>
+          <button class="example-btn scenario-btn dot-partner-border" data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?" data-role="partner" data-mode="compare" title="Partner full access — partner sees all docs, no permission blocks across any policy">
+            <span class="ex-role-dot dot-partner"></span>Partner view ↔
+          </button>
+        </div>
       </div>
     </section>
 
@@ -108,12 +126,13 @@
             <circle cx="16" cy="10" r="1" fill="currentColor"/>
           </svg>
         </div>
-        <h2 class="empty-title">Enter a query to retrieve context</h2>
+        <h2 class="empty-title">Permission-Aware Context Gateway</h2>
         <p class="empty-description">
-          QueryTrace assembles relevant document context based on your query and
-          access level. Pick a policy to control permission filtering, freshness
-          scoring, and token budget enforcement.
+          QueryTrace retrieves documents from the Atlas Capital / Meridian Technologies corpus,
+          filters by role, penalises stale docs, and enforces token budgets —
+          with every decision visible in the Decision Trace.
         </p>
+        <p class="empty-hint">Try <strong>Analyst wall ↔</strong> to see 7 documents blocked by RBAC across three policies.</p>
       </div>
     </section>
 
@@ -134,7 +153,7 @@
     <section id="evals-section" class="evals-section" hidden>
       <div class="evals-header">
         <h2 class="evals-title">Evaluation Dashboard</h2>
-        <p class="evals-subtitle">Pipeline quality metrics across 8 corpus-grounded test queries</p>
+        <p class="evals-subtitle">Precision@5 · recall · permission safety · trace counts — 8 corpus-grounded test queries</p>
       </div>
       <div id="evals-content">
         <!-- Injected by app.js -->
