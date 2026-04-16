@@ -144,17 +144,23 @@ Commit the 5 modified files. No further work is required before submission.
 
 ---
 
-## Session — 2026-04-15 (Session 19 / **IDEA 2 — Enrich DocumentChunk with Metadata**)
+## Session — 2026-04-15 (Session 19 / **MUST-A — IDEA 2 + IDEA 1**)
+
+> **IDEA numbering convention:** Prompts labelled "IDEA N" track discrete feature/enrichment batches applied after the core build. Batches labelled "MUST-X" group multiple IDEAs into a single commit unit.
 
 ### Summary
 
-**Batch label: IDEA 2 — Enrich DocumentChunk with Metadata**
+**Batch label: MUST-A — IDEA 2 + IDEA 1**
 
-Metadata enrichment pass: propagated `title`, `doc_type`, `date`, and `superseded_by` through the full data chain so the frontend `context[]` array receives those fields on every response. No business logic changed. No tests added or removed.
+Two enrichment passes in one session: backend metadata plumbing (IDEA 2) followed by frontend policy-selector polish (IDEA 1), plus a targeted visual review/rescue pass on the policy-selection block.
 
-> **IDEA numbering convention:** Prompts labelled "IDEA N" track discrete feature/enrichment batches applied after the core build. IDEA 1 = (reserved / pre-existing). IDEA 2 = this batch (metadata fields on DocumentChunk).
+---
 
-**What was done:**
+#### IDEA 2 — Enrich DocumentChunk with Metadata
+
+Propagated `title`, `doc_type`, `date`, and `superseded_by` through the full data chain so the frontend `context[]` array receives those fields on every response. No business logic changed. No tests added or removed.
+
+**Files modified (5):**
 
 1. **`src/retriever.py`** — `_build_results()` now emits `"doc_type": p.get("type")` in addition to the existing `"type"` key. `ScoredDocument` uses `extra="ignore"` so `"type"` was always silently dropped; `doc_type` is the correctly-named key that the model picks up.
 
@@ -170,32 +176,76 @@ Metadata enrichment pass: propagated `title`, `doc_type`, `date`, and `supersede
 
 5. **`src/main.py`** — Both `DocumentChunk(...)` constructors (in `query()` and `compare()`) now pass `title`, `doc_type`, `date`, `superseded_by` from `inc`.
 
+---
+
+#### IDEA 1 — Improve Policy Names + Policy Description Area
+
+Frontend-only visual changes to the policy selector. No backend changes.
+
+**Files modified (3):**
+
+1. **`frontend/app.js`** — `POLICY_META` labels updated:
+   - `naive_top_k`: `"NAIVE"` → `"No Filters"`, desc updated to full sentence
+   - `permission_aware`: `"RBAC"` → `"Permissions Only"`, desc updated
+   - `full_policy`: `"FULL"` → `"Full Pipeline"`, desc updated
+   - **Bug fix:** `permission_aware.skipFreshness` changed from `false` → `true` (backend skips freshness for this policy; was showing `0.00` bars instead of N/A)
+   - Added `updatePolicyDescription()` function with 80ms opacity fade transition
+   - Event listeners wired to all `[name="policy"]` radios; init call on page load
+
+2. **`frontend/index.html`** — `#single-policy-selector` restructured:
+   - Outer wrapper: new class `policy-selector-group` (flex-column container)
+   - Inner `.selector-group` div: holds label + chips horizontally
+   - `<p id="policy-description">` added below chips — shows `POLICY_META.desc` for selected policy
+   - `<div id="policy-warning" hidden>` added — amber banner with ⚠ icon, shown only when "No Filters" is selected
+   - Chip labels: `naive` → `No Filters`, `rbac` → `Permissions Only`, `full` → `Full Pipeline`
+
+3. **`frontend/styles.css`** — New rules added:
+   - `.policy-selector-group`: `flex-direction: column; align-self: flex-start` (prevents vertical misalignment against shorter Role group in `.controls-row`)
+   - `.policy-description`: mono, `0.61rem`, tertiary color, `opacity 80ms` transition
+   - `.policy-warning`: `rgba(251,191,36,0.13)` background, amber left border, compact padding
+   - `.policy-warning > span`: `flex-shrink: 0; line-height: 1` (emoji alignment fix)
+
+---
+
+#### Visual Review Pass (policy-selection block only)
+
+A targeted `/frontend-design` review of the policy selector hierarchy. Five polish fixes applied:
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | `.controls-row { align-items: center }` misaligned Role and Policy chips when Policy group grew taller | `align-self: flex-start` on `.policy-selector-group` |
+| 2 | ⚠ emoji floated high on some systems | `.policy-warning > span { flex-shrink: 0; line-height: 1 }` |
+| 3 | `padding-left: 0.1rem` on description (meaningless 1.6px) | Removed |
+| 4 | Warning background 10% opacity nearly invisible on parchment | Bumped to 13% |
+| 5 | `transition: opacity` declared in CSS but never fired in JS | Added 80ms fade in `updatePolicyDescription()` |
+
+---
+
 **Note:** `roadmap.md` was deleted before this session (shows `D` in git status). No further work items are carried forward from it.
 
 ### Current State
 
 - **Branch:** `main`
-- **Last commit:** `10a5395` (Next steps)
-- **Working tree (uncommitted):**
-  - `docs/HANDOFF.md` — this update
-  - `src/retriever.py` — `doc_type` field added to `_build_results()`
-  - `src/models.py` — `doc_type` on `ScoredDocument`/`FreshnessScoredDocument`; four new fields on `IncludedDocument`/`DocumentChunk`
-  - `src/stages/freshness_scorer.py` — `doc_type` passed through
-  - `src/stages/budget_packer.py` — four fields passed through to `IncludedDocument`
-  - `src/main.py` — both `DocumentChunk` constructors updated
-  - `roadmap.md` — deleted
+- **Last commit:** `78cdaf1` (WIP: MUST-A idea 1 and 2)
+- **Working tree:** Clean (all MUST-A changes committed)
 - **Tests:** 149 passed, 14 skipped, 0 failed (verified this session)
 - **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
-- **Browser verification:** Not performed this session (last verified in Session 18 — 65/65 Playwright checks)
+- **Browser verification:** PENDING — IDEA 1 and IDEA 2 changes have not been visually verified in-browser. Last full verification was Session 18 (65/65 Playwright checks). The policy description area, warning banner, N/A freshness fix for `permission_aware`, and new chip labels are unverified.
 - **Hostile review:** Not performed this session (last verdict: `clean`, Session 18)
-- **Demo status:** READY (no regressions; all new fields are Optional with default None)
+- **Demo status:** READY (backend: no regressions; frontend: unverified but low-risk — all new fields are Optional, all label changes are display-only)
+
+### What MUST-A Unblocks
+
+- Frontend work that consumes `title`, `doc_type`, `date`, or `superseded_by` from `context[]` can proceed without additional backend changes.
+- The policy selector now has product-grade labels and descriptions; compare-mode column headers inherit these automatically via `POLICY_META`.
+- `permission_aware` freshness now correctly renders as N/A in both Single and Compare modes.
 
 ### Remaining Tasks
 
-1. **Commit this batch** — 6 working-tree entries above.
+1. **Browser-verify MUST-A** — Confirm policy description area, warning banner, N/A freshness for `permission_aware`, and new chip labels render correctly in Single and Compare modes.
 2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; 14 tests already skipped. Safe to delete; no urgency.
 3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
 
 ### Suggested First Action
 
-Commit the batch (7 modified/deleted files). No further work is required before submission.
+Browser-verify the MUST-A frontend changes before starting MUST-B1.

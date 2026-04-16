@@ -130,11 +130,13 @@ Returns cached evaluator results as structured JSON. On first call: loads `evals
 Static HTML/CSS/JS in `frontend/` — no build step. Open `frontend/index.html` directly in a browser with the server running.
 
 Three modes controlled by a header toggle:
-- **Single mode** — calls `POST /query` with a selected policy (naive/rbac/full). Renders result cards with relevance + freshness bars, tags, and a collapsible Decision Trace panel showing included/blocked/stale/dropped chips and budget utilization.
-- **Compare mode** — calls `POST /compare`. Renders three side-by-side policy columns (NAIVE/RBAC/FULL) with severity-colored headers, stats strips (included/tokens/blocked/stale/dropped/ttft), compact doc cards, and expanded Decision Trace panels. Docs in the naive column that are blocked in `full_policy` are flagged with `blocked in full` annotations.
+- **Single mode** — calls `POST /query` with a selected policy (No Filters / Permissions Only / Full Pipeline). Renders result cards with relevance + freshness bars, tags, and a collapsible Decision Trace panel showing included/blocked/stale/dropped chips and budget utilization. A policy description updates below the selector chips; selecting "No Filters" shows an amber warning banner.
+- **Compare mode** — calls `POST /compare`. Renders three side-by-side policy columns (No Filters / Permissions Only / Full Pipeline) with severity-colored headers, stats strips (included/tokens/blocked/stale/dropped/ttft), compact doc cards, and expanded Decision Trace panels. Docs in the No Filters column that are blocked in `full_policy` are flagged with `blocked in full` annotations.
 - **Evals mode** — calls `GET /evals` (lazy on first tab switch). Renders 10 aggregate metric cards (precision@5, recall, permission_violation_rate, avg_context_docs, avg_total_tokens, avg_freshness_score, avg_blocked_count, avg_stale_count, avg_dropped_count, avg_budget_utilization) and an 8-row per-query breakdown table.
 
-Three one-click compare scenarios in the UI: "Analyst wall ↔" (analyst, ARR query — 7 docs blocked), "VP deal view ↔" (vp, financial model query), "Partner view ↔" (partner, IC memo query). Each auto-switches to Compare mode and submits. `naive_top_k` freshness displays as "N/A" since freshness scoring is skipped for that policy.
+Policy labels in the UI are human-readable ("No Filters", "Permissions Only", "Full Pipeline") while the backend API names remain unchanged (`naive_top_k`, `permission_aware`, `full_policy`). `POLICY_META` in `app.js` maps between them. Both `naive_top_k` and `permission_aware` have `skipFreshness: true` — freshness displays as "N/A" since the backend skips freshness scoring for those policies.
+
+Three one-click compare scenarios in the UI: "Analyst wall ↔" (analyst, ARR query — 7 docs blocked), "VP deal view ↔" (vp, financial model query), "Partner view ↔" (partner, IC memo query). Each auto-switches to Compare mode and submits.
 
 ## Environment note
 
