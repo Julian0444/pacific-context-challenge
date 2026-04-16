@@ -448,6 +448,42 @@ body {
   box-shadow: none;
 }
 
+/* ─── Policy Selector Group (wraps chips + description + warning) ─── */
+
+.policy-selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-self: flex-start; /* prevent vertical centering against shorter Role group */
+}
+
+.policy-description {
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  transition: opacity 80ms var(--ease);
+}
+
+.policy-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  color: #7a5200;
+  background: rgba(251, 191, 36, 0.13);
+  border-left: 2px solid rgba(251, 191, 36, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.55rem;
+  line-height: 1.45;
+}
+
+.policy-warning > span {
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 /* ─── Example Queries ─── */
 
 .examples {

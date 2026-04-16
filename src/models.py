@@ -74,6 +74,7 @@ class ScoredDocument(BaseModel):
     title: Optional[str] = None
     short_summary: Optional[str] = None
     sensitivity: Optional[str] = None
+    doc_type: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +95,7 @@ class FreshnessScoredDocument(BaseModel):
     title: Optional[str] = None
     short_summary: Optional[str] = None
     sensitivity: Optional[str] = None
+    doc_type: Optional[str] = None
     freshness_score: float
     is_stale: bool = False
 
@@ -132,6 +134,10 @@ class IncludedDocument(BaseModel):
     freshness_score: float
     tags: List[str] = Field(default_factory=list)
     token_count: int
+    title: Optional[str] = None
+    doc_type: Optional[str] = None
+    date: Optional[str] = None
+    superseded_by: Optional[str] = None
 
 
 class DroppedByBudget(BaseModel):
@@ -217,6 +223,10 @@ class DocumentChunk(BaseModel):
     score: float
     freshness_score: Optional[float] = None
     tags: List[str] = Field(default_factory=list)
+    title: Optional[str] = None
+    doc_type: Optional[str] = None
+    date: Optional[str] = None
+    superseded_by: Optional[str] = None
 
 
 class QueryResponse(BaseModel):

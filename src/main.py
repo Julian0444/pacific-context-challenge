@@ -74,6 +74,10 @@ def query(request: QueryRequest):
             score=inc.score,
             freshness_score=inc.freshness_score,
             tags=inc.tags,
+            title=inc.title,
+            doc_type=inc.doc_type,
+            date=inc.date,
+            superseded_by=inc.superseded_by,
         )
         for inc in result.context
     ]
@@ -127,6 +131,10 @@ def compare(request: CompareRequest):
                 score=inc.score,
                 freshness_score=inc.freshness_score,
                 tags=inc.tags,
+                title=inc.title,
+                doc_type=inc.doc_type,
+                date=inc.date,
+                superseded_by=inc.superseded_by,
             )
             for inc in result.context
         ]

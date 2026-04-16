@@ -7,20 +7,20 @@ const DEFAULT_TOP_K = 8;
 
 const POLICY_META = {
   naive_top_k: {
-    label: "NAIVE",
-    desc: "raw retrieval · no filters",
+    label: "No Filters",
+    desc: "Raw retrieval — no permissions, no freshness, no budget. Dangerous baseline.",
     variant: "naive",
     skipFreshness: true,
   },
   permission_aware: {
-    label: "RBAC",
-    desc: "role-based access control · budget enforced",
+    label: "Permissions Only",
+    desc: "Role-based access control + token budget. No freshness scoring.",
     variant: "rbac",
-    skipFreshness: false,
+    skipFreshness: true,
   },
   full_policy: {
-    label: "FULL",
-    desc: "rbac · freshness · budget",
+    label: "Full Pipeline",
+    desc: "Permissions + freshness + token budget. Production-grade.",
     variant: "full",
     skipFreshness: false,
   },
@@ -83,6 +83,30 @@ function switchMode(mode) {
     runEvals();
   }
 }
+
+// ── Policy description + warning ──
+
+function updatePolicyDescription(policy) {
+  const descEl = document.getElementById("policy-description");
+  const warningEl = document.getElementById("policy-warning");
+  if (!descEl || !warningEl) return;
+  const meta = POLICY_META[policy] || {};
+  descEl.style.opacity = "0";
+  setTimeout(() => {
+    descEl.textContent = meta.desc || "";
+    descEl.style.opacity = "1";
+  }, 80);
+  warningEl.hidden = policy !== "naive_top_k";
+}
+
+document.querySelectorAll('input[name="policy"]').forEach((radio) => {
+  radio.addEventListener("change", () => updatePolicyDescription(radio.value));
+});
+
+// Initialize with the default checked policy
+updatePolicyDescription(
+  document.querySelector('input[name="policy"]:checked')?.value || "full_policy"
+);
 
 // ── Form submission ──
 

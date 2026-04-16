@@ -89,6 +89,8 @@ Every `/query` response includes `decision_trace` with:
 
 Key types: `ScoredDocument`, `FreshnessScoredDocument`, `BlockedDocument`, `StaleDocument`, `DroppedByBudget`, `IncludedDocument`, `DecisionTrace`, `TraceMetrics`, `PipelineResult`, `QueryRequest`, `QueryResponse`, `CompareRequest`, `CompareResponse`. Domain models are `frozen=True + extra="forbid"`. `ScoredDocument` uses `extra="ignore"` to absorb extra keys the retriever returns.
 
+`IncludedDocument` and `DocumentChunk` carry additional metadata (all `Optional[str] = None`): `title`, `doc_type`, `date`, `superseded_by`. These flow through the full chain: retriever `_build_results()` → `ScoredDocument.doc_type` → `FreshnessScoredDocument.doc_type` → `IncludedDocument` → `DocumentChunk` → API `context[]`. The frontend receives all four fields on every response item.
+
 ### Retrieval (`src/retriever.py`)
 
 Hybrid retrieval combining FAISS semantic search and BM25 lexical search via Reciprocal Rank Fusion (RRF). Both rankers score the full corpus; RRF fuses the two 1-based rank dicts: `score(d) = 1/(60 + rank_sem) + 1/(60 + rank_bm25)`. Fused scores are min-max normalized to [0, 1]. `retrieve()` is the default (hybrid). `semantic_retrieve()` is provided for comparison. Both satisfy `RetrieverProtocol`.

@@ -68,21 +68,27 @@
           </div>
 
           <!-- Policy selector — single mode only -->
-          <div class="selector-group" id="single-policy-selector">
-            <span class="control-label">Policy</span>
-            <div class="policy-options">
-              <label class="policy-option">
-                <input type="radio" name="policy" value="naive_top_k" />
-                <span class="policy-chip policy-naive">naive</span>
-              </label>
-              <label class="policy-option">
-                <input type="radio" name="policy" value="permission_aware" />
-                <span class="policy-chip policy-rbac">rbac</span>
-              </label>
-              <label class="policy-option">
-                <input type="radio" name="policy" value="full_policy" checked />
-                <span class="policy-chip policy-full">full</span>
-              </label>
+          <div class="policy-selector-group" id="single-policy-selector">
+            <div class="selector-group">
+              <span class="control-label">Policy</span>
+              <div class="policy-options">
+                <label class="policy-option">
+                  <input type="radio" name="policy" value="naive_top_k" />
+                  <span class="policy-chip policy-naive">No Filters</span>
+                </label>
+                <label class="policy-option">
+                  <input type="radio" name="policy" value="permission_aware" />
+                  <span class="policy-chip policy-rbac">Permissions Only</span>
+                </label>
+                <label class="policy-option">
+                  <input type="radio" name="policy" value="full_policy" checked />
+                  <span class="policy-chip policy-full">Full Pipeline</span>
+                </label>
+              </div>
+            </div>
+            <p class="policy-description" id="policy-description"></p>
+            <div class="policy-warning" id="policy-warning" hidden>
+              <span aria-hidden="true">⚠</span> This policy skips all access controls. Restricted documents will appear in results regardless of role.
             </div>
           </div>
         </div>

@@ -147,6 +147,7 @@ def _build_results(
             "file_name": p["file_name"],
             "score": float(score),
             "type": p["type"],
+            "doc_type": p.get("type"),
             "date": p["date"],
             "min_role": p["min_role"],
             "sensitivity": p["sensitivity"],
