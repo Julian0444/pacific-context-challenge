@@ -5,3 +5,5 @@ faiss-cpu
 pydantic
 tiktoken
 rank-bm25
+pdfplumber
+python-multipart

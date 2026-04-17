@@ -268,3 +268,19 @@ class CompareResponse(BaseModel):
     query: str
     role: str
     results: Dict[str, QueryResponse]
+
+
+class IngestResponse(BaseModel):
+    """POST /ingest response — confirms the new corpus entry."""
+    model_config = ConfigDict(extra="forbid")
+
+    status: str = "ok"
+    doc_id: str
+    title: str
+    file_name: str
+    type: str
+    date: str
+    min_role: str
+    sensitivity: str
+    tags: List[str]
+    total_documents: int

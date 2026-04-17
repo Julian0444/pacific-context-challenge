@@ -87,7 +87,7 @@ Every `/query` response includes `decision_trace` with:
 
 ### Contract models (`src/models.py`)
 
-Key types: `ScoredDocument`, `FreshnessScoredDocument`, `BlockedDocument`, `StaleDocument`, `DroppedByBudget`, `IncludedDocument`, `DecisionTrace`, `TraceMetrics`, `PipelineResult`, `QueryRequest`, `QueryResponse`, `CompareRequest`, `CompareResponse`. Domain models are `frozen=True + extra="forbid"`. `ScoredDocument` uses `extra="ignore"` to absorb extra keys the retriever returns.
+Key types: `ScoredDocument`, `FreshnessScoredDocument`, `BlockedDocument`, `StaleDocument`, `DroppedByBudget`, `IncludedDocument`, `DecisionTrace`, `TraceMetrics`, `PipelineResult`, `QueryRequest`, `QueryResponse`, `CompareRequest`, `CompareResponse`, `IngestResponse`. Domain models are `frozen=True + extra="forbid"`. `ScoredDocument` uses `extra="ignore"` to absorb extra keys the retriever returns.
 
 `IncludedDocument` and `DocumentChunk` carry additional metadata (all `Optional[str] = None`): `title`, `doc_type`, `date`, `superseded_by`. These flow through the full chain: retriever `_build_results()` → `ScoredDocument.doc_type` → `FreshnessScoredDocument.doc_type` → `IncludedDocument` → `DocumentChunk` → API `context[]`. The frontend receives all four fields on every response item.
 
@@ -127,14 +127,25 @@ Runs the same query through multiple policy presets side-by-side. Calls `run_pip
 
 Returns cached evaluator results as structured JSON. On first call: loads `evals/test_queries.json`, runs `run_evals(queries, k=5, top_k=8)` through the production pipeline, and stores the result in a module-level cache. Subsequent calls return the cached dict (~1.6ms). Response shape: `{ "per_query": [...], "aggregate": {...} }`. The route is a thin dispatch — all metric logic lives in `src/evaluator.py`.
 
+### Ingestion endpoint (POST /ingest in `src/main.py`)
+
+Multipart endpoint for uploading a PDF + metadata at runtime. The HTTP handler in `main.py` is a thin adapter; all logic lives in `src/ingest.py`.
+
+Form fields: `file` (PDF, ≤10 MB), `title`, `date` (YYYY-MM-DD), `min_role` (analyst/vp/partner), `doc_type` (one of 10 corpus values), `sensitivity` (low/medium/high/confidential), `tags` (comma-separated). `src/ingest.py` validates inputs, extracts text with `pdfplumber`, writes `corpus/documents/<sanitized_title>.txt` (no PDF is persisted), appends to `corpus/metadata.json`, and triggers `indexer.build_and_save()` for a full FAISS + BM25 rebuild. A module-level `threading.Lock` serializes the metadata write + reindex. After a successful ingest the endpoint mutates `main._metadata["documents"]` in place, calls `retriever.invalidate_caches()` (resets the in-process `_bm25` singleton; FAISS is re-read from disk on every request), and sets `_evals_cache = None`.
+
+Error codes: 415 (non-PDF content-type), 400 (empty title / bad date / bad enum), 413 (>10 MB), 422 (unreadable PDF / <50 chars of extractable text). The happy-path response is `IngestResponse` (`src/models.py`) containing `doc_id`, `title`, `file_name`, `type`, `date`, `min_role`, `sensitivity`, `tags`, and `total_documents`.
+
+Demo-scope caveats: no RBAC on `/ingest` (anyone can upload), no delete/edit path, reindex is synchronous (~5–10s), and writes go straight to repo paths — uploads will vanish on ephemeral hosting filesystems.
+
 ### Frontend
 
 Static HTML/CSS/JS in `frontend/` — no build step. Open `frontend/index.html` directly in a browser with the server running.
 
-Three modes controlled by a header toggle:
+Four modes controlled by a header toggle:
 - **Single mode** — calls `POST /query` with a selected policy (No Filters / Permissions Only / Full Pipeline). Result cards show: document title as heading (fallback to `doc_id`), a metadata line with `doc_id` badge + formatted doc type + date, a 200-char excerpt with "Show more ▾ / Hide ▴" expand/collapse (expands to the full ~500-char indexer excerpt, not the source document), relevance + freshness bars, tags, and a stale/superseded badge ("⚠ Superseded by … — freshness penalized 0.5×") on demoted docs. Below the result cards, a collapsible blocked-documents section (🔒 N documents blocked by permissions) shows one mini-card per blocked doc with title, doc_id badge, doc type, and a human-readable reason ("Requires X role — you are Y"). The section is hidden when no documents are blocked. A collapsible Decision Trace panel below that opens with a natural-language summary paragraph (`.trace-summary`) translating included/blocked/stale/dropped counts into prose — e.g., "5 documents were included (571 tokens, 28% of budget). 7 documents were blocked — your role (analyst) cannot access vp-level materials." — followed by the existing technical chips and a metrics strip. `title=` tooltips on the Budget label, avg score, avg freshness, and ttft spans explain each metric. A policy description updates below the selector chips; selecting "No Filters" shows an amber warning banner.
 - **Compare mode** — calls `POST /compare`. Renders three side-by-side policy columns (No Filters / Permissions Only / Full Pipeline) with severity-colored headers, stats strips (included/tokens/blocked/stale/dropped/ttft), compact doc cards (title heading, `doc_id` badge + type + date metadata, 120-char snippet, mini score/freshness bars, compact "⚠ Superseded" badge on stale docs), and expanded Decision Trace panels. Each column's trace panel opens with a compact variant of the narrative summary (`.trace-summary-compact`: tighter padding/type, stale details collapsed to a count, zero-dropped sentence omitted). Docs in the No Filters column that are blocked in `full_policy` are flagged with `blocked in full` annotations.
 - **Evals mode** — calls `GET /evals` (lazy on first tab switch). Renders an executive-summary narrative banner (`.evals-narrative`) above the cards with three sentences: a permission-violations line (celebratory when rate=0, warning otherwise), a recall line (100% or fallback), and a budget-utilization tier line (`efficient <60%`, `moderate 60–80%`, `heavy >80%`). Then 10 aggregate metric cards (precision@5, recall, permission_violation_rate, avg_context_docs, avg_total_tokens, avg_freshness_score, avg_blocked_count, avg_stale_count, avg_dropped_count, avg_budget_utilization), each with a one-line `.metric-card-hint` micro-explanation. Below, an 8-row per-query breakdown table whose Query cell shows a `.evals-qid` id pill plus the query text truncated to 50 chars (full text via `title=`).
+- **Admin mode** — hides the query form/results and shows an ingest form (file, title, date, min_role, doc_type, sensitivity, tags). `uploadDocument()` POSTs `FormData` to `/ingest`; the submit button disables and shows a spinner during the call, then renders a success status with the returned `doc_id` and the new corpus count, or an error status with the server message. All user-origin strings go through `escapeHTML`. A demo-only advisory in the panel notes that uploads persist to `corpus/` and `artifacts/` and will be lost on ephemeral hosting filesystems.
 
 Policy labels in the UI are human-readable ("No Filters", "Permissions Only", "Full Pipeline") while the backend API names remain unchanged (`naive_top_k`, `permission_aware`, `full_policy`). `POLICY_META` in `app.js` maps between them. Both `naive_top_k` and `permission_aware` have `skipFreshness: true` — freshness displays as "N/A" since the backend skips freshness scoring for those policies.
 
@@ -143,3 +154,5 @@ Three one-click compare scenarios in the UI: "Analyst wall ↔" (analyst, ARR qu
 ## Environment note
 
 Developed on Python 3.9.6 with LibreSSL 2.8.3. `tf-keras` may be needed for `sentence-transformers` compatibility on this Python version.
+
+Ingestion adds two runtime deps in `requirements.txt`: `pdfplumber` (PDF text extraction) and `python-multipart` (FastAPI `File`/`Form` parsing). Both are pulled in by `pip install -r requirements.txt`.

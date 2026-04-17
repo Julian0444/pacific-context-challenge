@@ -45,10 +45,11 @@ const mainEl = document.getElementById("main");
 const singlePolicySelector = document.getElementById("single-policy-selector");
 const evalsSection = document.getElementById("evals-section");
 const evalsContent = document.getElementById("evals-content");
+const adminSection = document.getElementById("admin-section");
 
 // ── Mode state ──
 
-let currentMode = "single"; // "single" | "compare" | "evals"
+let currentMode = "single"; // "single" | "compare" | "evals" | "admin"
 let evalsLoaded = false;
 
 // ── Mode toggle ──
@@ -71,15 +72,17 @@ function switchMode(mode) {
 
   const isCompare = mode === "compare";
   const isEvals = mode === "evals";
+  const isAdmin = mode === "admin";
 
-  singlePolicySelector.hidden = isCompare || isEvals;
-  resultsSection.hidden = isCompare || isEvals;
+  singlePolicySelector.hidden = isCompare || isEvals || isAdmin;
+  resultsSection.hidden = isCompare || isEvals || isAdmin;
   compareSection.hidden = !isCompare;
   evalsSection.hidden = !isEvals;
+  if (adminSection) adminSection.hidden = !isAdmin;
   mainEl.classList.toggle("compare-mode", isCompare);
 
-  // Hide query form in evals mode — it's not relevant
-  document.querySelector(".search-section").hidden = isEvals;
+  // Hide query form in evals and admin modes — not relevant
+  document.querySelector(".search-section").hidden = isEvals || isAdmin;
 
   // Auto-fetch evals on first switch
   if (isEvals && !evalsLoaded) {
@@ -1039,4 +1042,75 @@ function escapeHTML(str) {
   const el = document.createElement("span");
   el.textContent = String(str ?? "");
   return el.innerHTML;
+}
+
+// ── Admin / ingest ──
+
+const adminForm = document.getElementById("admin-form");
+const adminSubmit = document.getElementById("admin-submit");
+const adminStatus = document.getElementById("admin-status");
+const adminFileInput = document.getElementById("admin-file");
+
+function setAdminStatus(kind, message) {
+  if (!adminStatus) return;
+  adminStatus.hidden = false;
+  adminStatus.className = `admin-status admin-status-${kind}`;
+  adminStatus.innerHTML = message;
+}
+
+function clearAdminStatus() {
+  if (!adminStatus) return;
+  adminStatus.hidden = true;
+  adminStatus.className = "admin-status";
+  adminStatus.textContent = "";
+}
+
+async function uploadDocument(event) {
+  event.preventDefault();
+  if (!adminForm || !adminSubmit) return;
+
+  const file = adminFileInput?.files?.[0];
+  if (!file) {
+    setAdminStatus("error", "Please pick a PDF file.");
+    return;
+  }
+
+  const fd = new FormData(adminForm);
+  adminSubmit.disabled = true;
+  adminSubmit.classList.add("loading");
+  setAdminStatus(
+    "loading",
+    "Uploading and rebuilding the index… this usually takes 5&ndash;15 seconds."
+  );
+
+  try {
+    const res = await fetch(`${API_BASE}/ingest`, { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const detail = data?.detail || `HTTP ${res.status}`;
+      setAdminStatus("error", `Upload failed: ${escapeHTML(detail)}`);
+      return;
+    }
+
+    setAdminStatus(
+      "success",
+      `Indexed <strong>${escapeHTML(data.doc_id)}</strong> — ${escapeHTML(
+        data.title
+      )}. Corpus now contains ${data.total_documents} documents. It is searchable in Single and Compare modes.`
+    );
+    adminForm.reset();
+  } catch (err) {
+    setAdminStatus(
+      "error",
+      `Network error: ${escapeHTML(err?.message || String(err))}`
+    );
+  } finally {
+    adminSubmit.disabled = false;
+    adminSubmit.classList.remove("loading");
+  }
+}
+
+if (adminForm) {
+  adminForm.addEventListener("submit", uploadDocument);
 }

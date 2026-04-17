@@ -58,6 +58,17 @@ def _get_bm25() -> BM25Okapi:
     return _bm25
 
 
+def invalidate_caches() -> None:
+    """Reset in-process singletons that depend on the persisted corpus.
+
+    Call after the corpus is rebuilt (see src.ingest). Resets only `_bm25`;
+    FAISS is re-read from disk on every retrieve() call, and the embeddings
+    model is corpus-independent and can be kept cached.
+    """
+    global _bm25
+    _bm25 = None
+
+
 # ---------------------------------------------------------------------------
 # Internal ranking functions
 # ---------------------------------------------------------------------------

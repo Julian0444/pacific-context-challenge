@@ -645,3 +645,116 @@ None. All additions are conditional (narrative guarded on `queries_run > 0`; sum
 ### Suggested First Action
 
 Commit the MUST-C batch (2 frontend files + new plan doc + this HANDOFF update + CLAUDE.md update).
+
+---
+
+## Session — 2026-04-17 (Session 25 / **MUST-D — IDEA 8 · PDF Ingestion + Admin Panel**)
+
+### Summary
+
+**Batch label: MUST-D — IDEA 8**
+
+First backend-expanding batch since MUST-A. Adds a runtime PDF ingestion path (new `POST /ingest` endpoint, new `src/ingest.py`, new frontend Admin mode) plus two new runtime dependencies. Writes to `corpus/documents/`, `corpus/metadata.json`, and `artifacts/*` at request time. 23 new tests.
+
+---
+
+#### Backend (6 files)
+
+1. **`requirements.txt`** — added `pdfplumber` and `python-multipart`.
+
+2. **`src/ingest.py` (new, ~210 lines)** — orchestrator `ingest_document(pdf_bytes, title, date, min_role, doc_type, sensitivity, tags, superseded_by=None, metadata_path=None, corpus_dir=None)` plus helpers `extract_text_from_pdf`, `generate_next_doc_id`, `sanitize_filename`, `_validate_inputs`, `_unique_filename`. Module-level `threading.Lock` (`_INGEST_LOCK`) wraps doc_id generation + `.txt` write + metadata append + `indexer.build_and_save()` call. Enum sets mirror existing corpus values: `VALID_MIN_ROLES={analyst,vp,partner}`, `VALID_DOC_TYPES={10 values}`, `VALID_SENSITIVITY={low,medium,high,confidential}`. `IngestError(ValueError)` carries a `status_code` attribute for clean FastAPI mapping. `MAX_PDF_BYTES=10*1024*1024`, `MIN_EXTRACTED_CHARS=50`. `metadata_path` / `corpus_dir` default to `None` with runtime fallback to module-level constants — enables monkeypatching in tests.
+
+3. **`src/retriever.py`** — new `invalidate_caches()` resets only the `_bm25` singleton (FAISS is re-read from disk per request, embeddings model is corpus-independent).
+
+4. **`src/models.py`** — new `IngestResponse(BaseModel)` with `extra="forbid"`: `status`, `doc_id`, `title`, `file_name`, `type`, `date`, `min_role`, `sensitivity`, `tags`, `total_documents`.
+
+5. **`src/main.py`** — new `POST /ingest` handler. Maps `UploadFile` + 6 `Form(...)` fields → `ingest_document()`. Catches `IngestError` → `HTTPException(e.status_code)`. Rejects non-PDF content-types with 415 before calling ingest. On success, mutates `_metadata["documents"]` in place (so `run_pipeline` closures see the update), clears `_evals_cache`, and calls `retriever.invalidate_caches()`.
+
+6. **`tests/test_ingest.py` (new, 23 tests)** — `sanitize_filename` (basic/nonword/path-traversal/empty/length-cap), `generate_next_doc_id` (advance/empty/malformed), `extract_text_from_pdf` (empty/unreadable), `ingest_document` validation (oversize 413, bad-date, bad-role, bad-doc_type, bad-sensitivity, empty-title), happy path (tmp_path + monkeypatched `indexer.build_and_save` + monkeypatched `extract_text_from_pdf`), duplicate-filename suffix. Five endpoint tests via `TestClient`: 415/400/400/422 error paths plus happy-path with patched `ingest_document` + `invalidate_caches` verifying response shape and that `_evals_cache is None` after the call.
+
+---
+
+#### Frontend (3 files)
+
+7. **`frontend/index.html`** — fourth `<button data-mode="admin">Admin</button>` in the mode-toggle; new `<section id="admin-section" hidden>` with file / title / date / min_role select (3 values) / doc_type select (10 values) / sensitivity select (4 values) / tags inputs, submit button with spinner, status div, and demo-only advisory note.
+
+8. **`frontend/app.js`** — `adminSection` DOM ref; `switchMode` branch for `isAdmin` (hides search, results, admin when appropriate); `setAdminStatus` / `clearAdminStatus` / `uploadDocument(event)` helpers. `uploadDocument` POSTs `FormData` to `${API_BASE}/ingest`, disables the submit button with `.loading` during the call, then renders success/error via `escapeHTML`-hardened status messages.
+
+9. **`frontend/styles.css`** — `.admin-section`, `.admin-form`, `.admin-row` (grid), `.admin-field`, `.admin-btn` with spinner, `.admin-status-loading/success/error` colored left borders, `.admin-note`, responsive `@media (max-width: 640px)` fallback.
+
+---
+
+### Verification
+
+**Tests:** 172 passed, 14 skipped, 0 failed (`python3 -m pytest -q`). 23 new tests vs. 149 baseline.
+
+**Server smoke:** `python3 -m uvicorn src.main:app --port 8000` → `/docs` responds 200. Clean startup, no regressions.
+
+**curl end-to-end:**
+
+| Case | Request | Response |
+|------|---------|----------|
+| 415 — non-PDF | `text/plain` upload | `415 {"detail":"Expected a PDF upload; got content-type 'text/plain'."}` |
+| 400 — bad role | `min_role=god` | `400 {"detail":"min_role must be one of ['analyst', 'partner', 'vp']."}` |
+| 400 — bad date | `date=05/01/2024` | `400 {"detail":"date must be in YYYY-MM-DD format."}` |
+| 422 — unreadable PDF | `%PDF-` only | `422 {"detail":"Unreadable PDF: No /Root object! - Is this really a PDF?"}` |
+| 413 — oversize | 10 MB + 100 bytes | `413 {"detail":"PDF exceeds 10 MB size limit."}` |
+| 200 — happy path | real reportlab PDF | `200 {"status":"ok","doc_id":"doc_013","file_name":"verification_smoke_doc.txt","total_documents":13,...}` |
+
+**Search-after-ingest:** `POST /query {"query":"LIMINAL_ECHO_SENTINEL_7742","role":"analyst","top_k":5}` → `doc_013` ranked #1 in context. Cache invalidation + reindex confirmed working end-to-end.
+
+**Playwright Admin flow (via `webapp-testing` skill):** Loaded frontend via `file://` with uvicorn on :8000 for the API. Clicked Admin tab → filled all fields → `set_input_files('/tmp/real.pdf')` → clicked Upload. Status area reached `admin-status-success` class with text: `"Indexed doc_014 — Playwright Admin Flow Doc. Corpus now contains 14 documents. It is searchable in Single and Compare modes."`. PASS.
+
+**Rollback:** Corpus restored to pre-test state (12 docs, 12 `.txt` files, `artifacts/*` restored from snapshots).
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `cd82e23` (MUST-C: IDEA 4 + IDEA 6) — MUST-D changes are **uncommitted**
+- **Working tree — uncommitted code files:**
+  - `requirements.txt` — `pdfplumber`, `python-multipart` added
+  - `src/ingest.py` (new) — full ingestion module
+  - `src/retriever.py` — `invalidate_caches()`
+  - `src/models.py` — `IngestResponse`
+  - `src/main.py` — `POST /ingest` handler
+  - `frontend/index.html` — Admin mode tab + panel
+  - `frontend/app.js` — Admin mode wiring + `uploadDocument`
+  - `frontend/styles.css` — `.admin-*` styles
+  - `tests/test_ingest.py` (new) — 23 ingest tests
+- **Working tree — uncommitted doc files:**
+  - `docs/HANDOFF.md` (this session entry)
+  - `CLAUDE.md` (new `/ingest` section, Admin mode description, deps note, `IngestResponse` in key-types list)
+  - `docs/plans/2026-04-17-must-d-idea-8-plan.md` (new, untracked) — the approved preflight plan
+- **Tests:** 172 passed, 14 skipped, 0 failed (this session)
+- **Evaluator:** unchanged on the original 12-doc corpus (no pipeline logic changed)
+- **Browser verification:** COMPLETE — Admin flow end-to-end PASS; prior MUST-C Playwright coverage unchanged
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md`** — added `POST /ingest` endpoint section, Admin mode bullet under Frontend, `IngestResponse` in Contract models key types, dependency note under Environment note. `Three modes controlled by a header toggle:` → `Four modes controlled by a header toggle:`.
+- **`docs/plans/2026-04-17-must-d-idea-8-plan.md`** — kept as the canonical MUST-D artifact; no content rewrite needed (plan matches execution).
+- **`docs/plans/2026-04-16-ideas-execution-plan.md`** — unchanged. Different batch scope.
+- **`docs/plans/2026-04-17-must-c-ideas-4-6-plan.md`** — unchanged. Different batch.
+
+### Remaining Tasks
+
+1. **Commit MUST-D** — 9 code files + 2 doc files (`docs/HANDOFF.md`, `CLAUDE.md`) + 1 new plan (`docs/plans/2026-04-17-must-d-idea-8-plan.md`).
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` remain unreachable; 14 tests skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — unchanged from prior sessions; cosmetic.
+4. **(Optional) Deploy posture** — if hosting the demo, note the ephemeral-fs limitation: uploads via `/ingest` will not survive container restarts.
+
+### Blockers and Warnings
+
+None. All validation boundaries covered by tests. The only persistent-state mutation (`metadata.json` + `artifacts/*`) is serialized by `_INGEST_LOCK` and restorable from git.
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`. MUST-A + MUST-B1 + MUST-B2 + MUST-C + MUST-D all live here.
+- **Python 3.9 / LibreSSL:** unchanged; `pdfplumber` installs cleanly on this stack.
+- **Ephemeral hosting:** uploads via `/ingest` write to repo-relative paths; on ephemeral container filesystems they will vanish on restart. Documented in the Admin panel and in CLAUDE.md.
+
+### Suggested First Action
+
+Commit the MUST-D batch (9 code files + 2 doc files + 1 new plan doc) with a descriptive message.

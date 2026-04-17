@@ -10,14 +10,22 @@ import json
 import os
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.models import QueryRequest, QueryResponse, DocumentChunk, CompareRequest, CompareResponse
+from src.models import (
+    QueryRequest,
+    QueryResponse,
+    DocumentChunk,
+    CompareRequest,
+    CompareResponse,
+    IngestResponse,
+)
 from src.pipeline import run_pipeline, PipelineError
 from src.policies import load_roles
-from src.retriever import retrieve
+from src.retriever import retrieve, invalidate_caches
 from src.evaluator import load_test_queries, run_evals
+from src.ingest import ingest_document, IngestError
 
 app = FastAPI(title="QueryTrace", version="0.2.0")
 
@@ -157,3 +165,76 @@ def evals():
         queries = load_test_queries(_EVALS_PATH)
         _evals_cache = run_evals(queries, k=5, top_k=8)
     return _evals_cache
+
+
+@app.post("/ingest", response_model=IngestResponse)
+async def ingest(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    date: str = Form(...),
+    min_role: str = Form(...),
+    doc_type: str = Form(...),
+    sensitivity: str = Form(...),
+    tags: str = Form(""),
+):
+    """Ingest a PDF into the corpus and rebuild the index.
+
+    Accepts multipart/form-data. Writes extracted text as a .txt file under
+    corpus/documents/, appends to corpus/metadata.json, and rebuilds the
+    FAISS + BM25 artifacts. Returns the new doc_id and metadata echo.
+
+    Side effects (in order, under a lock in src.ingest):
+      1. Write <sanitized_title>.txt to corpus/documents/
+      2. Append entry to corpus/metadata.json
+      3. Rebuild FAISS + BM25 on disk
+      4. Invalidate retriever._bm25 (FAISS is re-read per request)
+      5. Reload _metadata in this process
+      6. Clear _evals_cache so /evals recomputes against the new corpus
+    """
+    global _metadata, _evals_cache
+
+    if (file.content_type or "").lower() not in ("application/pdf", "application/octet-stream"):
+        if not (file.filename or "").lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=415,
+                detail=f"Expected a PDF upload; got content-type {file.content_type!r}.",
+            )
+
+    pdf_bytes = await file.read()
+    tag_list = [t.strip() for t in (tags or "").split(",") if t.strip()]
+
+    try:
+        entry = ingest_document(
+            pdf_bytes=pdf_bytes,
+            title=title,
+            date=date,
+            min_role=min_role,
+            doc_type=doc_type,
+            sensitivity=sensitivity,
+            tags=tag_list,
+        )
+    except IngestError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=f"Corpus layout error: {e}")
+
+    invalidate_caches()
+
+    with open(_METADATA_PATH, "r") as _f:
+        fresh = json.load(_f)
+    _metadata["documents"] = fresh["documents"]
+
+    _evals_cache = None
+
+    return IngestResponse(
+        status="ok",
+        doc_id=entry["id"],
+        title=entry["title"],
+        file_name=entry["file_name"],
+        type=entry["type"],
+        date=entry["date"],
+        min_role=entry["min_role"],
+        sensitivity=entry["sensitivity"],
+        tags=entry["tags"],
+        total_documents=len(_metadata["documents"]),
+    )
