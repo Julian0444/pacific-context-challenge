@@ -178,7 +178,7 @@ All are documented; none are demo-blocking.
 
 ## Execution outcome (2026-04-17)
 
-Status: **EXECUTED**. Batch landed on `codex/must-a-idea1-2`; see the MUST-D commit for the exact SHA.
+Status: **EXECUTED**. Batch landed on `codex/must-a-idea1-2` as commit `a6d1daa` (12 files, +1323 / −11).
 
 Evidence:
 - Tests: `python3 -m pytest -q` → **172 passed, 14 skipped, 0 failed** (149 → 172; +23 new ingest tests).

@@ -712,21 +712,11 @@ First backend-expanding batch since MUST-A. Adds a runtime PDF ingestion path (n
 ### Current State
 
 - **Branch:** `codex/must-a-idea1-2`
-- **Last commit:** `cd82e23` (MUST-C: IDEA 4 + IDEA 6) — MUST-D changes are **uncommitted**
-- **Working tree — uncommitted code files:**
-  - `requirements.txt` — `pdfplumber`, `python-multipart` added
-  - `src/ingest.py` (new) — full ingestion module
-  - `src/retriever.py` — `invalidate_caches()`
-  - `src/models.py` — `IngestResponse`
-  - `src/main.py` — `POST /ingest` handler
-  - `frontend/index.html` — Admin mode tab + panel
-  - `frontend/app.js` — Admin mode wiring + `uploadDocument`
-  - `frontend/styles.css` — `.admin-*` styles
-  - `tests/test_ingest.py` (new) — 23 ingest tests
-- **Working tree — uncommitted doc files:**
-  - `docs/HANDOFF.md` (this session entry)
-  - `CLAUDE.md` (new `/ingest` section, Admin mode description, deps note, `IngestResponse` in key-types list)
-  - `docs/plans/2026-04-17-must-d-idea-8-plan.md` (new, untracked) — the approved preflight plan
+- **Last commit:** `a6d1daa` (MUST-D: IDEA 8 — PDF ingestion + Admin panel)
+- **Working tree:** clean. All 12 MUST-D files (9 code + 3 doc) landed in `a6d1daa`. No modified, staged, or untracked files remain at handoff time.
+- **Files in the MUST-D commit (`a6d1daa`, 12 files, +1323 / −11):**
+  - Code: `requirements.txt`, `src/ingest.py` (new), `src/retriever.py`, `src/models.py`, `src/main.py`, `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`, `tests/test_ingest.py` (new)
+  - Docs: `docs/HANDOFF.md`, `CLAUDE.md`, `docs/plans/2026-04-17-must-d-idea-8-plan.md` (new)
 - **Tests:** 172 passed, 14 skipped, 0 failed (this session)
 - **Evaluator:** unchanged on the original 12-doc corpus (no pipeline logic changed)
 - **Browser verification:** COMPLETE — Admin flow end-to-end PASS; prior MUST-C Playwright coverage unchanged
@@ -742,10 +732,12 @@ First backend-expanding batch since MUST-A. Adds a runtime PDF ingestion path (n
 
 ### Remaining Tasks
 
-1. **Commit MUST-D** — 9 code files + 2 doc files (`docs/HANDOFF.md`, `CLAUDE.md`) + 1 new plan (`docs/plans/2026-04-17-must-d-idea-8-plan.md`).
-2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` remain unreachable; 14 tests skipped. Safe to delete; no urgency.
-3. **(Optional) Evaluator corpus re-read** — unchanged from prior sessions; cosmetic.
-4. **(Optional) Deploy posture** — if hosting the demo, note the ephemeral-fs limitation: uploads via `/ingest` will not survive container restarts.
+No MUST-D work remains. The batch is fully implemented, verified, and committed (`a6d1daa`). All long-standing optional follow-ups from prior sessions are unchanged and still optional:
+
+1. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` remain unreachable; 14 tests skipped. Safe to delete; no urgency.
+2. **(Optional) Evaluator corpus re-read** — unchanged from prior sessions; cosmetic.
+3. **(Optional) Deploy posture** — if hosting the demo, note the ephemeral-fs limitation: uploads via `/ingest` will not survive container restarts on most hosts.
+4. **(Optional) Hostile review** — last clean verdict was Session 18; MUST-A/B/C/D have not been rereviewed. No known issues.
 
 ### Blockers and Warnings
 
@@ -757,4 +749,4 @@ None. All validation boundaries covered by tests. The only persistent-state muta
 
 ### Suggested First Action
 
-Commit the MUST-D batch (9 code files + 2 doc files + 1 new plan doc) with a descriptive message.
+None strictly required — MUST-D is complete and committed. If the next session needs direction, choose from the optional follow-ups above, or start a new IDEA / MUST-X batch.
