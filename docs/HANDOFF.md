@@ -712,8 +712,8 @@ First backend-expanding batch since MUST-A. Adds a runtime PDF ingestion path (n
 ### Current State
 
 - **Branch:** `codex/must-a-idea1-2`
-- **Last commit:** `a6d1daa` (MUST-D: IDEA 8 — PDF ingestion + Admin panel)
-- **Working tree:** clean. All 12 MUST-D files (9 code + 3 doc) landed in `a6d1daa`. No modified, staged, or untracked files remain at handoff time.
+- **Last commit:** `3da04cd` (MUST-D docs follow-up) on top of `a6d1daa` (MUST-D: IDEA 8 — PDF ingestion + Admin panel)
+- **Working tree:** clean. All 12 MUST-D files (9 code + 3 doc) landed in `a6d1daa`; `3da04cd` is a docs-only follow-up commit. No modified, staged, or untracked files remain at handoff time.
 - **Files in the MUST-D commit (`a6d1daa`, 12 files, +1323 / −11):**
   - Code: `requirements.txt`, `src/ingest.py` (new), `src/retriever.py`, `src/models.py`, `src/main.py`, `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`, `tests/test_ingest.py` (new)
   - Docs: `docs/HANDOFF.md`, `CLAUDE.md`, `docs/plans/2026-04-17-must-d-idea-8-plan.md` (new)
@@ -732,7 +732,7 @@ First backend-expanding batch since MUST-A. Adds a runtime PDF ingestion path (n
 
 ### Remaining Tasks
 
-No MUST-D work remains. The batch is fully implemented, verified, and committed (`a6d1daa`). All long-standing optional follow-ups from prior sessions are unchanged and still optional:
+No MUST-D work remains. The batch is fully implemented, verified, and committed (`a6d1daa` + `3da04cd`). All long-standing optional follow-ups from prior sessions are unchanged and still optional:
 
 1. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` remain unreachable; 14 tests skipped. Safe to delete; no urgency.
 2. **(Optional) Evaluator corpus re-read** — unchanged from prior sessions; cosmetic.
