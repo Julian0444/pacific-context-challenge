@@ -570,3 +570,78 @@ None. The IDEAs follow-up thread has no open items. No code was touched.
 ### Suggested First Action
 
 Commit the 4 uncommitted doc files as a single "doc cleanup" commit.
+
+---
+
+## Session — 2026-04-17 (Session 24 / **MUST-C — IDEA 4 + IDEA 6**)
+
+### Summary
+
+**Batch label: MUST-C — IDEA 4 + IDEA 6**
+
+Two frontend-only explainability passes. No backend, test, or model changes. All added UI is additive and conditionally rendered; existing chips, tables, and layouts untouched.
+
+---
+
+#### IDEA 4 — Natural-language Decision Trace summary + metric tooltips
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+- **`buildTraceSummary(trace, userRole, compact)`** helper added above `buildTracePanelHTML`. Returns an HTML string composed of up to four sentences — included / blocked / stale / dropped — with conditional rules (blocked and stale omitted when counts are zero; dropped omitted in compact mode when zero). Grammatical guards for `included === 0` and singular/plural nouns. `<strong>` used for emphasis on counts, roles, and doc IDs. All interpolated values pass through `escapeHTML`.
+- **`buildTracePanelHTML(trace, startOpen, userRole)`** signature extended with `userRole`. Inserts `<div class="trace-summary">` as the first child of `.trace-body`. Adds `trace-summary-compact` class when `startOpen === true` (Compare mode). The compact variant collapses the stale clause to a one-line count and drops the zero-dropped sentence.
+- **Four tooltips** added via `title=` attributes: `.budget-label` (Budget), and three spans in `.trace-numbers` (avg score, avg freshness, ttft). Prompt typos corrected: `"gng" → "generating"`, `"rey" → "recency"`.
+- **Call sites threaded:** `renderSingleResult` passes `role`; `buildCompareColumnHTML` signature extended with `userRole` and forwards it; `renderCompare` passes `data.role` into each column.
+- **CSS:** new `.trace-summary` (accent left border, `bg-surface`, readable `text-primary`) + `.trace-summary-compact` (tighter padding/size for Compare columns) + `.trace-summary strong`.
+
+Compact-mode rule choice: instead of stripping the budget-% clause, the compact variant drops the zero-dropped sentence and collapses per-doc stale details to a count. This preserves the informative "N tokens, M% of budget" clause in all modes while visibly shortening the paragraph on small columns.
+
+---
+
+#### IDEA 6 — Evals narrative banner + per-card hints + query-text column
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+- **`buildEvalsNarrative(agg)`** helper added below `renderEvals`. Returns `<div class="evals-narrative">` with three sentences: (1) permission-violations line (congratulatory or warning form); (2) recall line (100% form or fallback for less-than-perfect recall); (3) budget-utilization tier line (`< 0.60 → efficient`, `[0.60, 0.80] → moderate`, `> 0.80 → heavy`). Guarded on `queries_run > 0` — returns empty string otherwise.
+- **`METRIC_HINTS`** added inline as a `hint` field on each card entry in `renderEvals`. Each `.metric-card` now renders three spans: label / value / hint. Typos from prompt fixed.
+- **Query cell redesign:** the per-query table's first cell now contains `<span class="evals-qid">${q.id}</span><span class="evals-qtext" title="${full}">${truncated}</span>`, with truncation at 50 chars + `…`. Existing 12-column layout preserved; `.evals-query-cell` allows wrapping (overrides the global `white-space: nowrap` on `td`). Full query text surfaced via `title=` tooltip.
+- **CSS:** new `.evals-narrative` (parchment card with accent left border + shadow), `.metric-card-hint` (small tertiary text as third flex child; no grid disruption), `.evals-query-cell` / `.evals-qid` (accent pill) / `.evals-qtext` (display-font, secondary color).
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `2d58d05` (MUST-B2 DOCS) — MUST-C changes are **uncommitted** (2 modified files + 1 new plan doc)
+- **Working tree:**
+  - `frontend/app.js` (modified) — IDEA 4 + IDEA 6
+  - `frontend/styles.css` (modified) — IDEA 4 + IDEA 6 styles
+  - `docs/plans/2026-04-17-must-c-ideas-4-6-plan.md` (new, untracked) — the approved batch plan
+- **Tests:** 149 passed, 14 skipped, 0 failed (fresh run this session)
+- **Evaluator:** fresh `python3 -m src.evaluator` run this session matches baseline — **precision@5=0.3000, recall=1.0000, permission_violation_rate=0%**, queries run 8/8, avg budget util 53%, avg freshness 0.768. No pipeline changed.
+- **Browser verification:** COMPLETE — **15/15 Playwright checks passed** (IDEA 4 × 8 incl. separate analyst/partner blocked-clause checks; IDEA 6 × 7). 0 JS console errors across Single, Compare, and Evals modes.
+- **JS syntax:** `node --check frontend/app.js` → OK.
+- **Hostile review:** not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md` frontend section** — Single, Compare, and Evals mode descriptions amended to mention the trace narrative paragraph + tooltips (Single/Compare) and the narrative banner + card hints + query text column (Evals).
+- **`docs/plans/2026-04-16-ideas-execution-plan.md`** — not modified. MUST-C is a separate batch with its own canonical plan; the 2026-04-16 plan remains the canonical MUST-A/B1/B2 artifact.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — ARCHIVED; not touched.
+
+### Remaining Tasks
+
+1. **Commit MUST-C** — 3 files: `frontend/app.js`, `frontend/styles.css`, `docs/plans/2026-04-17-must-c-ideas-4-6-plan.md`, plus `docs/HANDOFF.md` + `CLAUDE.md` for this session's doc updates.
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. All additions are conditional (narrative guarded on `queries_run > 0`; summary emits only non-empty clauses). `userRole` threading has default-undefined fallback; missing role degrades gracefully (the blocked clause uses generic phrasing).
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`. MUST-A + MUST-B1 + MUST-B2 + MUST-C all live here.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the MUST-C batch (2 frontend files + new plan doc + this HANDOFF update + CLAUDE.md update).

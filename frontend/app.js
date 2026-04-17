@@ -333,7 +333,7 @@ function renderSingleResult(data, role, policy) {
   );
 
   const traceHTML = trace
-    ? buildTracePanelHTML(trace, false)
+    ? buildTracePanelHTML(trace, false, role)
     : "";
 
   resultsSection.innerHTML = summaryHTML + cardsHTML + blockedSectionHTML + traceHTML;
@@ -450,7 +450,7 @@ function renderCompare(data) {
 
   compareGrid.innerHTML = columns
     .map((policyName, colIdx) =>
-      buildCompareColumnHTML(policyName, data.results[policyName], { blockedInFull }, colIdx)
+      buildCompareColumnHTML(policyName, data.results[policyName], { blockedInFull }, colIdx, data.role)
     )
     .join("");
 
@@ -460,7 +460,7 @@ function renderCompare(data) {
 
 // ── Build compare column HTML ──
 
-function buildCompareColumnHTML(policyName, result, highlights, colIdx) {
+function buildCompareColumnHTML(policyName, result, highlights, colIdx, userRole) {
   const meta = POLICY_META[policyName] || {
     label: policyName.toUpperCase(),
     desc: "",
@@ -519,7 +519,7 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx) {
 
   // Trace panel — starts open in compare mode so the comparison is immediately visible
   const traceHTML = trace
-    ? `<div class="col-trace">${buildTracePanelHTML(trace, true)}</div>`
+    ? `<div class="col-trace">${buildTracePanelHTML(trace, true, userRole)}</div>`
     : "";
 
   return `
@@ -687,16 +687,16 @@ function renderEvals(data) {
   const queries = data.per_query;
 
   const cards = [
-    { label: "Precision@5", value: (agg.avg_precision_at_5 ?? 0).toFixed(4), color: "var(--accent)" },
-    { label: "Recall", value: (agg.avg_recall ?? 0).toFixed(4), color: "var(--score-high)" },
-    { label: "Permission Violations", value: fmtPct(agg.permission_violation_rate ?? 0), color: agg.permission_violation_rate > 0 ? "var(--trace-blocked)" : "var(--score-high)" },
-    { label: "Avg Context Docs", value: (agg.avg_context_docs ?? 0).toFixed(1), color: "var(--text-secondary)" },
-    { label: "Avg Total Tokens", value: (agg.avg_total_tokens ?? 0).toFixed(0), color: "var(--text-secondary)" },
-    { label: "Avg Freshness", value: (agg.avg_freshness_score ?? 0).toFixed(4), color: "var(--fresh-high)" },
-    { label: "Avg Blocked", value: (agg.avg_blocked_count ?? 0).toFixed(1), color: "var(--trace-blocked)" },
-    { label: "Avg Stale", value: (agg.avg_stale_count ?? 0).toFixed(1), color: "var(--trace-stale)" },
-    { label: "Avg Dropped", value: (agg.avg_dropped_count ?? 0).toFixed(1), color: "var(--trace-dropped)" },
-    { label: "Avg Budget Util", value: fmtPct(agg.avg_budget_utilization ?? 0), color: "var(--accent)" },
+    { label: "Precision@5", value: (agg.avg_precision_at_5 ?? 0).toFixed(4), color: "var(--accent)", hint: "Accuracy of the top 5 results" },
+    { label: "Recall", value: (agg.avg_recall ?? 0).toFixed(4), color: "var(--score-high)", hint: "Coverage of expected documents" },
+    { label: "Permission Violations", value: fmtPct(agg.permission_violation_rate ?? 0), color: agg.permission_violation_rate > 0 ? "var(--trace-blocked)" : "var(--score-high)", hint: "Restricted docs leaked to context" },
+    { label: "Avg Context Docs", value: (agg.avg_context_docs ?? 0).toFixed(1), color: "var(--text-secondary)", hint: "Documents per assembled context" },
+    { label: "Avg Total Tokens", value: (agg.avg_total_tokens ?? 0).toFixed(0), color: "var(--text-secondary)", hint: "Token consumption per query" },
+    { label: "Avg Freshness", value: (agg.avg_freshness_score ?? 0).toFixed(4), color: "var(--fresh-high)", hint: "Document recency (1 = newest)" },
+    { label: "Avg Blocked", value: (agg.avg_blocked_count ?? 0).toFixed(1), color: "var(--trace-blocked)", hint: "Docs excluded per query by RBAC" },
+    { label: "Avg Stale", value: (agg.avg_stale_count ?? 0).toFixed(1), color: "var(--trace-stale)", hint: "Superseded docs flagged per query" },
+    { label: "Avg Dropped", value: (agg.avg_dropped_count ?? 0).toFixed(1), color: "var(--trace-dropped)", hint: "Docs cut by token budget" },
+    { label: "Avg Budget Util", value: fmtPct(agg.avg_budget_utilization ?? 0), color: "var(--accent)", hint: "Token budget utilization" },
   ];
 
   const cardsHTML = cards
@@ -705,9 +705,12 @@ function renderEvals(data) {
       <div class="metric-card" style="animation-delay: ${i * 40}ms">
         <span class="metric-card-label">${escapeHTML(c.label)}</span>
         <span class="metric-card-value" style="color: ${c.color}">${escapeHTML(c.value)}</span>
+        <span class="metric-card-hint">${escapeHTML(c.hint)}</span>
       </div>`
     )
     .join("");
+
+  const narrativeHTML = buildEvalsNarrative(agg);
 
   const headerRow = `
     <tr>
@@ -731,9 +734,14 @@ function renderEvals(data) {
         return `<tr class="evals-row-error"><td>${escapeHTML(q.id)}</td><td colspan="11" class="evals-error-cell">${escapeHTML(q.error)}</td></tr>`;
       }
       const hasViolation = q.permission_violations && q.permission_violations.length > 0;
+      const qText = q.query || "";
+      const qTextTrunc = qText.length > 50 ? qText.slice(0, 50) + "…" : qText;
       return `
         <tr class="${hasViolation ? "evals-row-violation" : ""}">
-          <td class="evals-id-cell">${escapeHTML(q.id)}</td>
+          <td class="evals-query-cell">
+            <span class="evals-qid">${escapeHTML(q.id)}</span>
+            <span class="evals-qtext" title="${escapeHTML(qText)}">${escapeHTML(qTextTrunc)}</span>
+          </td>
           <td><span class="evals-role-chip">${escapeHTML(q.role)}</span></td>
           <td class="mono-cell">${(q.precision_at_5 ?? 0).toFixed(2)}</td>
           <td class="mono-cell">${(q.recall ?? 0).toFixed(2)}</td>
@@ -750,6 +758,7 @@ function renderEvals(data) {
     .join("");
 
   evalsContent.innerHTML = `
+    ${narrativeHTML}
     <div class="metrics-grid">${cardsHTML}</div>
     <div class="evals-table-wrap">
       <table class="evals-table">
@@ -760,15 +769,133 @@ function renderEvals(data) {
     <p class="evals-footer">Queries run: ${agg.queries_run ?? 0} · Failed: ${agg.queries_failed ?? 0}</p>`;
 }
 
+// ── Narrative banner for Evals (IDEA 6) ──
+
+function buildEvalsNarrative(agg) {
+  const queriesRun = agg.queries_run ?? 0;
+  if (queriesRun === 0) return "";
+
+  const sentences = [];
+  const violationRate = agg.permission_violation_rate ?? 0;
+  const recall = agg.avg_recall ?? 0;
+  const budgetUtil = agg.avg_budget_utilization ?? 0;
+
+  // Sentence 1 — permission violations
+  if (violationRate === 0) {
+    sentences.push(
+      `Zero permission violations across <strong>${queriesRun}</strong> test ${queriesRun === 1 ? "query" : "queries"} — the context layer never leaked restricted documents.`
+    );
+  } else {
+    sentences.push(
+      `<strong>Warning:</strong> ${fmtPct(violationRate)} of queries had permission violations across <strong>${queriesRun}</strong> test ${queriesRun === 1 ? "query" : "queries"}.`
+    );
+  }
+
+  // Sentence 2 — recall
+  if (recall === 1.0) {
+    sentences.push("<strong>100% recall</strong> — every expected document was found.");
+  } else {
+    sentences.push(
+      `Recall: <strong>${recall.toFixed(2)}</strong> — some expected documents were missed.`
+    );
+  }
+
+  // Sentence 3 — budget utilization tier
+  let tier;
+  if (budgetUtil < 0.60) tier = "efficient";
+  else if (budgetUtil <= 0.80) tier = "moderate";
+  else tier = "heavy";
+  sentences.push(
+    `Average budget utilization: <strong>${fmtPct(budgetUtil)}</strong>, meaning the system assembles <strong>${tier}</strong> context packs.`
+  );
+
+  return `<div class="evals-narrative">${sentences.join(" ")}</div>`;
+}
+
 function fmtPct(v) {
   return (v * 100).toFixed(1) + "%";
 }
 
+// ── Build natural-language Decision Trace summary (IDEA 4) ──
+
+function buildTraceSummary(trace, userRole, compact) {
+  const m = trace.metrics || {};
+  const included = m.included_count ?? (trace.included || []).length;
+  const tokens = m.total_tokens ?? 0;
+  const budgetPct = Math.round((m.budget_utilization ?? 0) * 100);
+  const blockedCount = m.blocked_count ?? 0;
+  const droppedCount = m.dropped_count ?? 0;
+  const staleList = trace.demoted_as_stale || [];
+  const blockedList = trace.blocked_by_permission || [];
+
+  const sentences = [];
+
+  // a) INCLUDED — always emitted; grammatical guard for zero
+  if (included === 0) {
+    sentences.push(`No documents made it into context (0 tokens, ${budgetPct}% of budget).`);
+  } else {
+    const noun = included === 1 ? "document was" : "documents were";
+    sentences.push(
+      `<strong>${included}</strong> ${noun} included in context (${tokens} tokens, ${budgetPct}% of budget).`
+    );
+  }
+
+  // b) BLOCKED — only when blocked_count > 0
+  if (blockedCount > 0) {
+    const uniqueRoles = Array.from(
+      new Set(blockedList.map((b) => b.required_role).filter(Boolean))
+    );
+    const rolesLabel = uniqueRoles.length > 0
+      ? uniqueRoles.map((r) => `<strong>${escapeHTML(r)}</strong>`).join(" and ")
+      : "higher";
+    const roleClause = userRole
+      ? `your role (<strong>${escapeHTML(userRole)}</strong>) cannot access ${rolesLabel}-level materials`
+      : `your role cannot access ${rolesLabel}-level materials`;
+    const noun = blockedCount === 1 ? "document was" : "documents were";
+    sentences.push(`<strong>${blockedCount}</strong> ${noun} blocked — ${roleClause}.`);
+  }
+
+  // c) STALE — only when demoted_as_stale is non-empty
+  if (staleList.length > 0) {
+    if (compact) {
+      // Compare mode: one compact sentence, no per-doc details
+      const noun = staleList.length === 1 ? "document was" : "documents were";
+      sentences.push(`<strong>${staleList.length}</strong> ${noun} demoted as superseded.`);
+    } else {
+      // Single mode: detail the first (up to 2) with penalty
+      const toList = staleList.slice(0, 2);
+      toList.forEach((s) => {
+        const penalty = s.penalty_applied != null ? `${s.penalty_applied}×` : "0.5×";
+        sentences.push(
+          `<strong>${escapeHTML(s.doc_id)}</strong> was demoted (superseded by <strong>${escapeHTML(s.superseded_by)}</strong>, freshness penalized by ${escapeHTML(penalty)}).`
+        );
+      });
+      if (staleList.length > toList.length) {
+        const rest = staleList.length - toList.length;
+        sentences.push(`${rest} additional stale document${rest === 1 ? "" : "s"} listed below.`);
+      }
+    }
+  }
+
+  // d) DROPPED — always emitted (positive or negative), unless compact+zero
+  if (droppedCount > 0) {
+    const noun = droppedCount === 1 ? "document" : "documents";
+    sentences.push(
+      `<strong>${droppedCount}</strong> ${noun} passed all filters but ${droppedCount === 1 ? "was" : "were"} dropped because ${droppedCount === 1 ? "it" : "they"} exceeded the token budget.`
+    );
+  } else if (!compact) {
+    sentences.push("No documents were dropped by budget.");
+  }
+
+  return sentences.join(" ");
+}
+
 // ── Build Decision Trace panel HTML ──
 
-function buildTracePanelHTML(trace, startOpen) {
+function buildTracePanelHTML(trace, startOpen, userRole) {
   const m = trace.metrics || {};
   const budgetPct = Math.min(100, Math.round((m.budget_utilization ?? 0) * 100));
+  const summaryHTML = buildTraceSummary(trace, userRole, startOpen === true);
 
   const includedChips = (trace.included || [])
     .map(
@@ -811,6 +938,7 @@ function buildTracePanelHTML(trace, startOpen) {
         <span class="trace-caret" aria-hidden="true">▾</span>
       </button>
       <div class="trace-body">
+        <div class="trace-summary${startOpen ? " trace-summary-compact" : ""}">${summaryHTML}</div>
         <div class="trace-row">
           <div class="trace-section">
             <span class="trace-section-label trace-label-included">✓ Included</span>
@@ -833,16 +961,16 @@ function buildTracePanelHTML(trace, startOpen) {
         </div>
         <div class="trace-metrics-strip">
           <div class="budget-row">
-            <span class="budget-label">Budget</span>
+            <span class="budget-label" title="Percentage of the 2048-token budget used by assembled context">Budget</span>
             <div class="budget-bar-wrap">
               <div class="budget-bar-fill" style="width: ${budgetPct}%"></div>
             </div>
             <span class="budget-pct">${budgetPct}%</span>
           </div>
           <div class="trace-numbers">
-            <span>avg score <strong>${(m.avg_score ?? 0).toFixed(2)}</strong></span>
-            <span>avg freshness <strong>${(m.avg_freshness_score ?? 0).toFixed(2)}</strong></span>
-            <span>ttft <strong>${Math.round(trace.ttft_proxy_ms ?? 0)}ms</strong></span>
+            <span title="Average relevance score of included documents (0–1)">avg score <strong>${(m.avg_score ?? 0).toFixed(2)}</strong></span>
+            <span title="Average freshness score — 1.0 = newest document in corpus">avg freshness <strong>${(m.avg_freshness_score ?? 0).toFixed(2)}</strong></span>
+            <span title="Time-to-First-Token proxy — estimated latency before an LLM starts generating">ttft <strong>${Math.round(trace.ttft_proxy_ms ?? 0)}ms</strong></span>
           </div>
         </div>
       </div>
