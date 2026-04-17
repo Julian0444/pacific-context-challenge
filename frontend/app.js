@@ -29,6 +29,9 @@ const POLICY_META = {
 // Canonical display order for compare columns
 const COMPARE_ORDER = ["naive_top_k", "permission_aware", "full_policy"];
 
+// Raw excerpt storage for expand/collapse — keyed by card index, avoids data-attr innerHTML
+const _cardExcerpts = new Map();
+
 // ── DOM references ──
 
 const form = document.getElementById("query-form");
@@ -315,8 +318,13 @@ function renderSingleResult(data, role, policy) {
       ` : ""}
     </div>`;
 
+  // Build stale lookup keyed by doc_id — used as fallback when chunk.superseded_by is absent
+  const staleMap = new Map(
+    (trace?.demoted_as_stale || []).map((s) => [s.doc_id, s])
+  );
+
   const cardsHTML = data.context
-    .map((chunk, i) => singleCardHTML(chunk, i, policy))
+    .map((chunk, i) => singleCardHTML(chunk, i, policy, staleMap))
     .join("");
 
   const traceHTML = trace
@@ -325,13 +333,14 @@ function renderSingleResult(data, role, policy) {
 
   resultsSection.innerHTML = summaryHTML + cardsHTML + traceHTML;
 
-  // Wire trace toggles
+  // Wire trace toggles and expand buttons
   wireTraceToggles(resultsSection);
+  wireExpandButtons(resultsSection);
 }
 
 // ── Render: single result card ──
 
-function singleCardHTML(chunk, index, policy) {
+function singleCardHTML(chunk, index, policy, staleMap = new Map()) {
   const score = chunk.score ?? 0;
   const freshness = chunk.freshness_score ?? 0;
   const scorePct = Math.round(score * 100);
@@ -349,7 +358,33 @@ function singleCardHTML(chunk, index, policy) {
     .map((t) => `<span class="tag">${escapeHTML(t)}</span>`)
     .join("");
 
-  const contentPreview = escapeHTML(chunk.content || "").slice(0, 480);
+  const title = chunk.title || chunk.doc_id;
+  const docTypeLabel = formatDocType(chunk.doc_type);
+  const dateLabel = formatDate(chunk.date);
+  const metaParts = [
+    `<span class="card-meta-badge">${escapeHTML(chunk.doc_id)}</span>`,
+    docTypeLabel ? escapeHTML(docTypeLabel) : null,
+    dateLabel ? escapeHTML(dateLabel) : null,
+  ].filter(Boolean).join(" · ");
+
+  // Staleness detection: prefer chunk.superseded_by (IDEA 2), fall back to trace staleMap
+  const staleInfo = staleMap.get(chunk.doc_id);
+  const supersededBy = chunk.superseded_by || staleInfo?.superseded_by || null;
+  const isSuperseded = supersededBy != null;
+  const penaltyLabel = staleInfo?.penalty_applied != null
+    ? `${staleInfo.penalty_applied}×`
+    : "0.5×";
+
+  const staleHTML = isSuperseded ? `
+    <div class="stale-badge">
+      <span class="stale-icon">⚠</span>
+      <span class="stale-text">Superseded by <strong>${escapeHTML(supersededBy)}</strong> — freshness penalized ${escapeHTML(penaltyLabel)}</span>
+    </div>` : "";
+
+  const rawShort = (chunk.content || "").slice(0, 200);
+  const rawFull = chunk.content || "";
+  const hasMore = rawFull.length > 200;
+  _cardExcerpts.set(index, { short: rawShort, full: rawFull });
 
   const freshnessMetricHTML = skipFreshness
     ? `<div class="metric">
@@ -367,12 +402,17 @@ function singleCardHTML(chunk, index, policy) {
        </div>`;
 
   return `
-    <article class="result-card" style="--card-accent: ${accentColor}; animation-delay: ${index * 50}ms">
+    <article class="result-card" data-card-idx="${index}" style="--card-accent: ${accentColor}; animation-delay: ${index * 50}ms">
       <div class="card-header">
-        <span class="card-doc-id">${escapeHTML(chunk.doc_id)}</span>
+        <span class="card-title">${escapeHTML(title)}</span>
         <span class="card-rank">#${index + 1}</span>
       </div>
-      <p class="card-content">${contentPreview}</p>
+      <div class="card-meta">${metaParts}</div>
+      ${staleHTML}
+      <div class="card-content">
+        <p class="card-content-text">${escapeHTML(rawShort)}</p>
+      </div>
+      ${hasMore ? `<button class="card-expand-btn" type="button">Show more ▾</button>` : ""}
       <div class="card-metrics">
         <div class="metric">
           <div class="metric-label">Relevance</div>
@@ -511,7 +551,20 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
     ? `<span class="doc-flag flag-blocked" title="Blocked in full_policy for this role">blocked in full</span>`
     : "";
 
-  const contentSnippet = escapeHTML((doc.content || "").slice(0, 160));
+  const compareStaleHTML = doc.superseded_by
+    ? `<span class="compare-stale-badge" title="Superseded by ${escapeHTML(doc.superseded_by)}">⚠ Superseded</span>`
+    : "";
+
+  const compareTitle = (doc.title || doc.doc_id).slice(0, 60);
+  const docTypeLabel = formatDocType(doc.doc_type);
+  const dateLabel = formatDate(doc.date);
+  const compareMetaParts = [
+    `<span class="card-meta-badge">${escapeHTML(doc.doc_id)}</span>`,
+    docTypeLabel ? escapeHTML(docTypeLabel) : null,
+    dateLabel ? escapeHTML(dateLabel) : null,
+  ].filter(Boolean).join(" · ");
+
+  const contentSnippet = escapeHTML((doc.content || "").slice(0, 120));
 
   const freshnessHTML = skipFreshness
     ? `<div class="mini-metric"><span class="mini-na">freshness N/A</span></div>`
@@ -525,9 +578,11 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
   return `
     <article class="compare-card" style="--card-accent: ${accentColor}; animation-delay: ${index * 35}ms">
       <div class="compare-card-header">
-        <span class="compare-card-id">${escapeHTML(doc.doc_id)}</span>
+        <span class="compare-card-title">${escapeHTML(compareTitle)}</span>
         ${flagHTML}
       </div>
+      <div class="card-meta compare-card-meta">${compareMetaParts}</div>
+      ${compareStaleHTML}
       <p class="compare-card-content">${contentSnippet}</p>
       <div class="compare-card-scores">
         <div class="mini-metric">
@@ -736,6 +791,21 @@ function buildTracePanelHTML(trace, startOpen) {
 
 // ── Wire trace toggle expand/collapse ──
 
+function wireExpandButtons(container) {
+  container.querySelectorAll(".card-expand-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const card = btn.closest(".result-card");
+      const idx = parseInt(card.dataset.cardIdx, 10);
+      const excerpts = _cardExcerpts.get(idx);
+      const contentEl = card.querySelector(".card-content");
+      const textEl = contentEl.querySelector(".card-content-text");
+      const expanded = contentEl.classList.toggle("expanded");
+      textEl.textContent = expanded ? excerpts.full : excerpts.short;
+      btn.textContent = expanded ? "Hide ▴" : "Show more ▾";
+    });
+  });
+}
+
 function wireTraceToggles(container) {
   container.querySelectorAll(".trace-toggle").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -766,6 +836,16 @@ function renderError(err, container) {
 }
 
 // ── Utility ──
+
+function formatDocType(raw) {
+  return (raw || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  const [year, month] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
 
 function escapeHTML(str) {
   const el = document.createElement("span");

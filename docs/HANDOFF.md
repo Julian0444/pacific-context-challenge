@@ -249,3 +249,108 @@ A targeted `/frontend-design` review of the policy selector hierarchy. Five poli
 ### Suggested First Action
 
 Browser-verify the MUST-A frontend changes before starting MUST-B1.
+
+---
+
+## Session — 2026-04-16 (Session 20 / **MUST-B1 — IDEA 3 + IDEA 7**)
+
+> **IDEA numbering convention:** Batches labelled "MUST-X" group multiple IDEAs into a single commit unit.
+
+### Summary
+
+**Batch label: MUST-B1 — IDEA 3 + IDEA 7**
+
+Three passes in one session: MUST-A browser verification, IDEA 3 (card redesign), and IDEA 7 (stale/superseded badges). All frontend-only — no backend, no test, no model changes.
+
+---
+
+#### MUST-A Browser Verification (completed this session)
+
+Confirmed all MUST-A changes correct via Playwright (20/20 checks):
+- Policy chips show "No Filters" / "Permissions Only" / "Full Pipeline" (old NAIVE/RBAC/FULL gone)
+- Policy description updates on radio switch; all three descriptions are distinct
+- Amber warning banner appears only for No Filters
+- Permissions Only freshness renders as "N/A — skipped by policy" (12 elements); no 0.00 bars
+- Full Pipeline query returns result cards; trace panel expands correctly
+- 0 JS console errors
+
+---
+
+#### IDEA 3 — Document Card Redesign + Excerpt Expand/Collapse
+
+Frontend-only. No backend or test changes.
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+**`singleCardHTML` changes:**
+- Card header now shows document `title` (fallback: `doc_id`) as main heading (`.card-title`) with rank on the right
+- New `.card-meta` line below title: `doc_id` badge (`.card-meta-badge`, light gray bg, mono font) · formatted doc type (e.g. "Public Filing") · formatted date (e.g. "Mar 2024")
+- Default excerpt shortened from 480 → 200 chars
+- Expand/collapse button ("Show more ▾" / "Hide ▴") toggles to full ~500-char indexer excerpt
+- **Security hardening:** raw content stored in `_cardExcerpts` Map keyed by `data-card-idx`; toggle uses `textContent`, not `innerHTML` from data attributes
+- **Date timezone fix:** `new Date(dateStr)` → manual `new Date(year, month-1, 1)` to avoid UTC offset shifting months (e.g. "2024-03-01" was rendering as "Feb 2024")
+
+**`buildCompareCardHTML` changes:**
+- Title heading (`.compare-card-title`, truncated to 60 chars) replaces bare doc_id
+- Same `.card-meta` line (badge + type + date) added below title
+- Snippet shortened from 160 → 120 chars
+- No expand button (columns are narrow)
+
+**New CSS:** `.card-title`, `.card-meta`, `.card-meta-badge`, `.compare-card-title`, `.card-content` (max-height transition: collapsed 4.8em → expanded 600px), `.card-content-text`, `.card-expand-btn`, `.compare-card-meta`
+
+**New JS helpers:** `formatDocType(raw)`, `formatDate(dateStr)`, `_cardExcerpts` Map, `wireExpandButtons(container)`
+
+---
+
+#### IDEA 7 — Stale/Superseded Badge
+
+Frontend-only. No backend or test changes.
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+**Detection:** Two-method with fallback:
+- **Primary (Option A):** `chunk.superseded_by != null` — available because IDEA 2 already propagates this field through the full chain
+- **Fallback (Option B):** cross-reference `chunk.doc_id` against `trace.demoted_as_stale` (built into a `staleMap` in `renderSingleResult()`)
+
+**Single mode badge (`.stale-badge`):** Amber-tinted box with ⚠ icon, "Superseded by **doc_XXX** — freshness penalized 0.5×". Inserted between `.card-meta` and `.card-content`. Penalty value pulled from `staleInfo.penalty_applied` (falls back to `0.5×`).
+
+**Compare mode badge (`.compare-stale-badge`):** Compact inline "⚠ Superseded" chip (option A only — `doc.superseded_by != null`). Inserted between `.card-meta` and content snippet.
+
+**New CSS:** `.stale-badge`, `.stale-icon`, `.stale-text`, `.stale-text strong`, `.compare-stale-badge`
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `719e03f` (MUST-A idea 1 and 2) — MUST-B1 changes are **uncommitted** (2 modified files)
+- **Working tree:** 2 modified files (uncommitted — this session's work):
+  - `frontend/app.js` — IDEA 3 + IDEA 7 changes
+  - `frontend/styles.css` — IDEA 3 + IDEA 7 styles
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified this session — `python3 -m pytest -q`)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged; no pipeline changes)
+- **Browser verification:** COMPLETE — 19/19 MUST-B1 Playwright checks passed (IDEA 3 × 8, IDEA 7 × 5, Compare × 4, Evals regression × 1, JS errors × 1). 0 JS console errors.
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY (all three modes functional; stale badges correct on both known stale pairs)
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md` frontend section** — updated Single mode and Compare mode descriptions to reflect card redesign (title, metadata line, excerpt expand/collapse) and stale badges. Previously described card rendering did not mention these fields.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — historical/archived; no update needed. All items have been complete since Session 16.
+
+### Remaining Tasks
+
+1. **Commit MUST-B1** — 2 modified files: `frontend/app.js`, `frontend/styles.css`
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. Backend is unchanged. All new frontend fields are `Optional` — no risk of null-pointer regressions.
+
+- **Branch mismatch note:** Working branch is `codex/must-a-idea1-2`, not `main`. MUST-A and MUST-B1 work lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 2 modified files (`frontend/app.js`, `frontend/styles.css`) as the MUST-B1 batch.
