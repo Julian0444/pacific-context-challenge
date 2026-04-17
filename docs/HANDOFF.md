@@ -510,3 +510,63 @@ None.
 ### Suggested First Action
 
 Commit the 4 MUST-B2 code files.
+
+---
+
+## Session — 2026-04-16 (Session 23 / **IDEAs Follow-up Closure — P2 + P3**)
+
+### Summary
+
+Documentation-only pass. Closed the two remaining follow-up items from `docs/plans/2026-04-16-ideas-execution-plan.md`. No code, test, or product changes.
+
+**P2 — Restore flow consolidation (resolved):**
+Added a 6-line `[ARCHIVED — 2026-04-16]` banner to the header of `docs/plans/2026-04-10-pipeline-integration-plan.md`. The banner explicitly states the file is not part of the default restore flow, kept on disk as audit record only, and documents the canonical restore sequence: `HANDOFF.md` → `CLAUDE.md` (extended: + `docs/plans/2026-04-16-ideas-execution-plan.md`).
+
+**P3 — Compare column-header label verification (resolved):**
+Ran an explicit Playwright assertion via the `webapp-testing` skill:
+- Loaded `frontend/index.html` (file://) with the uvicorn API server running on port 8000
+- Clicked the "Analyst wall ↔" scenario button (auto-switches to Compare mode, fires `POST /compare`)
+- Waited for `.col-badge` elements; asserted exactly 3 present with text in order
+
+```
+Found 3 .col-badge elements: ['No Filters', 'Permissions Only', 'Full Pipeline']
+PASS — Compare column headers match expected labels exactly.
+```
+
+This closes the lone `unclear` item from the MUST-A IDEA 1 consistency review. The code path was correct by construction (`buildCompareColumnHTML` reads `POLICY_META[policyName].label`), but the assertion was never itemized explicitly until now.
+
+**Execution plan updated:** Both P2 and P3 entries rewritten as resolved with evidence. Count line updated to `P0=0, P1=0, P2=0 (resolved), P3=0 (resolved). All follow-ups closed.`
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `6122d94` (MUST-B2) — all subsequent changes are doc-only and uncommitted
+- **Working tree — uncommitted doc files:**
+  - `docs/HANDOFF.md` — this session entry
+  - `docs/plans/2026-04-10-pipeline-integration-plan.md` — ARCHIVED banner added (P2)
+  - `docs/plans/2026-04-16-ideas-execution-plan.md` — new canonical plan file (untracked; replaces deleted summary)
+  - `docs/plans/2026-04-16-ideas-1-2-3-5-7-execution-summary.md` — deleted (unstaged; superseded by execution plan)
+- **Tests:** 149 passed, 14 skipped, 0 failed (last verified Session 22; no code touched this session)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
+- **Browser verification:** P3 assertion PASS (this session)
+- **Demo status:** READY
+- **IDEAs follow-up thread:** FULLY CLOSED — `docs/plans/2026-04-16-ideas-execution-plan.md` is the canonical artifact; all P-items resolved
+
+### Remaining Tasks
+
+1. **Commit doc cleanup** — 4 files: `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md` (modified), `docs/plans/2026-04-16-ideas-execution-plan.md` (new, untracked), `docs/plans/2026-04-16-ideas-1-2-3-5-7-execution-summary.md` (deleted)
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. The IDEAs follow-up thread has no open items. No code was touched.
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`, not `main`. All MUST-A/B1/B2 work plus doc cleanup lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 4 uncommitted doc files as a single "doc cleanup" commit.

@@ -1,5 +1,12 @@
 # Pipeline Integration Plan — 2026-04-10
 # Updated after Prompt 5 (Session 11) — 2026-04-12
+#
+# [ARCHIVED — 2026-04-16]
+# All items in this plan are complete (since Session 16).
+# This file is kept on disk as an audit record only.
+# Do NOT include this file in the default session-restore reading list.
+# Default restore flow: docs/HANDOFF.md → CLAUDE.md
+# Extended restore (post-MUST-A/B1/B2): add docs/plans/2026-04-16-ideas-execution-plan.md
 
 ## Executive Summary
 
