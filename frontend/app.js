@@ -327,15 +327,21 @@ function renderSingleResult(data, role, policy) {
     .map((chunk, i) => singleCardHTML(chunk, i, policy, staleMap))
     .join("");
 
+  const blockedSectionHTML = buildBlockedSectionHTML(
+    trace?.blocked_by_permission || [],
+    role
+  );
+
   const traceHTML = trace
     ? buildTracePanelHTML(trace, false)
     : "";
 
-  resultsSection.innerHTML = summaryHTML + cardsHTML + traceHTML;
+  resultsSection.innerHTML = summaryHTML + cardsHTML + blockedSectionHTML + traceHTML;
 
-  // Wire trace toggles and expand buttons
+  // Wire trace toggles, expand buttons, and blocked-section toggle
   wireTraceToggles(resultsSection);
   wireExpandButtons(resultsSection);
+  wireBlockedSectionToggle(resultsSection);
 }
 
 // ── Render: single result card ──
@@ -594,6 +600,60 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
         ${freshnessHTML}
       </div>
     </article>`;
+}
+
+// ── Render: blocked documents section (single mode) ──
+
+function buildBlockedSectionHTML(blocked, userRole) {
+  if (!blocked || blocked.length === 0) return "";
+
+  const count = blocked.length;
+  const headerLabel = `${count} document${count === 1 ? "" : "s"} blocked by permissions`;
+
+  const cardsHTML = blocked
+    .map((b) => {
+      const title = b.title || b.doc_id;
+      const typeLabel = formatDocType(b.doc_type);
+      const reason = b.reason === "unknown_min_role"
+        ? `Unknown role requirement: <strong>${escapeHTML(b.required_role)}</strong>`
+        : `Requires <strong>${escapeHTML(b.required_role)}</strong> role — you are <strong>${escapeHTML(userRole || b.user_role)}</strong>`;
+
+      const metaParts = [
+        `<span class="card-meta-badge">${escapeHTML(b.doc_id)}</span>`,
+        typeLabel ? escapeHTML(typeLabel) : null,
+      ].filter(Boolean).join(" · ");
+
+      return `
+        <div class="blocked-card">
+          <div class="blocked-card-title">${escapeHTML(title)}</div>
+          <div class="card-meta blocked-card-meta">${metaParts}</div>
+          <div class="blocked-card-reason">${reason}</div>
+        </div>`;
+    })
+    .join("");
+
+  return `
+    <section class="blocked-section" aria-label="Documents blocked by permissions">
+      <button class="blocked-header" type="button" aria-expanded="false">
+        <span class="blocked-header-icon" aria-hidden="true">🔒</span>
+        <span class="blocked-header-label">${escapeHTML(headerLabel)}</span>
+        <span class="blocked-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="blocked-body">
+        <div class="blocked-body-inner">${cardsHTML}</div>
+      </div>
+    </section>`;
+}
+
+function wireBlockedSectionToggle(container) {
+  container.querySelectorAll(".blocked-section").forEach((section) => {
+    const btn = section.querySelector(".blocked-header");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const isOpen = section.classList.toggle("open");
+      btn.setAttribute("aria-expanded", isOpen);
+    });
+  });
 }
 
 // ── Evals dashboard ──

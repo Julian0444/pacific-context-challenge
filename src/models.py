@@ -112,6 +112,8 @@ class BlockedDocument(BaseModel):
     reason: str = "insufficient_role"
     required_role: str
     user_role: str
+    title: Optional[str] = None
+    doc_type: Optional[str] = None
 
 
 class StaleDocument(BaseModel):

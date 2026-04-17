@@ -909,6 +909,110 @@ body {
   margin-bottom: 0.3rem;
 }
 
+/* ─── Blocked Documents Section (single mode) ─── */
+
+.blocked-section {
+  margin-top: 1rem;
+  margin-bottom: 0.6rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.blocked-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--trace-blocked);
+  background: var(--trace-blocked-bg);
+  border: none;
+  border-left: 3px solid var(--trace-blocked);
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur) var(--ease);
+}
+
+.blocked-header:hover {
+  background: rgba(184, 50, 50, 0.12);
+}
+
+.blocked-header-icon {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.blocked-header-label {
+  flex: 1;
+  letter-spacing: 0.02em;
+}
+
+.blocked-caret {
+  font-size: 0.7rem;
+  color: var(--trace-blocked);
+  transition: transform var(--dur) var(--ease);
+}
+
+.blocked-section.open .blocked-caret {
+  transform: rotate(180deg);
+}
+
+.blocked-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.blocked-section.open .blocked-body {
+  max-height: 2000px;
+}
+
+.blocked-body-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.blocked-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.75rem;
+}
+
+.blocked-card-title {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+  margin-bottom: 0.3rem;
+}
+
+.blocked-card-meta {
+  margin-bottom: 0.35rem;
+}
+
+.blocked-card-reason {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--trace-blocked);
+  line-height: 1.5;
+}
+
+.blocked-card-reason strong {
+  font-weight: 600;
+  color: var(--accent-dim);
+}
+
 /* ─── Decision Trace Panel ─── */
 
 .trace-panel {

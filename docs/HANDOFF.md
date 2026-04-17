@@ -354,3 +354,159 @@ None. Backend is unchanged. All new frontend fields are `Optional` — no risk o
 ### Suggested First Action
 
 Commit the 2 modified files (`frontend/app.js`, `frontend/styles.css`) as the MUST-B1 batch.
+
+---
+
+## Session — 2026-04-16 (Session 21 / **MUST-B2 — IDEA 5**)
+
+> **IDEA numbering convention:** Batches labelled "MUST-X" group multiple IDEAs into a single commit unit.
+
+### Summary
+
+**Batch label: MUST-B2 — IDEA 5**
+
+One enrichment pass: backend `BlockedDocument` metadata plumbing + frontend collapsible blocked-documents section in Single mode.
+
+---
+
+#### IDEA 5 — Blocked Documents Section in Single Mode
+
+**Backend (2 files modified):**
+
+1. **`src/models.py`** — `BlockedDocument` gained two optional fields:
+   - `title: Optional[str] = None`
+   - `doc_type: Optional[str] = None`
+
+2. **`src/stages/permission_filter.py`** — Both `BlockedDocument(...)` constructors (unknown-role path and insufficient-role path) now pass `title=doc.title, doc_type=doc.doc_type`.
+
+**Frontend (2 files modified):**
+
+3. **`frontend/app.js`** — Three additions:
+   - `buildBlockedSectionHTML(blocked, userRole)` — returns `<section class="blocked-section">` with a collapsible header ("🔒 N document(s) blocked by permissions ▾") and body with per-document `.blocked-card` entries showing title (fallback to `doc_id`), `doc_id` badge, doc type, and a human-readable reason (`"Requires X role — you are Y"` for `insufficient_role`; `"Unknown role requirement: X"` for `unknown_min_role`). Section omitted entirely when `blocked` is empty.
+   - `wireBlockedSectionToggle(container)` — toggles `.open` class on `.blocked-section` header click.
+   - `renderSingleResult()` updated: `blockedSectionHTML` computed from `trace?.blocked_by_permission || []` and inserted between `cardsHTML` and `traceHTML`.
+
+4. **`frontend/styles.css`** — New block `/* ─── Blocked Documents Section (single mode) ─── */`:
+   - `.blocked-section`, `.blocked-header` (amber left border `var(--trace-blocked)`, `var(--trace-blocked-bg)` background), `.blocked-header-icon`, `.blocked-caret` (rotates 180° when `.open`), `.blocked-body` (max-height 0 → 2000px transition), `.blocked-body-inner`, `.blocked-card`, `.blocked-card-title`, `.blocked-card-meta`, `.blocked-card-reason`.
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `719e03f` (MUST-A idea 1 and 2) — MUST-B1 and MUST-B2 changes are both **uncommitted** (4 modified files)
+- **Working tree:** 4 modified files (uncommitted — MUST-B1 + MUST-B2):
+  - `frontend/app.js` — IDEA 3 + IDEA 7 + IDEA 5 changes
+  - `frontend/styles.css` — IDEA 3 + IDEA 7 + IDEA 5 styles
+  - `src/models.py` — IDEA 5: `title`/`doc_type` added to `BlockedDocument`
+  - `src/stages/permission_filter.py` — IDEA 5: both constructors pass `title`/`doc_type`
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified after IDEA 5 backend changes)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged; no pipeline logic changed)
+- **Browser verification (IDEA 5):** COMPLETE — 4/4 Playwright checks passed:
+  - Analyst + ARR query → blocked section renders with "🔒 7 documents blocked by permissions ▾"
+  - Collapse/expand toggles correctly (closed by default → opens → closes again)
+  - First blocked card shows correct title and reason: "Requires vp role — you are analyst"
+  - Partner + same query → no blocked section rendered (correctly hidden)
+  - Trace panel still renders below blocked section; no regression
+  - 0 JS console errors
+- **JS syntax:** `node --check frontend/app.js` → OK
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md` frontend section** — Single mode description updated to include blocked-documents section; `BlockedDocument` contract model description updated to mention `title`/`doc_type` fields.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — historical/archived; no update needed. All items complete since Session 16.
+
+### Remaining Tasks
+
+1. **Commit MUST-B1 + MUST-B2** — 4 modified files: `frontend/app.js`, `frontend/styles.css`, `src/models.py`, `src/stages/permission_filter.py`
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. All new backend fields are `Optional` — existing tests unaffected. Frontend section is conditionally rendered (no display when zero blocked).
+
+- **Branch mismatch note:** Working branch is `codex/must-a-idea1-2`, not `main`. MUST-A + MUST-B1 + MUST-B2 work lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 4 modified files as a combined MUST-B1 + MUST-B2 batch (or as two sequential commits if separate provenance is preferred).
+
+---
+
+## Session — 2026-04-16 (Session 22 / **MUST-B2 Verification + Documentation Pass**)
+
+### Summary
+
+Documentation and verification pass only. No code changes made. Confirmed MUST-B1 was committed as `6ac80a6` (correcting the Session 21 state which incorrectly described it as uncommitted). Ran `python3 -m pytest -q` and a thorough 7-criterion Playwright verification of the MUST-B2 blocked-documents section.
+
+---
+
+#### What was verified
+
+**Tests (`python3 -m pytest -q`):** 149 passed, 14 skipped, 0 failed.
+
+**Browser verification (7/7 Playwright checks — expanded from Session 21's 4/4):**
+
+| # | Criterion | Result |
+|---|-----------|--------|
+| 1 | Analyst + ARR query → blocked section appears (N > 0) | ✅ Header: "7 documents blocked by permissions" |
+| 2 | Section collapsed by default | ✅ Body height = 0 on load |
+| 3 | Click header → expands, blocked cards visible | ✅ 7 cards rendered |
+| 4 | Blocked card reason is human-readable | ✅ "Requires vp role — you are analyst" |
+| 5 | Click header again → collapses | ✅ Confirmed collapsed |
+| 6 | Partner + same query → NO blocked section | ✅ `blocked-section` count = 0 |
+| 7 | No JS console errors | ✅ 0 errors |
+
+**Additive-only checks (all confirmed):**
+- `buildBlockedSectionHTML` returns `""` when blocked list is empty — section is never rendered for partner or zero-blocked cases.
+- No document content, excerpts, or scores are exposed in the blocked section — only `doc_id`, `title`, `doc_type`, and the reason string.
+
+---
+
+#### Stale docs corrected this session
+
+- **`docs/HANDOFF.md` Session 21 "Current State"** — said last commit was `719e03f` and MUST-B1 was uncommitted. Corrected here: MUST-B1 was committed as `6ac80a6` before this session. MUST-B2 code remains uncommitted.
+- **`CLAUDE.md`** — already fully up to date (lines 94, 135 describe MUST-B2 correctly). No changes needed.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — historical/archived. All plan items complete since Session 16. No update needed.
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `6ac80a6` (MUST-B1) — MUST-B2 code changes are **uncommitted**
+- **Working tree — uncommitted code files (MUST-B2):**
+  - `frontend/app.js` — IDEA 5: `buildBlockedSectionHTML`, `wireBlockedSectionToggle`, `renderSingleResult` wiring
+  - `frontend/styles.css` — IDEA 5: `.blocked-section`, `.blocked-header`, `.blocked-body`, `.blocked-card` styles
+  - `src/models.py` — IDEA 5: `title`/`doc_type` added to `BlockedDocument`
+  - `src/stages/permission_filter.py` — IDEA 5: both `BlockedDocument` constructors pass `title`/`doc_type`
+- **Working tree — uncommitted doc files (this session):**
+  - `docs/HANDOFF.md` — this session entry
+  - `CLAUDE.md` — already correct; modified in a prior pass
+  - `docs/plans/2026-04-10-pipeline-integration-plan.md` — already correct; modified in a prior pass
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified this session)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged; no pipeline logic changed)
+- **Browser verification:** COMPLETE — 7/7 checks (this session)
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Remaining Tasks
+
+1. **Commit MUST-B2** — 4 uncommitted code files: `frontend/app.js`, `frontend/styles.css`, `src/models.py`, `src/stages/permission_filter.py`
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None.
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`, not `main`. MUST-A + MUST-B1 + MUST-B2 work lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 4 MUST-B2 code files.
