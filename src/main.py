@@ -12,6 +12,7 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.models import (
     QueryRequest,
@@ -46,12 +47,18 @@ with open(_METADATA_PATH, "r") as _f:
     _metadata = json.load(_f)
 
 _EVALS_PATH = os.path.join(os.path.dirname(__file__), "..", "evals", "test_queries.json")
+_FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 _evals_cache: Optional[dict] = None
+
+
+def _ingest_enabled() -> bool:
+    """Ingest is enabled unless ALLOW_INGEST is explicitly 'false' or '0'."""
+    return os.getenv("ALLOW_INGEST", "true").strip().lower() not in {"false", "0"}
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "ingest_enabled": _ingest_enabled()}
 
 
 @app.post("/query", response_model=QueryResponse)
@@ -193,6 +200,12 @@ async def ingest(
     """
     global _metadata, _evals_cache
 
+    if not _ingest_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Ingest is disabled on this deployment.",
+        )
+
     if (file.content_type or "").lower() not in ("application/pdf", "application/octet-stream"):
         if not (file.filename or "").lower().endswith(".pdf"):
             raise HTTPException(
@@ -238,3 +251,10 @@ async def ingest(
         tags=entry["tags"],
         total_documents=len(_metadata["documents"]),
     )
+
+
+# Mount the static frontend last so JSON routes above are not shadowed.
+# Served at /app/ (Starlette's StaticFiles with html=True falls back to index.html
+# for directory requests). Same-origin serving means the frontend's API_BASE
+# can be an empty string in production — no CORS preflight required.
+app.mount("/app", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")

@@ -181,4 +181,20 @@ No backend, test, or model files change.
 
 ---
 
-**Counts:** P0=0, P1=2 (IDEA 9, IDEA 10), P2=0, P3=0. Plan ready for implementation approval.
+**Counts:** P0=0, P1=2 (IDEA 9, IDEA 10), P2=0, P3=0.
+
+---
+
+## Execution outcome (2026-04-17)
+
+Status: **EXECUTED + VERIFIED**. Batch landed on `codex/must-a-idea1-2` as commit `0315c59` ("SHOULD-A: IDEA 9 (role description) + IDEA 10 (guided empty state)").
+
+Evidence (captured at execution time):
+- `python3 -m pytest -q` → **172 passed, 14 skipped, 0 failed** (unchanged from pre-batch baseline).
+- `node --check frontend/app.js` → OK.
+- Playwright via `webapp-testing` skill → **15/15 checks passed**, 0 JS console errors. Covered: role description updates on radio switch + on programmatic role set from `.example-btn`; "internamos" not present in rendered HTML; three `.onboard-card` buttons render and each dispatches the correct scenario (Permission Wall → analyst/ARR, Stale Detection → vp/financial model with stale demotion chip in Full column, Full Access → partner/IC memo with `0 BLOCKED` in Full column); decorative `.empty-icon` SVG absent; MUST-A P3 compare-header assertion and MUST-C evals narrative both clean.
+- Files changed (per commit `0315c59`): `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-17-should-a-ideas-9-10-plan.md` (this file), `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`.
+
+Deviations from plan: none. Accepted residual ("onboard cards do not restore after first query — pre-existing empty-state-removal behavior") documented in HANDOFF / CLAUDE.
+
+Superseded by subsequent batches: NICE-B / IDEA 11 (deploy packaging) has since been executed on top of this work — see `docs/plans/2026-04-17-nice-b-idea-11-plan.md`.

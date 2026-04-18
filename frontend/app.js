@@ -1,6 +1,13 @@
 // app.js — QueryTrace Context Policy Lab
 
-const API_BASE = "http://localhost:8000";
+// API_BASE picks absolute localhost for file:// and local dev, empty (same-origin)
+// elsewhere. When the page is served from /app/ on the deployed host, fetches
+// resolve against the page origin (e.g. https://host/query) — no CORS required.
+const API_BASE = (() => {
+  const h = window.location.hostname;
+  if (h === "localhost" || h === "127.0.0.1" || h === "") return "http://localhost:8000";
+  return "";
+})();
 const DEFAULT_TOP_K = 8;
 
 // ── Policy metadata (label, description, CSS variant) ──
@@ -145,6 +152,23 @@ document.querySelectorAll('input[name="role"]').forEach((radio) => {
 updateRoleDescription(
   document.querySelector('input[name="role"]:checked')?.value || "analyst"
 );
+
+// ── Capability probe — hide Admin tab when the server has ingest disabled ──
+
+(async function probeIngestCapability() {
+  try {
+    const res = await fetch(`${API_BASE}/health`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.ingest_enabled === false) {
+      const adminBtn = document.querySelector('.mode-btn[data-mode="admin"]');
+      if (adminBtn) adminBtn.hidden = true;
+      if (adminSection) adminSection.hidden = true;
+    }
+  } catch (_err) {
+    // Non-fatal: if the probe fails (offline, old server), leave Admin visible.
+  }
+})();
 
 // ── Form submission ──
 

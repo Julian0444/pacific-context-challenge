@@ -843,3 +843,94 @@ No SHOULD-A work remains. Long-standing optional follow-ups from prior sessions 
 ### Suggested First Action
 
 None strictly required — SHOULD-A is complete and committed. If continuing, start the next IDEA / SHOULD-X batch.
+
+---
+
+## Session — 2026-04-17 (Session 27 / **NICE-B — IDEA 11 · Render-style Read-Only Deploy**)
+
+### Summary
+
+Packaging pass. Makes the repo deployable as a single Render web service: FastAPI JSON API + the static `frontend/` served at `/app/`. No business-logic changes. One env flag (`ALLOW_INGEST`) gates the write path; the frontend hides the Admin tab when the server reports it off. All edits are additive or defensive; `tests/test_ingest.py` stays green because the gate defaults to enabled.
+
+### What was done
+
+1. **`src/main.py`**
+   - Imported `StaticFiles`. Added `_FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")` (CWD-independent resolution, mirroring `_ROLES_PATH`).
+   - Added `_ingest_enabled()` helper: reads `os.getenv("ALLOW_INGEST", "true")` per-request, disabled only when the value is `"false"` or `"0"` (case-insensitive).
+   - Extended `GET /health` to return `{"status": "ok", "ingest_enabled": <bool>}`.
+   - `POST /ingest` now fails fast with `HTTPException(403, "Ingest is disabled on this deployment.")` before reading the request body when ingest is off.
+   - Mounted `app.mount("/app", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")` at the bottom of the module — after all JSON routes so nothing is shadowed.
+2. **`frontend/app.js`**
+   - Replaced hardcoded `API_BASE` with a hostname-aware expression: `localhost` / `127.0.0.1` / empty → `http://localhost:8000`; anything else → `""` (same-origin).
+   - Added a non-fatal `/health` probe on page load. When `ingest_enabled === false`, hides the Admin mode button (`.mode-btn[data-mode="admin"]`) and `#admin-section`. Probe failures silently leave Admin visible (keeps `file://` dev working when the server is off).
+3. **`Procfile`** (new) — `web: uvicorn src.main:app --host 0.0.0.0 --port $PORT`. Consumable by Render's Start Command and by Railway's buildpack.
+4. **`CLAUDE.md`** — new **Deploy (read-only, Render-first)** section covering build/start commands, env vars, `/app/` URL, `/health` capability probe, `API_BASE` matrix, ephemeral-fs caveat, and local quickstart.
+5. **`docs/plans/2026-04-17-nice-b-idea-11-plan.md`** — canonical NICE-B plan (added this session).
+
+Not done (explicitly out of scope per plan, P2/P3): no `.python-version` pin, no root redirect to `/app/`, no host-specific config (`render.yaml`, `railway.toml`, `fly.toml`).
+
+### Files affected
+
+- `src/main.py` (static mount, `/health` shape, `/ingest` gate, `_FRONTEND_DIR`, `_ingest_enabled()`)
+- `frontend/app.js` (API_BASE resolver + /health capability probe)
+- `Procfile` (new)
+- `CLAUDE.md` (deploy section)
+- `docs/HANDOFF.md` (this entry)
+- `docs/plans/2026-04-17-nice-b-idea-11-plan.md` (new)
+
+### Verification evidence
+
+- **Preflight**: `git ls-files artifacts/` confirms three artifacts tracked; `git ls-files | grep -Ei '\\.env|\\.pem|\\.key|credentials|secret'` → empty.
+- **JS**: `node --check frontend/app.js` → OK.
+- **Tests**: `python3 -m pytest -q` → **172 passed, 14 skipped, 0 failed** (unchanged from baseline).
+- **Uvicorn smoke (ingest enabled)**:
+  - `GET /health` → `{"status":"ok","ingest_enabled":true}`
+  - `GET /app/` → 200, `text/html; charset=utf-8`
+  - `GET /app/app.js` → 200, `text/javascript; charset=utf-8`
+  - `GET /app/styles.css` → 200, `text/css; charset=utf-8`
+  - `POST /query` → 200 with expected `doc_id`s for "ARR growth" / analyst
+- **Uvicorn smoke (`ALLOW_INGEST=false`)**:
+  - `GET /health` → `{"status":"ok","ingest_enabled":false}`
+  - `POST /ingest` → `403 {"detail":"Ingest is disabled on this deployment."}`
+  - `POST /query` → 200 (unaffected)
+- **Procfile smoke**: `PORT=8000 sh -c "$(grep '^web:' Procfile | sed 's/^web: //')"` → server up, `/health` returns 200.
+
+### Current State (end of Session 27 / handoff)
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `0315c59` (SHOULD-A). **NICE-B is still uncommitted** — no commit SHA yet.
+- **Working tree (uncommitted NICE-B batch):**
+  - Modified: `src/main.py`, `frontend/app.js`, `CLAUDE.md`, `docs/HANDOFF.md`
+  - New: `Procfile`, `docs/plans/2026-04-17-nice-b-idea-11-plan.md`
+- **Tests:** 172 / 14 / 0 (verified this session, ingest gate default-enabled).
+- **Smoke checks:** all green this session — uvicorn default (`/health`, `/app/`, `/app/app.js`, `/app/styles.css`, `/query`), uvicorn with `ALLOW_INGEST=false` (`/health.ingest_enabled=false`, `/ingest` → 403, `/query` → 200), Procfile boot via `PORT=8000 sh -c "$(grep '^web:' Procfile | sed 's/^web: //')"`.
+- **JS:** `node --check frontend/app.js` → OK.
+- **Browser / Playwright verification:** NOT run this session. The `/app/` static-serving path + the `/health` capability probe (Admin tab hidden when `ingest_enabled=false`) are covered only by curl smokes, not by a full Playwright sweep. Carry forward as the first verification step after commit/deploy.
+- **Review verdict:** No hostile review run this session (last clean verdict: Session 18; MUST-A/B/C/D/SHOULD-A/NICE-B not re-reviewed).
+- **Demo status:** READY. Local URL: `http://localhost:8000/app/`. Production URL once deployed: `https://<render-host>/app/`.
+
+### Render quick-reference
+
+- **Start command:** `uvicorn src.main:app --host 0.0.0.0 --port $PORT`
+- **Build command:** `pip install -r requirements.txt`
+- **Env vars:** `ALLOW_INGEST=false` (required for read-only); `PORT` is auto-provided.
+- **Deployed route:** `https://<render-host>/app/` (trailing slash required).
+- **Caveat:** `/app` without trailing slash 307-redirects; ephemeral filesystem means Admin uploads would not survive redeploys even if enabled.
+
+### Remaining / next steps
+
+1. **Commit NICE-B** — 4 modified + 2 new files listed above. Suggested message mirrors prior batches, e.g. `NICE-B: IDEA 11 — Render-style read-only deploy (/app mount, Procfile, ALLOW_INGEST gate)`.
+2. **Playwright sweep at `http://localhost:8000/app/`** — scenarios + Admin-hidden probe with `ALLOW_INGEST=false`. Intentionally deferred from this session.
+3. **Deploy to Render** — create web service, set Start/Build commands and `ALLOW_INGEST=false`, verify `https://<host>/app/` reaches the demo.
+4. **(Optional, P2 from NICE-B plan)** `.python-version` pin + root (`/`) → `/app/` redirect. Defer unless Render build or UX requires.
+5. **Long-standing optional follow-ups (carried forward, unchanged):** remove dead `apply_freshness()` / `filter_by_role()`; cosmetic evaluator corpus re-read; hostile review refresh on MUST-A..NICE-B.
+
+### Doc status at end of Session 27
+
+- `docs/HANDOFF.md` — current (this update).
+- `CLAUDE.md` — current (Deploy section added this session under NICE-B).
+- `docs/plans/2026-04-17-nice-b-idea-11-plan.md` — current (Execution outcome section present; scope line clarified to Render-first).
+- `docs/plans/2026-04-17-should-a-ideas-9-10-plan.md` — updated this session with an Execution outcome section (previously still read as preflight).
+- `docs/plans/2026-04-17-must-d-idea-8-plan.md`, `docs/plans/2026-04-17-must-c-ideas-4-6-plan.md`, `docs/plans/2026-04-16-ideas-execution-plan.md` — unchanged, still accurate.
+- `docs/plans/2026-04-10-pipeline-integration-plan.md` — unchanged, ARCHIVED banner from 2026-04-16 still holds.
+- `roadmap.md` — does not exist in this repo; not referenced anywhere in the plan sequence.

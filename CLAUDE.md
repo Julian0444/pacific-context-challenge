@@ -156,3 +156,32 @@ Three one-click compare scenarios in the UI: "Analyst wall ↔" (analyst, ARR qu
 Developed on Python 3.9.6 with LibreSSL 2.8.3. `tf-keras` may be needed for `sentence-transformers` compatibility on this Python version.
 
 Ingestion adds two runtime deps in `requirements.txt`: `pdfplumber` (PDF text extraction) and `python-multipart` (FastAPI `File`/`Form` parsing). Both are pulled in by `pip install -r requirements.txt`.
+
+## Deploy (read-only, Render-first)
+
+The app is packaged as a single service: FastAPI JSON API + the static `frontend/` mounted at `/app/` via `StaticFiles(directory="frontend", html=True)` (resolved from `__file__` so CWD does not matter). The deployed demo URL is `https://<render-host>/app/` — a trailing slash is required; `/app` without it 307-redirects to `/app/` (Starlette default).
+
+**Render web service:**
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn src.main:app --host 0.0.0.0 --port $PORT` (also in `Procfile` for buildpack-based flows).
+- Environment variables:
+  - `ALLOW_INGEST=false` — disables `POST /ingest` (returns 403). Required for read-only deploys so the public Admin form cannot mutate the corpus.
+  - `PORT` — provided automatically by Render; do not hard-code.
+- Python version: Render picks up `python-3.11.x` by default; either accept the auto-detection or pin with a `.python-version` file if a mismatch arises on build.
+- Artifacts are committed (`artifacts/querytrace.index`, `artifacts/index_documents.json`, `artifacts/bm25_corpus.json`) so the container boots without running the indexer. `.gitignore` only excludes `artifacts/*.faiss|*.pkl|*.npy`, which do not match these filenames.
+
+**`ALLOW_INGEST` semantics.** Read per-request by `_ingest_enabled()` in `src/main.py`. Default is enabled — the flag is off only when the env var is exactly `"false"` or `"0"` (case-insensitive). Tests therefore do not need to set the flag. The frontend probes `GET /health` on load; when `ingest_enabled === false`, the Admin mode button and `#admin-section` are hidden. `GET /health` response shape: `{"status": "ok", "ingest_enabled": <bool>}`.
+
+**`API_BASE` behavior (in `frontend/app.js`).** When the page is opened on `localhost` / `127.0.0.1` / `file://`, `API_BASE` is `http://localhost:8000` (cross-origin, CORS-permitted). On any other host, `API_BASE` is `""` — fetches become same-origin relative URLs (e.g., `/query`), so `https://host/app/` calls `https://host/query`. CORS is permissive (`allow_origins=["*"]`) purely to keep the `file://` dev flow working.
+
+**Ephemeral-filesystem caveat (inherited from MUST-D).** With `ALLOW_INGEST` unset, `/ingest` writes to `corpus/documents/*.txt`, `corpus/metadata.json`, and `artifacts/*`. On Render's default ephemeral disks these writes survive only until the next deploy/restart. For a persistent Admin-mode demo, attach a Render Disk mounted at the repo root or keep `ALLOW_INGEST=false` and rely on the committed 12-doc baseline.
+
+**Non-target hosts.** Railway works from the same `Procfile` unchanged. Fly.io needs a Dockerfile (out of scope).
+
+**Local quickstart mirrors production.**
+
+```bash
+python3 -m uvicorn src.main:app --host 0.0.0.0 --port 8000
+# Frontend: http://localhost:8000/app/
+# API:       http://localhost:8000/{query,compare,evals,health}
+```
