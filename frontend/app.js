@@ -29,6 +29,17 @@ const POLICY_META = {
 // Canonical display order for compare columns
 const COMPARE_ORDER = ["naive_top_k", "permission_aware", "full_policy"];
 
+// ── Role descriptions (shown under the role selector) ──
+
+const ROLE_DESCRIPTIONS = {
+  analyst:
+    "Entry-level deal team. Access limited to public filings, research notes, and press releases. Cannot view internal memos, financial models, or board materials.",
+  vp:
+    "Vice President. Extended access — includes internal deal memos, financial models, and communications. Cannot view IC memos or LP updates.",
+  partner:
+    "Partner-level. Full corpus access — all documents visible, including board materials and LP communications.",
+};
+
 // Raw excerpt storage for expand/collapse — keyed by card index, avoids data-attr innerHTML
 const _cardExcerpts = new Map();
 
@@ -114,6 +125,27 @@ updatePolicyDescription(
   document.querySelector('input[name="policy"]:checked')?.value || "full_policy"
 );
 
+// ── Role description (shown under the role selector) ──
+
+function updateRoleDescription(role) {
+  const descEl = document.getElementById("role-description");
+  if (!descEl) return;
+  descEl.style.opacity = "0";
+  setTimeout(() => {
+    descEl.textContent = ROLE_DESCRIPTIONS[role] || "";
+    descEl.style.opacity = "1";
+  }, 80);
+}
+
+document.querySelectorAll('input[name="role"]').forEach((radio) => {
+  radio.addEventListener("change", () => updateRoleDescription(radio.value));
+});
+
+// Initialize with the default checked role
+updateRoleDescription(
+  document.querySelector('input[name="role"]:checked')?.value || "analyst"
+);
+
 // ── Form submission ──
 
 form.addEventListener("submit", async (e) => {
@@ -147,6 +179,8 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
       `input[name="role"][value="${role}"]`
     );
     if (roleRadio) roleRadio.checked = true;
+    // Programmatic checked assignment does not fire "change" — sync description manually
+    updateRoleDescription(role);
 
     if (targetMode && targetMode !== currentMode) {
       switchMode(targetMode);

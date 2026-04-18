@@ -448,6 +448,24 @@ body {
   box-shadow: none;
 }
 
+/* ─── Role Selector Group (wraps chips + description) ─── */
+
+.role-selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-self: flex-start;
+}
+
+.role-description {
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  max-width: 500px;
+  transition: opacity 80ms var(--ease);
+}
+
 /* ─── Policy Selector Group (wraps chips + description + warning) ─── */
 
 .policy-selector-group {
@@ -2258,6 +2276,98 @@ body {
   background: rgba(0, 0, 0, 0.06);
   padding: 0.05rem 0.3rem;
   border-radius: 3px;
+}
+
+/* ─── Guided Empty State (onboarding scenario grid) ─── */
+
+.onboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  max-width: 780px;
+  margin: 1.5rem auto 0.25rem;
+  text-align: left;
+}
+
+.onboard-card {
+  /* overrides .example-btn's inline-flex row layout */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 1rem 1.05rem 1.15rem;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  box-shadow: var(--shadow-card);
+}
+
+.onboard-card:hover {
+  border-color: var(--accent-dim);
+  background: var(--accent-subtle);
+  color: var(--text-secondary);
+  box-shadow: 0 4px 14px rgba(28, 26, 23, 0.07);
+  transform: translateY(-1px);
+}
+
+.onboard-card-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.onboard-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.onboard-card-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.onboard-card-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-top: 0.1rem;
+}
+
+.onboard-card:hover .onboard-card-title {
+  color: var(--accent-dim);
+}
+
+.onboard-hint {
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 0.1rem;
+}
+
+@media (max-width: 720px) {
+  .onboard-grid {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+    gap: 0.7rem;
+  }
 }
 
 @media (max-width: 640px) {

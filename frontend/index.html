@@ -50,22 +50,25 @@
 
         <div class="controls-row">
           <!-- Role selector -->
-          <div class="selector-group">
-            <span class="control-label">Role</span>
-            <div class="role-options">
-              <label class="role-option">
-                <input type="radio" name="role" value="analyst" checked />
-                <span class="role-chip">Analyst</span>
-              </label>
-              <label class="role-option">
-                <input type="radio" name="role" value="vp" />
-                <span class="role-chip">VP</span>
-              </label>
-              <label class="role-option">
-                <input type="radio" name="role" value="partner" />
-                <span class="role-chip">Partner</span>
-              </label>
+          <div class="role-selector-group">
+            <div class="selector-group">
+              <span class="control-label">Role</span>
+              <div class="role-options">
+                <label class="role-option">
+                  <input type="radio" name="role" value="analyst" checked />
+                  <span class="role-chip">Analyst</span>
+                </label>
+                <label class="role-option">
+                  <input type="radio" name="role" value="vp" />
+                  <span class="role-chip">VP</span>
+                </label>
+                <label class="role-option">
+                  <input type="radio" name="role" value="partner" />
+                  <span class="role-chip">Partner</span>
+                </label>
+              </div>
             </div>
+            <p class="role-description" id="role-description"></p>
           </div>
 
           <!-- Policy selector — single mode only -->
@@ -126,20 +129,54 @@
     <!-- Single-policy results -->
     <section id="results-section" class="results-section">
       <div class="empty-state" id="empty-state">
-        <div class="empty-icon">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-            <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <path d="M16 12V20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <circle cx="16" cy="10" r="1" fill="currentColor"/>
-          </svg>
-        </div>
-        <h2 class="empty-title">Permission-Aware Context Gateway</h2>
+        <h2 class="empty-title">How different policies change context assembly</h2>
         <p class="empty-description">
           QueryTrace retrieves documents from the Atlas Capital / Meridian Technologies corpus,
           filters by role, penalises stale docs, and enforces token budgets —
-          with every decision visible in the Decision Trace.
+          with every decision visible in the Decision Trace. Pick a scenario to see the contrast.
         </p>
-        <p class="empty-hint">Try <strong>Analyst wall ↔</strong> to see 7 documents blocked by RBAC across three policies.</p>
+        <div class="onboard-grid">
+          <button type="button"
+                  class="example-btn onboard-card"
+                  data-query="What is Meridian's ARR growth rate and net revenue retention?"
+                  data-role="analyst"
+                  data-mode="compare"
+                  title="Analyst is blocked from 7 VP/partner documents that naive retrieval would surface">
+            <span class="onboard-card-head">
+              <span class="onboard-dot dot-analyst" aria-hidden="true"></span>
+              <span class="onboard-card-subtitle">Analyst</span>
+            </span>
+            <span class="onboard-card-title">Permission Wall</span>
+            <span class="onboard-hint">See 7 documents blocked by RBAC.</span>
+          </button>
+          <button type="button"
+                  class="example-btn onboard-card"
+                  data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
+                  data-role="vp"
+                  data-mode="compare"
+                  title="VP sees stale financial models demoted by the full pipeline">
+            <span class="onboard-card-head">
+              <span class="onboard-dot dot-vp" aria-hidden="true"></span>
+              <span class="onboard-card-subtitle">VP</span>
+            </span>
+            <span class="onboard-card-title">Stale Detection</span>
+            <span class="onboard-hint">See how outdated financial models get demoted.</span>
+          </button>
+          <button type="button"
+                  class="example-btn onboard-card"
+                  data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
+                  data-role="partner"
+                  data-mode="compare"
+                  title="Partner has full corpus access — no documents blocked">
+            <span class="onboard-card-head">
+              <span class="onboard-dot dot-partner" aria-hidden="true"></span>
+              <span class="onboard-card-subtitle">Partner</span>
+            </span>
+            <span class="onboard-card-title">Full Access</span>
+            <span class="onboard-hint">See the full pipeline with zero blocks.</span>
+          </button>
+        </div>
+        <p class="empty-hint">Or type your own query above and choose a role to explore.</p>
       </div>
     </section>
 

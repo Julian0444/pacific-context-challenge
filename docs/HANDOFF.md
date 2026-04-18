@@ -750,3 +750,96 @@ None. All validation boundaries covered by tests. The only persistent-state muta
 ### Suggested First Action
 
 None strictly required — MUST-D is complete and committed. If the next session needs direction, choose from the optional follow-ups above, or start a new IDEA / MUST-X batch.
+
+---
+
+## Session — 2026-04-17 (Session 26 / **SHOULD-A — IDEA 9 + IDEA 10**)
+
+### Summary
+
+**Batch label: SHOULD-A — IDEA 9 + IDEA 10**
+
+Frontend-only onboarding pass. Two additive changes: a live role description under the role selector (IDEA 9), and a guided onboarding scenario grid replacing the passive empty state (IDEA 10). No backend, test, or model files touched. Reuses the existing `.example-btn` click handler and mirrors the MUST-A `updatePolicyDescription` pattern — no parallel state.
+
+---
+
+#### IDEA 9 — Role description
+
+**Files modified (3):** `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`
+
+- **`index.html`** — wrapped the role selector in a new `<div class="role-selector-group">` (mirroring `.policy-selector-group`) and added `<p class="role-description" id="role-description"></p>` below `.role-options`.
+- **`app.js`** — added `ROLE_DESCRIPTIONS` constant (analyst / vp / partner copy exactly per prompt, with the typo "internamos" corrected to "internal memos"); added `updateRoleDescription(role)` using the same 80ms opacity fade as `updatePolicyDescription`; wired `change` listeners on all role radios; initialized on page load with the default checked role. In the existing `.example-btn` handler, called `updateRoleDescription(role)` right after `roleRadio.checked = true` — programmatic checked sets don't fire `change`, so scenarios/example clicks would otherwise leave the description stale.
+- **`styles.css`** — added `.role-selector-group` (flex-column, `align-self: flex-start`) and `.role-description` (mono, 0.61rem, tertiary, `max-width: 500px`, 80ms opacity transition).
+
+#### IDEA 10 — Guided empty state
+
+**Files modified (2):** `frontend/index.html`, `frontend/styles.css` (no new JS)
+
+- **`index.html`** — replaced the `#empty-state` interior. Dropped the decorative hexagon SVG. New headline "How different policies change context assembly", an expanded subtitle, a `.onboard-grid` of three `<button class="example-btn onboard-card">` scenarios ("Permission Wall"/analyst, "Stale Detection"/VP, "Full Access"/partner), and a closing hint "Or type your own query above and choose a role to explore." Each card has role-color `.onboard-dot`, `.onboard-card-subtitle` tier label, `.onboard-card-title`, and `.onboard-hint`. Reused existing `.dot-analyst` / `.dot-vp` / `.dot-partner` color vars.
+- **`app.js`** — no changes. The pre-existing `document.querySelectorAll(".example-btn").forEach(...)` at app.js:138 picks up the onboard cards at page load because they share the class. One query-trigger path, no fork.
+- **`styles.css`** — added `.onboard-grid` (3-col grid, responsive 1-col ≤720px), `.onboard-card` (overrides `.example-btn`'s inline-flex row layout with column layout, card shadow, hover lift), `.onboard-dot`, `.onboard-card-head`, `.onboard-card-title`, `.onboard-card-subtitle`, `.onboard-hint`.
+
+---
+
+### Verification
+
+**Tests:** 172 passed, 14 skipped, 0 failed (unchanged — no backend files touched).
+
+**JS syntax:** `node --check frontend/app.js` clean.
+
+**Diff stat:** `frontend/app.js` +34 lines, `frontend/index.html` +62/−25, `frontend/styles.css` +110. Three files; no backend.
+
+**Playwright (via `webapp-testing` skill) — 15/15 passed, 0 console errors:**
+
+| # | Assertion | Evidence |
+|---|-----------|----------|
+| 1 | role-description on load shows analyst copy | text starts "Entry-level deal team…" (len 158) |
+| 2 | VP radio click → "Vice President" | text begins "Vice President. Extended access…" |
+| 3 | Partner radio click → Partner copy | text begins "Partner-level. Full corpus access…" |
+| 4 | `.example-btn` (partner) updates role-description | after-click mentions "Partner"; stale "analyst" absent |
+| 5 | "internamos" typo absent from rendered HTML | substring not found |
+| 6 | Evals mode hides search-section + role-description | `search_hidden=True`, `role_desc_visible=False` |
+| 7 | Admin mode hides role-description | `role_desc_visible=False` |
+| 8 | `#empty-state` has exactly 3 `.onboard-card` | count=3 |
+| 9 | onboard cards have valid `data-query`/`role`/`mode` | roles=['analyst','vp','partner'], all `mode=compare` |
+| 10 | Analyst onboard card → 3-col compare + ≥7 `.flag-blocked` in NAIVE | `compare_active=True`, `cols=3`, `naive_flag_blocked=7` |
+| 11 | VP onboard card → VP banner + ≥1 `.compare-stale-badge` in FULL | banner "policy comparison — vp role"; `stale_badges=2` |
+| 12 | Partner onboard card → FULL column shows `0 BLOCKED` | regex `0\s*\n\s*BLOCKED` matched |
+| 13 | 0 JS console errors across all interactions | errors=[] |
+| 14 | Compare column headers exact | ['No Filters','Permissions Only','Full Pipeline'] (MUST-A P3 regression clean) |
+| 15 | Evals `.evals-narrative` ≥3 sentences | n=3, first "Zero permission violations across 8 test queries…" (MUST-C regression clean) |
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `e1e3513` (MUST-D docs). SHOULD-A code + docs committed in this session.
+- **Working tree:** clean after commit.
+- **Tests:** 172 passed, 14 skipped, 0 failed.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** COMPLETE — 15/15 Playwright checks, 0 JS console errors.
+- **Hostile review:** not performed (last clean verdict: Session 18).
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Empty-state destroyed on first query.** `document.getElementById("empty-state")?.remove()` (app.js:setLoadingSingle) is pre-existing behavior — now the removed surface is the onboarding grid. Not newly broken by this batch; call out in case a reviewer flags it. Cards live for a session until the first query runs.
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md`** — Single mode description amended to describe the onboard-card grid (3-col → 1-col responsive), the role description paragraph, and the first-query removal behavior.
+- **`docs/plans/2026-04-17-should-a-ideas-9-10-plan.md`** — canonical SHOULD-A plan (committed this session).
+
+### Remaining Tasks
+
+No SHOULD-A work remains. Long-standing optional follow-ups from prior sessions unchanged:
+
+1. **(Optional) Remove dead code** — `apply_freshness()` and `filter_by_role()`.
+2. **(Optional) Evaluator corpus re-read** — cosmetic.
+3. **(Optional) Ephemeral-fs caveat** for MUST-D uploads — already documented.
+4. **(Optional) Hostile review** — last clean verdict Session 18; MUST-A/B/C/D + SHOULD-A not rereviewed.
+
+### Suggested First Action
+
+None strictly required — SHOULD-A is complete and committed. If continuing, start the next IDEA / SHOULD-X batch.
