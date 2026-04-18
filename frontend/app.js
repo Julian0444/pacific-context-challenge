@@ -102,10 +102,33 @@ function switchMode(mode) {
   // Hide query form in evals and admin modes — not relevant
   document.querySelector(".search-section").hidden = isEvals || isAdmin;
 
+  // Fade-in the incoming section (CSS animation via .mode-enter).
+  const entering = isCompare
+    ? compareSection
+    : isEvals
+    ? evalsSection
+    : isAdmin
+    ? adminSection
+    : resultsSection;
+  if (entering) playModeEnter(entering);
+
   // Auto-fetch evals on first switch
   if (isEvals && !evalsLoaded) {
     runEvals();
   }
+}
+
+function playModeEnter(el) {
+  if (!el) return;
+  el.classList.remove("mode-enter");
+  // Force reflow so re-adding the class restarts the animation.
+  void el.offsetWidth;
+  el.classList.add("mode-enter");
+  const onEnd = () => {
+    el.classList.remove("mode-enter");
+    el.removeEventListener("animationend", onEnd);
+  };
+  el.addEventListener("animationend", onEnd);
 }
 
 // ── Policy description + warning ──
@@ -377,6 +400,9 @@ function renderSingleResult(data, role, policy) {
           <span class="stat-label">stale</span>
         </div>
       ` : ""}
+      <button class="export-btn" id="export-single" type="button" aria-label="Export result as JSON" title="Download full /query response as JSON">
+        <span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Export JSON</span>
+      </button>
     </div>`;
 
   // Build stale lookup keyed by doc_id — used as fallback when chunk.superseded_by is absent
@@ -403,6 +429,13 @@ function renderSingleResult(data, role, policy) {
   wireTraceToggles(resultsSection);
   wireExpandButtons(resultsSection);
   wireBlockedSectionToggle(resultsSection);
+
+  const exportBtn = resultsSection.querySelector("#export-single");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      downloadJSON(data, `querytrace_${role}_${policy}.json`);
+    });
+  }
 }
 
 // ── Render: single result card ──
@@ -517,6 +550,26 @@ function renderCompare(data) {
 
   // Wire all trace toggles in the compare grid
   wireTraceToggles(compareGrid);
+
+  // Append (or replace) the Export JSON button in the compare banner.
+  const compareBanner = document.getElementById("compare-banner");
+  if (compareBanner) {
+    compareBanner
+      .querySelectorAll(".export-btn")
+      .forEach((b) => b.remove());
+    const btn = document.createElement("button");
+    btn.className = "export-btn";
+    btn.id = "export-compare";
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Export comparison as JSON");
+    btn.title = "Download full /compare response as JSON";
+    btn.innerHTML =
+      '<span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Export JSON</span>';
+    btn.addEventListener("click", () => {
+      downloadJSON(data, `querytrace_compare_${data.role}.json`);
+    });
+    compareBanner.appendChild(btn);
+  }
 }
 
 // ── Build compare column HTML ──
@@ -1100,6 +1153,27 @@ function escapeHTML(str) {
   const el = document.createElement("span");
   el.textContent = String(str ?? "");
   return el.innerHTML;
+}
+
+// ── Export: download the complete API response payload as JSON ──
+// Uses Blob + createObjectURL; revokes the object URL after the click to
+// avoid leaking Blob references for the lifetime of the document.
+function downloadJSON(data, filename) {
+  try {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  } catch (err) {
+    console.error("Export failed:", err);
+  }
 }
 
 // ── Admin / ingest ──

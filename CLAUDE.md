@@ -151,6 +151,10 @@ Policy labels in the UI are human-readable ("No Filters", "Permissions Only", "F
 
 Three one-click compare scenarios in the UI: "Analyst wall ↔" (analyst, ARR query — 7 docs blocked), "VP deal view ↔" (vp, financial model query), "Partner view ↔" (partner, IC memo query). Each auto-switches to Compare mode and submits.
 
+Export + micro-interactions (NICE-A):
+- **Export JSON** — an `.export-btn` (`⤓ Export JSON`) sits right-aligned inside Single mode's `.summary-bar` (filename `querytrace_<role>_<policy>.json`) and inside `#compare-banner` (filename `querytrace_compare_<role>.json`). The button downloads the verbatim `/query` or `/compare` response via a Blob + `URL.createObjectURL` → `a.click()` → `URL.revokeObjectURL` (paired in `setTimeout(0)`, verified non-leaking under repeated clicks). `renderCompare()` removes any prior `.export-btn` in the banner before appending, so re-renders never stack duplicates.
+- **Motion polish** — mode-switch fade (`.mode-enter` → `@keyframes mode-fade` 200ms ease-out, added in `switchMode()` and removed on `animationend`); result cards use `@keyframes result-card-in` (translateY 8px → 0) and get a translateY(-1px) hover lift; `.metric-card` gets a translateY(-2px) hover lift; `.btn-spinner` pulses opacity 1↔0.7 on top of its rotate; `.trace-body` open/close uses a `max-height` + padding transition instead of `display: none↔block`. All motion reuses the `--dur: 180ms` / `--ease: cubic-bezier(0.22,1,0.36,1)` tokens. A `@media (prefers-reduced-motion: reduce)` block disables the new animations and hover transforms while preserving functional behavior.
+
 ## Environment note
 
 Developed on Python 3.9.6 with LibreSSL 2.8.3. `tf-keras` may be needed for `sentence-transformers` compatibility on this Python version.

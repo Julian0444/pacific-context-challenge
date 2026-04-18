@@ -934,3 +934,78 @@ Not done (explicitly out of scope per plan, P2/P3): no `.python-version` pin, no
 - `docs/plans/2026-04-17-must-d-idea-8-plan.md`, `docs/plans/2026-04-17-must-c-ideas-4-6-plan.md`, `docs/plans/2026-04-16-ideas-execution-plan.md` — unchanged, still accurate.
 - `docs/plans/2026-04-10-pipeline-integration-plan.md` — unchanged, ARCHIVED banner from 2026-04-16 still holds.
 - `roadmap.md` — does not exist in this repo; not referenced anywhere in the plan sequence.
+
+---
+
+## Session — 2026-04-18 (Session 28 / **NICE-A — IDEA 12 + IDEA 13**)
+
+### Summary
+
+Frontend-only polish pass. IDEA 12 adds an `.export-btn` (`⤓ Export JSON`) in Single mode (`.summary-bar`) and Compare mode (`#compare-banner`) that downloads the verbatim `/query` and `/compare` responses as pretty-printed JSON via Blob + `URL.createObjectURL` with a paired revoke. IDEA 13 adds subtle motion: mode-switch fade, result-card + metric-card hover lifts, spinner opacity pulse, and a smooth `max-height` transition on the Decision Trace panel (replacing the old `display: none↔block` toggle). All new motion respects `@media (prefers-reduced-motion: reduce)`. Reuses the existing `--dur: 180ms` / `--ease` tokens.
+
+### Files changed
+
+- `frontend/app.js` — `downloadJSON(data, filename)` helper, Single export button + handler in `renderSingleResult()`, Compare export button append-with-dedupe in `renderCompare()`, `playModeEnter()` + `switchMode()` integration for `.mode-enter` fade-in.
+- `frontend/styles.css` — `.export-btn` rules; `.result-card` entrance switched to `@keyframes result-card-in` (translateY 8→0) with hover translateY(-1px); `.trace-body` migrated to max-height + padding transition; `.metric-card` hover translateY(-2px) + shadow; `.btn-spinner` opacity pulse `@keyframes btn-spinner-pulse`; `.mode-enter` + `@keyframes mode-fade`; `@media (prefers-reduced-motion: reduce)` safety net.
+- `docs/plans/2026-04-18-nice-a-ideas-12-13-plan.md` (new) — preflight plan committed at the start of this session.
+- `CLAUDE.md` — appended NICE-A paragraph under Frontend (export behavior + motion polish + reduced-motion).
+- `docs/HANDOFF.md` — this entry.
+
+No backend files, no test files, no deps, no HTML changes. `tests/` untouched.
+
+### Verification
+
+**Baseline + post-edit pytest:** 172 passed, 14 skipped, 0 failed (both runs this session).
+
+**JS syntax:** `node --check frontend/app.js` → OK. **CSS brace balance:** 363 open / 363 close.
+
+**Server freshness check:** `curl -s http://localhost:8000/app/app.js | grep -c downloadJSON` → `3` (helper + 2 call sites; static mount reads from disk per request, no reload needed).
+
+**Playwright sweep (via `webapp-testing` skill) at http://localhost:8000/app/ — 35/35 PASS, 0 JS console errors:**
+
+| Area | Checks |
+|---|---|
+| Navigate | `/app/` loads with network-idle |
+| Single mode | result-card rendered (5 cards for ARR/analyst/full); `.summary-bar` visible; `#export-single` visible with icon + label; download triggers filename `querytrace_analyst_full_policy.json`; payload has `context`, `decision_trace`, `total_tokens` |
+| Trace panel | toggle exists; click adds `.open`; `.trace-body` computed `max-height: 4000px` when open; second click removes `.open` (smooth transition observed) |
+| Result-card hover | computed transform `matrix(1, 0, 0, 1, 0, -1)` on hover |
+| Compare mode | 3 compare columns; `#compare-banner` visible; `#export-compare` visible; exactly 1 `.export-btn` in banner; download filename `querytrace_compare_analyst.json`; payload has `results` (3 policies) + `role`; re-run with VP and Partner scenarios → still exactly 1 export button per render; banner strong text matches new role |
+| Evals | 10 `.metric-card`; hover computed transform `matrix(1, 0, 0, 1, 0, -2)` |
+| Mode fade | MutationObserver captures `.mode-enter` class add/remove across 3 mode swaps (≥2 events per swap) |
+| Blob cleanup | After 10 exports in a row: 10 `createObjectURL` calls, 10 `revokeObjectURL` calls, 0 live URLs left (instrumented at `add_init_script` level before any page JS ran) |
+| Console errors | 0 across entire session |
+| `prefers-reduced-motion: reduce` | In a fresh context with `reduced_motion="reduce"`, `.mode-enter` computed `animation-name === "none"`; mode switching still works; 0 JS errors |
+
+Saved download artifacts at `/tmp/nicea_downloads/` for both filenames.
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `d72e5da` (NICE-B). NICE-A commit added in this session.
+- **Tests:** 172 / 14 / 0.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** COMPLETE — 35/35 Playwright assertions, 0 JS console errors, Blob URL pairing verified by instrumentation.
+- **Hostile review:** not performed this session (last clean verdict: Session 18).
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Trace panel `max-height: 4000px` cap.** Current traces observed well under this (a few hundred px); if a reviewer constructs a pathological query with hundreds of blocked docs the body could clip. Acceptable for the demo corpus.
+- **Compare-col entrance animation still uses the shared `card-in` keyframe** (`to`-only) with `forwards` — unchanged from before this batch. Only `.result-card` and `.metric-card` were migrated off `forwards`/`both` to let the new hover transforms take effect.
+
+### Remaining Tasks
+
+No NICE-A work remains. Long-standing optional follow-ups unchanged:
+
+1. **(Optional) Remove dead code** — `apply_freshness()` / `filter_by_role()`.
+2. **(Optional) Evaluator corpus re-read** — cosmetic.
+3. **(Optional) Ephemeral-fs caveat** for MUST-D uploads — already documented.
+4. **(Optional, P2 from NICE-B plan)** `.python-version` pin + `/` → `/app/` redirect.
+5. **(Optional) Hostile review refresh** on MUST-A..NICE-A.
+
+### Doc status at end of Session 28
+
+- `docs/HANDOFF.md` — current (this entry).
+- `CLAUDE.md` — current (NICE-A paragraph appended under Frontend).
+- `docs/plans/2026-04-18-nice-a-ideas-12-13-plan.md` — preflight plan from this session; Execution outcome section can be added as a follow-up if desired (not required — this HANDOFF entry carries the evidence).
+- All other plan docs — unchanged and still accurate.
