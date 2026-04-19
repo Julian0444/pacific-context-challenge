@@ -24,9 +24,6 @@ from src.models import (
 )
 from src.pipeline import run_pipeline, PipelineError
 from src.policies import load_roles
-from src.retriever import retrieve, invalidate_caches
-from src.evaluator import load_test_queries, run_evals
-from src.ingest import ingest_document, IngestError
 
 app = FastAPI(title="QueryTrace", version="0.2.0")
 
@@ -56,6 +53,20 @@ def _ingest_enabled() -> bool:
     return os.getenv("ALLOW_INGEST", "true").strip().lower() not in {"false", "0"}
 
 
+def ingest_document(*args, **kwargs):
+    """Lazy proxy so /ingest can be monkeypatched without import-time cost."""
+    from src.ingest import ingest_document as _ingest_document
+
+    return _ingest_document(*args, **kwargs)
+
+
+def invalidate_caches() -> None:
+    """Lazy proxy for retriever cache reset used after ingest."""
+    from src.retriever import invalidate_caches as _invalidate_caches
+
+    _invalidate_caches()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "ingest_enabled": _ingest_enabled()}
@@ -63,6 +74,8 @@ def health():
 
 @app.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
+    from src.retriever import retrieve
+
     # Input validation — reject unknown roles before entering the pipeline
     if request.role not in _roles:
         raise HTTPException(
@@ -112,6 +125,8 @@ def compare(request: CompareRequest):
     Returns one QueryResponse per requested policy, keyed by policy name.
     Orchestrates existing run_pipeline() — no business logic duplication.
     """
+    from src.retriever import retrieve
+
     if request.role not in _roles:
         raise HTTPException(
             status_code=400,
@@ -169,6 +184,8 @@ def evals():
     """Return cached evaluator results (runs on first call, cached thereafter)."""
     global _evals_cache
     if _evals_cache is None:
+        from src.evaluator import load_test_queries, run_evals
+
         queries = load_test_queries(_EVALS_PATH)
         _evals_cache = run_evals(queries, k=5, top_k=8)
     return _evals_cache
@@ -199,6 +216,7 @@ async def ingest(
       6. Clear _evals_cache so /evals recomputes against the new corpus
     """
     global _metadata, _evals_cache
+    from src.ingest import IngestError
 
     if not _ingest_enabled():
         raise HTTPException(

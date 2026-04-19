@@ -12,9 +12,9 @@ Artifacts written to artifacts/:
 import json
 import os
 import re
+
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
 
 CORPUS_DIR = os.path.join(os.path.dirname(__file__), "..", "corpus", "documents")
 METADATA_PATH = os.path.join(os.path.dirname(__file__), "..", "corpus", "metadata.json")
@@ -58,6 +58,8 @@ def build_index(docs: list[dict]) -> tuple[faiss.IndexFlatIP, list[dict]]:
     Returns:
         (faiss_index, payloads) where payloads[i] corresponds to index row i.
     """
+    from sentence_transformers import SentenceTransformer
+
     model = SentenceTransformer(MODEL_NAME)
     texts = [doc["content"] for doc in docs]
     embeddings = model.encode(texts, show_progress_bar=True, normalize_embeddings=True)

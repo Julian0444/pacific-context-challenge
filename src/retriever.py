@@ -21,9 +21,10 @@ Reference:
 """
 
 import re
+from typing import TYPE_CHECKING, Any
+
 import numpy as np
 from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
 
 from src.indexer import (
     MODEL_NAME,
@@ -32,6 +33,9 @@ from src.indexer import (
     tokenize_for_bm25,
 )
 
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+
 # RRF constant — higher k dampens rank differences.
 RRF_K = 60
 
@@ -39,13 +43,15 @@ RRF_K = 60
 # Lazy-loaded singletons (expensive objects loaded once per process)
 # ---------------------------------------------------------------------------
 
-_model = None
+_model: Any = None
 _bm25 = None
 
 
-def _get_model() -> SentenceTransformer:
+def _get_model() -> "SentenceTransformer":
     global _model
     if _model is None:
+        from sentence_transformers import SentenceTransformer
+
         _model = SentenceTransformer(MODEL_NAME)
     return _model
 
