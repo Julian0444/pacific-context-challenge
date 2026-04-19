@@ -1,0 +1,24 @@
+Kailash
+Porting OmniClaude’s hook system to Cursor’s equivalent hook surface, making OmniCursor
+behave as close as possible to how OmniClaude behaves in Claude Code within what Cursor
+actually exposes.
+OmniClaude has 9 hook event types and 30+ scripts. Cursor exposes exactly 4.
+Progress — 4 events complete (378 tests passing)
+Event 1 (beforeSubmitPrompt) — three-strategy agent routing across 17 configs,
+relevance-filtered pattern injection (domain scoring + keyword boost, confidence threshold ≥0.7,
+capped at 5), delegation enforcement with complexity estimation, handoff nudge with
+per-session state, full agent persona injection, fake SessionStart since Cursor has no session open
+hook, correlation ID threading, typed event logging.
+Event 2 (beforeShellExecution) — two-tier shell guard with 9 HARD_BLOCK and 11
+SOFT_WARN patterns, correlation threading, typed event log. The only Cursor hook that can
+actually block execution.
+Event 3 (afterFileEdit) — ruff diagnostics on Python files, TSC on TypeScript files, edit event
+logging with correlation threading. Mirrors omniclaude’s PostToolUse Edit/Write matchers.
+Event 4 (stop) — 4-gate session outcome classifier (success / failed / abandoned / unknown)
+reading from the correlated events.jsonl, session summary written to
+~/.omnicursor/sessions/. Mirrors omniclaude's stop.sh.
+Cursor doesn't expose SessionStart, SessionEnd, PreCompact, SubagentStart, or
+the full PreToolUse/PostToolUse surface with per-tool matchers. These are documented
+platform limits. The workarounds are: fake SessionStart via first-prompt detection, PreToolUse
+approximated through .cursor/rules/ behavioral injection, and PostToolUse quality
+checks available as MCP tools the model can call explicitly.
