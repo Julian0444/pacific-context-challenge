@@ -10,7 +10,7 @@ import json
 import os
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +34,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def disable_frontend_cache(request: Request, call_next):
+    """Avoid stale frontend bundles after deploys on long-lived browser tabs."""
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/app"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 # Load roles and metadata once at startup
 _ROLES_PATH = os.path.join(os.path.dirname(__file__), "..", "corpus", "roles.json")
