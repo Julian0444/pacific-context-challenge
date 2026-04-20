@@ -12,6 +12,7 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.models import (
@@ -70,6 +71,12 @@ def invalidate_caches() -> None:
 @app.get("/health")
 def health():
     return {"status": "ok", "ingest_enabled": _ingest_enabled()}
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    """Redirect the service root to the static app UI."""
+    return RedirectResponse(url="/app", status_code=307)
 
 
 @app.post("/query", response_model=QueryResponse)
