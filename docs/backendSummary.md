@@ -4,9 +4,11 @@
 **Scope:** Backend-only (`src/`, pipeline, tests). Read-only audit, no code changes.
 **Branch:** `codex/must-a-idea1-2`
 
-**Fresh `pytest` status at time of audit:** `171 passed, 1 failed, 14 skipped`. The failing test is `tests/test_retriever.py::TestResultShape::test_top_k_clamped_to_corpus_size` — hard-codes `len(results) == 12` but the corpus is now 13 docs (see CR-1).
+**Fresh `pytest` status at time of audit:** `171 passed, 1 failed, 14 skipped`. The failing test was `tests/test_retriever.py::TestResultShape::test_top_k_clamped_to_corpus_size` — at the time it hard-coded `len(results) == 12` but the corpus had drifted to 13 docs (see CR-1).
 
-Working tree also has uncommitted drift (`corpus/documents/agenda.txt` untracked, `corpus/metadata.json` + `artifacts/*` modified) from an ingest that was not reverted.
+Working tree also had uncommitted drift (`corpus/documents/agenda.txt` untracked, `corpus/metadata.json` + `artifacts/*` modified) from an ingest that was not reverted.
+
+**Update 2026-04-22 (UI-A):** the corpus contamination has been removed. `agenda.txt` / `doc_013` is gone, artifacts rebuilt to 12 vectors, and the test was already updated to read `corpus_size` dynamically from `metadata.json`. Current `pytest` status: `172 passed, 14 skipped, 0 failed`. CR-1 below is historical.
 
 ---
 
@@ -78,11 +80,11 @@ Inside `run_pipeline` (`src/pipeline.py:149-195`):
 
 ### CRITICAL
 
-**CR-1 — Working-tree drift from an actual ingest is currently breaking a test**
-- `corpus/metadata.json` + `artifacts/*` modified; `corpus/documents/agenda.txt` untracked.
-- `tests/test_retriever.py:67-69` hard-codes `assert len(results) == 12  # corpus has 12 docs`, but metadata + FAISS now contain 13 entries (IDs `doc_001…doc_013`).
-- Why it matters: (a) the test is brittle — any real ingest breaks it; (b) CI-green claims from earlier session (172/14/0) are only true against a specific, undocumented artifact state; (c) this is exactly the ephemeral-filesystem caveat from CLAUDE.md manifesting as source-tree drift, not just runtime drift. The ingest demo mutates committed files with no "demo sandbox" isolation.
-- Fix: parameterise the test from `load_documents()` / metadata.json instead of hardcoding. Separately, decide whether `corpus/` should be repo-tracked truth or runtime-mutable state — right now it is both, and the conflict is unresolved.
+**CR-1 — [RESOLVED 2026-04-22] Working-tree drift from an actual ingest was breaking a test**
+- *Original symptom:* `corpus/metadata.json` + `artifacts/*` modified; `corpus/documents/agenda.txt` untracked.
+- *Original symptom:* `tests/test_retriever.py:67-69` hard-coded `assert len(results) == 12  # corpus has 12 docs`, but metadata + FAISS contained 13 entries (IDs `doc_001…doc_013`).
+- Why it mattered: (a) the test was brittle — any real ingest broke it; (b) CI-green claims were only true against a specific artifact state; (c) the ingest demo mutates committed files with no "demo sandbox" isolation.
+- *Fix landed (UI-A):* `agenda.txt` removed, metadata trimmed to 12 docs, artifacts rebuilt. The test was previously refactored to read `corpus_size` from `metadata.json`, so the dynamic-count fix is already in place. The ephemeral-vs-tracked tension around `corpus/` remains unresolved at the design level.
 
 **CR-2 — No auth on `/ingest` when enabled**
 - `src/main.py:177-253`. The only gate is the `ALLOW_INGEST` env var.
@@ -151,7 +153,7 @@ Inside `run_pipeline` (`src/pipeline.py:149-195`):
 - Fix: add `model_config = ConfigDict(extra="forbid")`.
 
 **MI-5 — `score_freshness` rebuilds `meta_by_id` and `reference_date` on every call**
-- `src/stages/freshness_scorer.py:46-48`. For 13 docs this is fine (µs), but the pipeline recomputes these per request even though `_metadata` is loaded once at startup and mutated only by ingest. A lazy cache keyed by metadata revision would be slightly cleaner — not a performance issue today.
+- `src/stages/freshness_scorer.py:46-48`. For 12 docs this is fine (µs), but the pipeline recomputes these per request even though `_metadata` is loaded once at startup and mutated only by ingest. A lazy cache keyed by metadata revision would be slightly cleaner — not a performance issue today.
 
 **MI-6 — `/evals` never retries a failed load**
 - `src/main.py:167-174`. If `run_evals` raises (metadata corrupted, queries missing), exception propagates, `_evals_cache` stays None, and the next call re-raises. The cache is write-through-on-success only. Not a bug, but means a transient failure during eval warmup keeps the endpoint broken until the exception stops.

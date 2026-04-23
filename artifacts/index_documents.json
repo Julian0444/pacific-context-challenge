@@ -240,20 +240,5 @@
     ],
     "short_summary": "Detailed ARR breakdown by customer. Top 3 = 58.5% of ARR ($22.3M). Notes concentration increased from Q3 2023 estimates. Flags August 2024 Customer 3 renewal as a pre-close risk.",
     "excerpt": "ATLAS CAPITAL PARTNERS \u2014 INTERNAL ANALYSIS\nPROJECT CLEARWATER: CUSTOMER CONCENTRATION RISK ASSESSMENT\nApril 8, 2024 | CONFIDENTIAL \u2014 VP AND ABOVE\n\nPREPARED BY: Diana Park, VP\n\nOVERVIEW\n\nThis memo summarizes the findings of our customer concentration analysis for Meridian\nTechnologies, based on the customer ARR schedule provided by management on April 3, 2024.\n\nCONCENTRATION FINDINGS (AS OF MARCH 31, 2024, ESTIMATED)\n\n  Customer 1 (Regional Bank A):       $9.4M ARR     24.7% of total\n  Customer 2"
-  },
-  {
-    "id": "doc_013",
-    "file_name": "agenda.txt",
-    "title": "Agenda",
-    "type": "sector_overview",
-    "date": "2026-04-19",
-    "min_role": "partner",
-    "sensitivity": "confidential",
-    "superseded_by": null,
-    "tags": [
-      "sss"
-    ],
-    "short_summary": "Kailash\nPorting OmniClaude\u2019s hook system to Cursor\u2019s equivalent hook surface, making OmniCursor\nbehave as close as possible to how OmniClaude behaves in Claude Code within what Cursor\nactually exposes",
-    "excerpt": "Kailash\nPorting OmniClaude\u2019s hook system to Cursor\u2019s equivalent hook surface, making OmniCursor\nbehave as close as possible to how OmniClaude behaves in Claude Code within what Cursor\nactually exposes.\nOmniClaude has 9 hook event types and 30+ scripts. Cursor exposes exactly 4.\nProgress \u2014 4 events complete (378 tests passing)\nEvent 1 (beforeSubmitPrompt) \u2014 three-strategy agent routing across 17 configs,\nrelevance-filtered pattern injection (domain scoring + keyword boost, confidence threshold \u22650"
   }
 ]

@@ -4,9 +4,11 @@
 **Alcance:** Sólo backend (`src/`, pipeline, tests). Auditoría de sólo lectura, sin cambios de código.
 **Branch:** `codex/must-a-idea1-2`
 
-**Estado de `pytest` recién ejecutado:** `171 passed, 1 failed, 14 skipped`. El test que falla es `tests/test_retriever.py::TestResultShape::test_top_k_clamped_to_corpus_size` — hace hardcode de `len(results) == 12` pero el corpus ya tiene 13 documentos (ver CR-1).
+**Estado de `pytest` recién ejecutado:** `171 passed, 1 failed, 14 skipped`. El test que fallaba era `tests/test_retriever.py::TestResultShape::test_top_k_clamped_to_corpus_size` — al momento de la auditoría hacía hardcode de `len(results) == 12` pero el corpus había driftado a 13 documentos (ver CR-1).
 
-El working tree también tiene drift sin commitear (`corpus/documents/agenda.txt` untracked, `corpus/metadata.json` + `artifacts/*` modificados) por un ingest que no se revirtió.
+El working tree también tenía drift sin commitear (`corpus/documents/agenda.txt` untracked, `corpus/metadata.json` + `artifacts/*` modificados) por un ingest que no se revirtió.
+
+**Update 2026-04-22 (UI-A):** la contaminación del corpus fue removida. `agenda.txt` / `doc_013` ya no existe, los artifacts se reconstruyeron a 12 vectores, y el test fue refactoreado previamente para leer `corpus_size` dinámicamente desde `metadata.json`. Estado actual de `pytest`: `172 passed, 14 skipped, 0 failed`. CR-1 más abajo es histórico.
 
 ---
 
@@ -409,11 +411,11 @@ DecisionTrace
 
 ### CRITICAL
 
-**CR-1 — Drift del working-tree de un ingest real está rompiendo un test**
-- `corpus/metadata.json` + `artifacts/*` modificados; `corpus/documents/agenda.txt` untracked.
-- `tests/test_retriever.py:67-69` hace hardcode de `assert len(results) == 12  # corpus has 12 docs`, pero metadata + FAISS ya tienen 13 entradas (IDs `doc_001…doc_013`).
-- Por qué importa: (a) el test es frágil — cualquier ingest real lo rompe; (b) las afirmaciones "CI en verde" de sesiones anteriores (172/14/0) sólo son ciertas contra un estado de artifacts específico y sin documentar; (c) esto es exactamente el caveat de filesystem efímero de CLAUDE.md materializado como drift del source tree, no sólo drift de runtime. El demo de ingest muta archivos commiteados sin ningún aislamiento de "sandbox de demo".
-- Fix: parametrizar el test desde `load_documents()` / metadata.json en vez de hardcode. Por separado, decidir si `corpus/` es verdad repo-tracked o estado runtime-mutable — ahora mismo es ambas cosas y el conflicto no está resuelto.
+**CR-1 — [RESUELTO 2026-04-22] Drift del working-tree de un ingest real estaba rompiendo un test**
+- *Síntoma original:* `corpus/metadata.json` + `artifacts/*` modificados; `corpus/documents/agenda.txt` untracked.
+- *Síntoma original:* `tests/test_retriever.py:67-69` hacía hardcode de `assert len(results) == 12  # corpus has 12 docs`, pero metadata + FAISS tenían 13 entradas (IDs `doc_001…doc_013`).
+- Por qué importaba: (a) el test era frágil — cualquier ingest real lo rompía; (b) las afirmaciones "CI en verde" sólo eran ciertas contra un estado de artifacts específico; (c) el demo de ingest muta archivos commiteados sin aislamiento de "sandbox de demo".
+- *Fix aplicado (UI-A):* `agenda.txt` removido, metadata recortada a 12 docs, artifacts reconstruidos. El test ya había sido refactoreado previamente para leer `corpus_size` desde `metadata.json`, así que el fix dinámico ya está en su lugar. La tensión efímero-vs-tracked alrededor de `corpus/` queda sin resolver a nivel de diseño.
 
 **CR-2 — Sin auth en `/ingest` cuando está habilitado**
 - `src/main.py:177-253`. El único gate es la env var `ALLOW_INGEST`.
@@ -483,7 +485,7 @@ DecisionTrace
 - Fix: borrar o marcar como deprecated.
 
 **MI-2 — Desempate no uniforme entre los rankings de FAISS y BM25**
-- `src/retriever.py:107` usa `np.argsort(-scores, kind="stable")`, FAISS devuelve por score descendente. Para corpora con empates (improbable en 13 docs), la fusión puede favorecer la regla de desempate de un retriever. OK para prod, vale la pena anotarlo.
+- `src/retriever.py:107` usa `np.argsort(-scores, kind="stable")`, FAISS devuelve por score descendente. Para corpora con empates (improbable en 12 docs), la fusión puede favorecer la regla de desempate de un retriever. OK para prod, vale la pena anotarlo.
 
 **MI-3 — `_normalize_scores` colapsa todos los scores iguales a 1.0**
 - `src/retriever.py:140-141`. Un caller comparando top-1 contra top-N no puede distinguir "un doc claramente mejor" de "ninguna señal." Improbable en la práctica pero merece un comentario.
@@ -493,7 +495,7 @@ DecisionTrace
 - Fix: agregar `model_config = ConfigDict(extra="forbid")`.
 
 **MI-5 — `score_freshness` reconstruye `meta_by_id` y `reference_date` en cada call**
-- `src/stages/freshness_scorer.py:46-48`. Para 13 docs esto está bien (µs), pero el pipeline recomputa esto por-request aunque `_metadata` se cargó una vez al startup y sólo muta por ingest. Un cache lazy por revisión de metadata sería un poco más limpio — no es issue de performance hoy.
+- `src/stages/freshness_scorer.py:46-48`. Para 12 docs esto está bien (µs), pero el pipeline recomputa esto por-request aunque `_metadata` se cargó una vez al startup y sólo muta por ingest. Un cache lazy por revisión de metadata sería un poco más limpio — no es issue de performance hoy.
 
 **MI-6 — `/evals` nunca reintenta una carga que falló**
 - `src/main.py:167-174`. Si `run_evals` lanza (metadata corrupta, queries ausentes), la excepción se propaga, `_evals_cache` queda None, y el próximo call re-lanza. El cache es write-through-on-success-only. No es bug, pero significa que una falla transitoria durante el warmup de evals mantiene el endpoint roto hasta que la excepción pare.

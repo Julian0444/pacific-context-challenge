@@ -707,6 +707,8 @@ First backend-expanding batch since MUST-A. Adds a runtime PDF ingestion path (n
 
 **Rollback:** Corpus restored to pre-test state (12 docs, 12 `.txt` files, `artifacts/*` restored from snapshots).
 
+**Addendum 2026-04-22 (UI-A — demo data cleanup).** A follow-up audit found the rollback above was not actually applied to the working tree: `corpus/documents/agenda.txt` + a `doc_013` `Agenda` metadata entry had leaked into the committed corpus from a separate verification-smoke ingest, leaving the corpus at 13 docs and polluting partner-role Compare results. UI-A removed `agenda.txt`, deleted the `doc_013` entry from `corpus/metadata.json`, rebuilt all three `artifacts/*` files (FAISS index + `index_documents.json` + `bm25_corpus.json`, now 12 rows each), and re-ran the evaluator + pytest baseline. Corpus is back to the intended 12-doc Meridian / Atlas Capital narrative. Evaluator aggregates post-cleanup: `P@5=0.3000, Recall=1.0000, perm_viol=0%, avg_blocked=3.38, avg_stale=1.62, avg_budget_util=53%`. `pytest: 172 passed / 14 skipped / 0 failed`.
+
 ---
 
 ### Current State

@@ -119,7 +119,7 @@ curl http://localhost:8000/health
 ## Running tests and evaluator
 
 ```bash
-# Full test suite (148 passed, 14 skipped — skipped are deprecated legacy tests)
+# Full test suite (172 passed, 14 skipped — skipped are deprecated legacy tests)
 python3 -m pytest tests/ -v
 
 # Evaluator — runs 8 corpus-grounded queries through the production pipeline
@@ -177,7 +177,7 @@ frontend/
   index.html        # Static UI — open directly in browser
   app.js            # Single / Compare / Evals modes
   styles.css
-tests/              # 148 passing, 14 skipped
+tests/              # 172 passing, 14 skipped
   test_pipeline.py  test_stages.py  test_retriever.py
   test_models.py    test_evaluator.py  test_main.py  ...
 ```

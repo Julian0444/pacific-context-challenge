@@ -229,20 +229,6 @@
         "renewal"
       ],
       "short_summary": "Detailed ARR breakdown by customer. Top 3 = 58.5% of ARR ($22.3M). Notes concentration increased from Q3 2023 estimates. Flags August 2024 Customer 3 renewal as a pre-close risk."
-    },
-    {
-      "id": "doc_013",
-      "file_name": "agenda.txt",
-      "title": "Agenda",
-      "type": "sector_overview",
-      "date": "2026-04-19",
-      "min_role": "partner",
-      "sensitivity": "confidential",
-      "superseded_by": null,
-      "tags": [
-        "sss"
-      ],
-      "short_summary": "Kailash\nPorting OmniClaude\u2019s hook system to Cursor\u2019s equivalent hook surface, making OmniCursor\nbehave as close as possible to how OmniClaude behaves in Claude Code within what Cursor\nactually exposes"
     }
   ]
 }
