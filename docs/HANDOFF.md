@@ -1011,3 +1011,80 @@ No NICE-A work remains. Long-standing optional follow-ups unchanged:
 - `CLAUDE.md` — current (NICE-A paragraph appended under Frontend).
 - `docs/plans/2026-04-18-nice-a-ideas-12-13-plan.md` — preflight plan from this session; Execution outcome section can be added as a follow-up if desired (not required — this HANDOFF entry carries the evidence).
 - All other plan docs — unchanged and still accurate.
+
+---
+
+## Session — 2026-04-23 (Session 30 / **UI-B — Single state coherence**)
+
+### Summary
+
+Frontend-only UX fix. Before this batch, changing the role or policy radio in Single mode updated the controls + descriptive copy but left the previously rendered result on screen, so the `.summary-bar` role/policy chips contradicted the radio selection. Single example buttons also inherited whatever policy radio was checked, making the demo non-deterministic.
+
+UI-B implements two coordinated changes:
+
+1. **Mark-stale banner + require Run** (not auto-rerun, not clear-on-change). When either radio diverges from the `(role, policy)` pair tied to the rendered result, a `#stale-results-banner` (`role="status"` / `aria-live="polite"` / `aria-atomic="true"`) is prepended to `#results-section` reading "Controls changed — press **Run** to refresh these results.", and the section gets a `results-stale` class that fades the summary bar / result cards / blocked section / trace panel to 60% opacity. Cleared on Run, on Single preset click, on mode switch out of Single, and whenever radios match the last-rendered pair. On mode switch into Single, `evaluateSingleStale()` re-runs so round trips (Single → Compare → Single) with a diverged role radio surface the banner on return. All banner logic is gated on the presence of `.summary-bar` in `#results-section` — empty state, skeleton, error, and "no results" views never trigger it.
+2. **Deterministic Single example buttons.** The shared `.example-btn` handler now branches on `data-mode`: for `data-mode="single"` it forces `policy=full_policy`, toggles the matching radio, and calls `updatePolicyDescription("full_policy")` so the `#policy-warning` clears if the user previously had "No Filters" selected. Manual form submit still honors the user-selected policy radio; Compare shortcuts and onboard cards (`data-mode="compare"`) are untouched (UI-C scope).
+
+### Files changed
+
+- `frontend/app.js` — module state `_lastRenderedRole` / `_lastRenderedPolicy`; helpers `buildStaleBannerHTML()` / `clearSingleStale()` / `evaluateSingleStale()`; role and policy radio `change` listeners now call `evaluateSingleStale()` after the description update; `.example-btn` click handler forces `full_policy` and syncs the radio for `data-mode="single"` presets and calls `clearSingleStale()` before dispatch; `setLoadingSingle(true)` drops the `results-stale` class before injecting the skeleton; `renderSingleResult` records `_lastRenderedRole/Policy` on successful non-empty render; `switchMode` tracks `leavingSingle` / `enteringSingle` and calls `clearSingleStale` / `evaluateSingleStale` accordingly at the end.
+- `frontend/styles.css` — new `.stale-results-banner` block (flex row, icon + text, `--accent-subtle` bg, 3px `--accent` left-border, `--radius-md`, `--font-display` text with `--font-mono` bold "Run"); `@keyframes stale-banner-in` (opacity + translateY(-2px) → 0); `#results-section.results-stale` descendant rules (`opacity: 0.6; transition: opacity var(--dur) var(--ease)`); reduced-motion block extended to disable the banner animation and the opacity transition on dim descendants.
+- `CLAUDE.md` — Frontend Single-mode paragraph appended with the deterministic-preset + stale-banner behavior.
+- `demo.md` — Section 3 Single bullet gains a "Coherencia de estado (UI-B)" line; Demo D "Cómo llegar" note clarifies that the ARR growth preset forces Full Pipeline.
+- `summaryUserExp.md` — Section 4.1 Single mode gains a "Coherencia de controles y resultados (UI-B)" paragraph.
+- `docs/plans/2026-04-23-ui-b-single-state-coherence-plan.md` (new) — preflight plan saved at the start of this session.
+- `docs/HANDOFF.md` — this entry.
+
+No HTML, backend, test, or dep changes. `tests/` untouched.
+
+### Verification
+
+**Baseline + post-edit pytest (via `.venv/bin/python`):** 172 passed, 14 skipped, 0 failed (both runs this session).
+
+Note: system `python3` runs against a misconfigured global install (`torch.library has no attribute 'register_fake'`), which yields 49 unrelated failures. The project venv is authoritative; out of scope for this batch.
+
+**Playwright sweep at `http://127.0.0.1:8000/app/` — 34/34 PASS, 0 console errors** (script at `/tmp/ui_b_verify.py`, run via `.venv/bin/python`):
+
+| AC | Check | Result |
+|---|---|---|
+| AC8 | Empty state + role change → no banner | PASS |
+| AC5 | Single preset with `naive_top_k` pre-selected: policy radio snaps to `full_policy`, `#policy-warning` hidden, summary-bar reads "Full Pipeline" / "analyst" | PASS (5 sub-checks) |
+| AC6 | No banner after Single preset click | PASS |
+| AC1 | Role change with rendered result → banner visible, `.results-stale` class set, summary-bar role chip still shows the old role | PASS (3 sub-checks) |
+| AC10 | Banner has `role="status"`, `aria-live="polite"`, `aria-atomic="true"` | PASS (3 sub-checks) |
+| AC3 | Revert role to match last-rendered → banner gone | PASS |
+| AC2 | Policy change → banner visible, `.results-stale` set, summary-bar policy chip still shows old policy | PASS (3 sub-checks) |
+| AC4 | Run clears banner; summary-bar policy chip updates to the newly-selected policy | PASS (2 sub-checks) |
+| AC7a | Mode switch out of Single while banner visible → banner + class cleared on leave | PASS (2 sub-checks) |
+| AC7b | Return to Single with diverged controls → banner re-inserted on entry; Run clears it; summary-bar role chip updated | PASS (3 sub-checks) |
+| Regress | Compare: 3 columns + `#export-compare` present | PASS (2 sub-checks) |
+| Regress | Evals: 10 metric cards | PASS |
+| Regress | Admin tab visible (ingest enabled) | PASS |
+| Admin→Single | Prior rendered result still on screen; banner correctly re-inserted when controls diverged (role had been changed to `analyst` by a prior Compare preset) | PASS (2 sub-checks) |
+| Admin→Single | After reverting role to match last-rendered, banner cleared; round-trip through Evals → Single with matching controls keeps it clear | PASS (2 sub-checks) |
+
+No backend endpoints were touched. `GET /health` → `{"status":"ok","ingest_enabled":true}` (Admin tab hide logic via `ingest_enabled` probe untouched).
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `eec9dfd` (Batch UI-A).
+- **Tests:** 172 / 14 / 0 under `.venv/bin/python`.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** COMPLETE — 34/34 Playwright assertions, 0 console errors.
+- **Hostile review:** not performed this session.
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Compare-mode staleness asymmetry.** Changing the role radio while in Compare mode does not dim the Compare columns. Out of scope for UI-B (Compare is UI-C territory). Noted for follow-up.
+- **Banner inserted into a hidden `#results-section`** while the user is in Compare mode and changes the role radio. Harmless — the section is `hidden` — and materializes correctly on return to Single via the `enteringSingle` re-evaluation.
+
+### Doc status at end of Session 30
+
+- `docs/HANDOFF.md` — current (this entry).
+- `CLAUDE.md` — Frontend Single-mode paragraph updated.
+- `demo.md` — Section 3 Single bullet + Demo D row updated.
+- `summaryUserExp.md` — Section 4.1 updated with the UI-B coherence paragraph.
+- `docs/plans/2026-04-23-ui-b-single-state-coherence-plan.md` — preflight plan; Execution outcome can be appended later if desired (this HANDOFF entry carries the evidence).
+- All other plan docs — unchanged and still accurate.

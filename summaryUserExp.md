@@ -124,6 +124,9 @@ Al final de los resultados hay un panel que se puede expandir llamado "Decision 
 - Para ver el impacto de cambiar la politica: si cambias de "full" a "naive", vas a ver documentos bloqueados que ahora aparecen, documentos stale que ya no se penalizan, etc.
 - Para verificar que el sistema de permisos funciona correctamente.
 
+**Coherencia de controles y resultados (UI-B):**
+Si cambias el rol o la politica despues de haber ejecutado una consulta, los controles nuevos quedan seleccionados pero los resultados siguen siendo los de la corrida anterior. Para que no parezca que la UI miente, aparece un banner discreto arriba de los resultados ("Controls changed — press Run to refresh these results.") y las tarjetas viejas se atenuan al 60% de opacidad. El banner y la atenuacion desaparecen cuando apretas **Run** (o cuando volves a dejar los controles como estaban al momento del ultimo render). Los botones de ejemplo de la fila "Single" (ARR growth / DD risks / IC memo) son **presets deterministas**: siempre corren con politica **Full Pipeline** y sincronizan el radio de politica, asi la demo se comporta igual sin importar que politica tuvieras seleccionada antes.
+
 ---
 
 ### 4.2 Modo Compare - "La misma consulta con tres politicas"

@@ -48,6 +48,7 @@ Al abrir la app sin haber hecho nada, en el centro aparecen **tres tarjetas de o
 - **Qué historia contás:** "Así se ve cuando un usuario real consulta la base. Le da los documentos relevantes a los que su rol le da acceso, y le muestra con transparencia qué documentos existían pero fueron bloqueados."
 - **Cuándo mostrarlo en la demo:** como **apertura rápida** (un analyst busca algo, ve 5 docs, 7 bloqueados) o como **cierre detallado** (abrir el Decision Trace y señalar el resumen narrativo).
 - **Mensaje de negocio:** transparencia — "cada decisión queda documentada; esto es auditable por compliance".
+- **Coherencia de estado (UI-B):** cambiar el rol o la política mientras hay un resultado en pantalla muestra un banner discreto arriba ("Controls changed — press Run to refresh these results.") y desaturam las tarjetas viejas al 60% hasta que apretás **Run**. Esto evita el "bug visual" de que los controles digan una cosa y los resultados reflejen otra. Los botones de ejemplo de la fila Single (ARR growth / DD risks / IC memo) son **presets deterministas**: siempre corren con **Full Pipeline**, sin importar qué política estuviera seleccionada antes, y sincronizan el radio de política para que la UI quede coherente con el resultado renderizado.
 
 ### Compare — "la pantalla que vende sola"
 
@@ -151,7 +152,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 | Paso | Acción |
 |---|---|
 | Tab | **Single** |
-| Cómo llegar | Click en "ARR growth" (Single row) |
+| Cómo llegar | Click en "ARR growth" (Single row). El preset fuerza rol=Analyst y policy=Full Pipeline, sin importar qué estuviera seleccionado. |
 | Buscador | `What is Meridian's ARR growth rate and net revenue retention?` |
 | Rol | **Analyst** |
 | Policy | **Full Pipeline** |

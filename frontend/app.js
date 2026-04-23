@@ -50,6 +50,57 @@ const ROLE_DESCRIPTIONS = {
 // Raw excerpt storage for expand/collapse — keyed by card index, avoids data-attr innerHTML
 const _cardExcerpts = new Map();
 
+// ── Stale-state tracking (UI-B) ─────────────────────────────────────────────
+// Records the (role, policy) used for the currently rendered Single result.
+// When either radio diverges from these values, a stale banner is shown above
+// the cards until the user presses Run. Cleared on: render success, mode
+// switch out of single, and Single preset-button clicks.
+let _lastRenderedRole = null;
+let _lastRenderedPolicy = null;
+
+function buildStaleBannerHTML() {
+  return `
+    <div id="stale-results-banner"
+         class="stale-results-banner"
+         role="status"
+         aria-live="polite"
+         aria-atomic="true">
+      <span class="stale-banner-icon" aria-hidden="true">↻</span>
+      <span class="stale-banner-text">Controls changed — press <strong>Run</strong> to refresh these results.</span>
+    </div>`;
+}
+
+function clearSingleStale() {
+  const banner = document.getElementById("stale-results-banner");
+  if (banner) banner.remove();
+  resultsSection.classList.remove("results-stale");
+}
+
+function evaluateSingleStale() {
+  // Gate: only relevant when a trusted Single result is on screen. Presence of
+  // .summary-bar is authoritative — excludes #empty-state, skeleton, no-results,
+  // and error states.
+  const hasResult = resultsSection.querySelector(".summary-bar") !== null;
+  if (!hasResult) {
+    clearSingleStale();
+    return;
+  }
+  const currentRole =
+    document.querySelector('input[name="role"]:checked')?.value || null;
+  const currentPolicy =
+    document.querySelector('input[name="policy"]:checked')?.value || null;
+  const matches =
+    currentRole === _lastRenderedRole && currentPolicy === _lastRenderedPolicy;
+  if (matches) {
+    clearSingleStale();
+    return;
+  }
+  if (!document.getElementById("stale-results-banner")) {
+    resultsSection.insertAdjacentHTML("afterbegin", buildStaleBannerHTML());
+  }
+  resultsSection.classList.add("results-stale");
+}
+
 // ── DOM references ──
 
 const form = document.getElementById("query-form");
@@ -80,6 +131,8 @@ document.querySelectorAll(".mode-btn").forEach((btn) => {
 
 function switchMode(mode) {
   if (mode === currentMode) return;
+  const leavingSingle = currentMode === "single" && mode !== "single";
+  const enteringSingle = currentMode !== "single" && mode === "single";
   currentMode = mode;
 
   document.querySelectorAll(".mode-btn").forEach((b) => {
@@ -116,6 +169,13 @@ function switchMode(mode) {
   if (isEvals && !evalsLoaded) {
     runEvals();
   }
+
+  // Stale banner bookkeeping (UI-B). Leaving Single removes any visible banner
+  // (the rendered content is preserved for when the user returns). Entering
+  // Single re-evaluates staleness against the last-rendered (role, policy) so
+  // a round trip with a diverged role radio still surfaces the banner.
+  if (leavingSingle) clearSingleStale();
+  if (enteringSingle) evaluateSingleStale();
 }
 
 function playModeEnter(el) {
@@ -147,7 +207,10 @@ function updatePolicyDescription(policy) {
 }
 
 document.querySelectorAll('input[name="policy"]').forEach((radio) => {
-  radio.addEventListener("change", () => updatePolicyDescription(radio.value));
+  radio.addEventListener("change", () => {
+    updatePolicyDescription(radio.value);
+    evaluateSingleStale();
+  });
 });
 
 // Initialize with the default checked policy
@@ -168,7 +231,10 @@ function updateRoleDescription(role) {
 }
 
 document.querySelectorAll('input[name="role"]').forEach((radio) => {
-  radio.addEventListener("change", () => updateRoleDescription(radio.value));
+  radio.addEventListener("change", () => {
+    updateRoleDescription(radio.value);
+    evaluateSingleStale();
+  });
 });
 
 // Initialize with the default checked role
@@ -229,6 +295,18 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
     // Programmatic checked assignment does not fire "change" — sync description manually
     updateRoleDescription(role);
 
+    // Single presets are deterministic: force full_policy and sync the radio +
+    // description so controls stay coherent with the rendered result (UI-B).
+    if (targetMode === "single") {
+      const policyRadio = document.querySelector(
+        'input[name="policy"][value="full_policy"]'
+      );
+      if (policyRadio) policyRadio.checked = true;
+      updatePolicyDescription("full_policy");
+    }
+
+    clearSingleStale();
+
     if (targetMode && targetMode !== currentMode) {
       switchMode(targetMode);
     }
@@ -236,10 +314,7 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
     if (currentMode === "compare") {
       runCompare(query, role);
     } else {
-      const policy =
-        document.querySelector('input[name="policy"]:checked')?.value ||
-        "full_policy";
-      runSingleQuery(query, role, policy);
+      runSingleQuery(query, role, "full_policy");
     }
   });
 });
@@ -307,6 +382,9 @@ function setLoadingSingle(on) {
   submitBtn.classList.toggle("loading", on);
   if (on) {
     document.getElementById("empty-state")?.remove();
+    // Drop the stale-results modifier before the skeleton renders so it
+    // doesn't inherit the 60% opacity applied to stale cards (UI-B).
+    resultsSection.classList.remove("results-stale");
     resultsSection.innerHTML = skeletonSingleHTML();
   }
 }
@@ -436,6 +514,11 @@ function renderSingleResult(data, role, policy) {
       downloadJSON(data, `querytrace_${role}_${policy}.json`);
     });
   }
+
+  // Record the (role, policy) pair tied to the rendered result so subsequent
+  // radio changes can be detected as stale (UI-B).
+  _lastRenderedRole = role;
+  _lastRenderedPolicy = policy;
 }
 
 // ── Render: single result card ──

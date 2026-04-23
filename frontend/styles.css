@@ -2457,6 +2457,59 @@ body {
   to   { opacity: 1; }
 }
 
+/* ─── Stale-state banner (UI-B) ─────────────────────────────────────────────
+   Shown above the results summary bar when the currently-checked role or
+   policy radios diverge from the (role, policy) pair that produced the
+   rendered result. The .results-stale class on #results-section dims the
+   cards below so the mismatch is immediately visible. Both are cleared on
+   Run, on Single preset click, and on mode switch away from Single. */
+
+.stale-results-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  margin-bottom: 0.85rem;
+  background: var(--accent-subtle);
+  border: 1px solid var(--policy-rbac-border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  animation: stale-banner-in var(--dur) var(--ease);
+}
+
+.stale-banner-icon {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.stale-banner-text {
+  line-height: 1.4;
+}
+
+.stale-banner-text strong {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent-dim);
+}
+
+@keyframes stale-banner-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#results-section.results-stale .summary-bar,
+#results-section.results-stale .result-card,
+#results-section.results-stale .blocked-section,
+#results-section.results-stale .trace-panel {
+  opacity: 0.6;
+  transition: opacity var(--dur) var(--ease);
+}
+
 /* ─── Reduced motion ─── */
 /* Respect user OS / browser preference. Disables new transitions and entrance
    animations added in NICE-A / IDEA 13 while preserving functional behavior. */
@@ -2467,7 +2520,8 @@ body {
   .compare-col,
   .compare-card,
   .metric-card,
-  .search-btn.loading .btn-spinner {
+  .search-btn.loading .btn-spinner,
+  .stale-results-banner {
     animation: none !important;
   }
 
@@ -2478,7 +2532,11 @@ body {
   .trace-body,
   .search-btn,
   .onboard-card,
-  .admin-submit-btn {
+  .admin-submit-btn,
+  #results-section.results-stale .summary-bar,
+  #results-section.results-stale .result-card,
+  #results-section.results-stale .blocked-section,
+  #results-section.results-stale .trace-panel {
     transition: none !important;
   }
 
