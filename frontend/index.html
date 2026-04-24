@@ -101,9 +101,6 @@
       <div class="examples">
         <div class="examples-row">
           <span class="examples-label">Single</span>
-          <button class="example-btn" data-query="What is Meridian's ARR growth rate and net revenue retention?" data-role="analyst" data-mode="single" title="Analyst · sees public filings and analyst-tier research only">
-            <span class="ex-role-dot dot-analyst"></span>ARR growth
-          </button>
           <button class="example-btn" data-query="What are the risks identified in the due diligence for Project Clearwater?" data-role="vp" data-mode="single" title="VP · sees deal memos, financial models, and diligence reports">
             <span class="ex-role-dot dot-vp"></span>DD risks
           </button>
@@ -113,14 +110,8 @@
         </div>
         <div class="examples-row">
           <span class="examples-label">Compare</span>
-          <button class="example-btn scenario-btn dot-analyst-border" data-query="What is Meridian's ARR growth rate and net revenue retention?" data-role="analyst" data-mode="compare" title="Permission wall — analyst is blocked from 7 VP/partner docs that naive retrieval surfaces">
-            <span class="ex-role-dot dot-analyst"></span>Analyst wall ↔
-          </button>
-          <button class="example-btn scenario-btn dot-vp-border" data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?" data-role="vp" data-mode="compare" title="VP deal view — compare what VP sees across naive, RBAC, and full policies">
-            <span class="ex-role-dot dot-vp"></span>VP deal view ↔
-          </button>
-          <button class="example-btn scenario-btn dot-partner-border" data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?" data-role="partner" data-mode="compare" title="Partner full access — partner sees all docs, no permission blocks across any policy">
-            <span class="ex-role-dot dot-partner"></span>Partner view ↔
+          <button class="example-btn scenario-btn dot-partner-border" data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?" data-role="partner" data-mode="compare" title="Stale detection — full corpus access; the full pipeline demotes superseded docs 0.5×">
+            <span class="ex-role-dot dot-partner"></span>Stale detection →
           </button>
         </div>
       </div>
@@ -136,45 +127,84 @@
           with every decision visible in the Decision Trace. Pick a scenario to see the contrast.
         </p>
         <div class="onboard-grid">
-          <button type="button"
-                  class="example-btn onboard-card"
-                  data-query="What is Meridian's ARR growth rate and net revenue retention?"
-                  data-role="analyst"
-                  data-mode="compare"
-                  title="Analyst is blocked from 7 VP/partner documents that naive retrieval would surface">
+          <div class="onboard-card" data-story="permission-wall">
             <span class="onboard-card-head">
               <span class="onboard-dot dot-analyst" aria-hidden="true"></span>
               <span class="onboard-card-subtitle">Analyst</span>
             </span>
             <span class="onboard-card-title">Permission Wall</span>
-            <span class="onboard-hint">See 7 documents blocked by RBAC.</span>
-          </button>
-          <button type="button"
-                  class="example-btn onboard-card"
-                  data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
-                  data-role="vp"
-                  data-mode="compare"
-                  title="VP sees stale financial models demoted by the full pipeline">
+            <span class="onboard-hint">Analyst query hits 7 documents blocked by RBAC.</span>
+            <div class="onboard-actions">
+              <button type="button"
+                      class="example-btn onboard-primary"
+                      data-query="What is Meridian's ARR growth rate and net revenue retention?"
+                      data-role="analyst"
+                      data-mode="single"
+                      title="Run this scenario in Single mode (full pipeline)">
+                Run in Single
+              </button>
+              <button type="button"
+                      class="example-btn onboard-secondary"
+                      data-query="What is Meridian's ARR growth rate and net revenue retention?"
+                      data-role="analyst"
+                      data-mode="compare"
+                      title="Switch to Compare mode and run this scenario side by side">
+                Open in Compare →
+              </button>
+            </div>
+          </div>
+          <div class="onboard-card" data-story="vp-deal-view">
             <span class="onboard-card-head">
               <span class="onboard-dot dot-vp" aria-hidden="true"></span>
               <span class="onboard-card-subtitle">VP</span>
             </span>
-            <span class="onboard-card-title">Stale Detection</span>
-            <span class="onboard-hint">See how outdated financial models get demoted.</span>
-          </button>
-          <button type="button"
-                  class="example-btn onboard-card"
-                  data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
-                  data-role="partner"
-                  data-mode="compare"
-                  title="Partner has full corpus access — no documents blocked">
+            <span class="onboard-card-title">VP Deal View</span>
+            <span class="onboard-hint">Deal memos + financial models — watch the outdated v1 model get demoted.</span>
+            <div class="onboard-actions">
+              <button type="button"
+                      class="example-btn onboard-primary"
+                      data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
+                      data-role="vp"
+                      data-mode="single"
+                      title="Run this scenario in Single mode (full pipeline)">
+                Run in Single
+              </button>
+              <button type="button"
+                      class="example-btn onboard-secondary"
+                      data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
+                      data-role="vp"
+                      data-mode="compare"
+                      title="Switch to Compare mode and run this scenario side by side">
+                Open in Compare →
+              </button>
+            </div>
+          </div>
+          <div class="onboard-card" data-story="stale-detection">
             <span class="onboard-card-head">
               <span class="onboard-dot dot-partner" aria-hidden="true"></span>
               <span class="onboard-card-subtitle">Partner</span>
             </span>
-            <span class="onboard-card-title">Full Access</span>
-            <span class="onboard-hint">See the full pipeline with zero blocks.</span>
-          </button>
+            <span class="onboard-card-title">Stale Detection</span>
+            <span class="onboard-hint">Full corpus access — the full pipeline still demotes superseded documents 0.5×.</span>
+            <div class="onboard-actions">
+              <button type="button"
+                      class="example-btn onboard-primary"
+                      data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
+                      data-role="partner"
+                      data-mode="single"
+                      title="Run this scenario in Single mode (full pipeline)">
+                Run in Single
+              </button>
+              <button type="button"
+                      class="example-btn onboard-secondary"
+                      data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
+                      data-role="partner"
+                      data-mode="compare"
+                      title="Switch to Compare mode and run this scenario side by side">
+                Open in Compare →
+              </button>
+            </div>
+          </div>
         </div>
         <p class="empty-hint">Or type your own query above and choose a role to explore.</p>
       </div>
@@ -182,7 +212,60 @@
 
     <!-- Compare-mode results (hidden by default) -->
     <section id="compare-section" class="compare-section" hidden>
-      <div class="compare-banner" id="compare-banner">
+      <div class="empty-state compare-empty-state" id="compare-empty-state">
+        <h2 class="empty-title">Compare policies side by side</h2>
+        <p class="empty-description">
+          Run the same query through No Filters, Permissions Only, and Full Pipeline
+          — see exactly which documents each policy includes, blocks, or demotes.
+          Pick a scenario to preview the contrast.
+        </p>
+        <div class="onboard-grid">
+          <button type="button"
+                  class="example-btn onboard-card onboard-card-compact"
+                  data-query="What is Meridian's ARR growth rate and net revenue retention?"
+                  data-role="analyst"
+                  data-mode="compare"
+                  data-story="permission-wall"
+                  title="Analyst · ARR query — compare naive vs RBAC vs full pipeline">
+            <span class="onboard-card-head">
+              <span class="onboard-dot dot-analyst" aria-hidden="true"></span>
+              <span class="onboard-card-subtitle">Analyst · ARR</span>
+            </span>
+            <span class="onboard-card-title">Permission Wall</span>
+            <span class="onboard-hint">Naive surfaces 12 docs · RBAC + Full block 7.</span>
+          </button>
+          <button type="button"
+                  class="example-btn onboard-card onboard-card-compact"
+                  data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
+                  data-role="vp"
+                  data-mode="compare"
+                  data-story="vp-deal-view"
+                  title="VP · financial model query — watch the stale v1 model get demoted">
+            <span class="onboard-card-head">
+              <span class="onboard-dot dot-vp" aria-hidden="true"></span>
+              <span class="onboard-card-subtitle">VP · Financial models</span>
+            </span>
+            <span class="onboard-card-title">VP Deal View</span>
+            <span class="onboard-hint">All three policies include the deal memo · only Full demotes the stale v1 model.</span>
+          </button>
+          <button type="button"
+                  class="example-btn onboard-card onboard-card-compact"
+                  data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
+                  data-role="partner"
+                  data-mode="compare"
+                  data-story="stale-detection"
+                  title="Partner · IC + LP query — full corpus retrievable; Full demotes stale docs 0.5×">
+            <span class="onboard-card-head">
+              <span class="onboard-dot dot-partner" aria-hidden="true"></span>
+              <span class="onboard-card-subtitle">Partner · IC + LP</span>
+            </span>
+            <span class="onboard-card-title">Stale Detection</span>
+            <span class="onboard-hint">Full corpus retrievable · Full pipeline demotes superseded docs 0.5×.</span>
+          </button>
+        </div>
+        <p class="empty-hint">Or type your own query above and choose a role.</p>
+      </div>
+      <div class="compare-banner" id="compare-banner" hidden>
         <span class="compare-banner-text" id="compare-banner-text">
           Comparing policies
         </span>

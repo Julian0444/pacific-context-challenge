@@ -27,16 +27,18 @@ Ese es el mental model que tiene que tener tu audiencia antes de que toques una 
 
 ### La fila de botones de ejemplo
 
-Debajo del buscador hay **dos filas de botones pre-armados**:
+Debajo del buscador hay **dos filas de botones pre-armados** (dedupadas en UI-C: ya no repiten las historias de las tarjetas de onboarding):
 
-- Fila "Single" → corre una búsqueda simple con un rol fijo.
-- Fila "Compare" → corre la misma consulta con las tres políticas en paralelo.
+- Fila "Single" → `DD risks` (VP) y `IC memo` (partner). Atajos a consultas distintas de las de onboarding, sin cambio de modo.
+- Fila "Compare" → `Stale detection →` (partner, query IC + LP update). Este botón **sí** cambia a Compare — el glifo `↔`/`→` es afordancia explícita.
 
-**Al hacer clic, el sistema cambia automáticamente de modo** (Single → Compare o viceversa) y ejecuta la consulta. Esto hace que la demo sea casi sin teclear.
+### El "empty state" (Single, por defecto)
 
-### El "empty state"
+Al abrir la app sin haber hecho nada, en el centro aparecen **tres tarjetas de onboarding**: **Permission Wall** (analyst), **VP Deal View** (VP) y **Stale Detection** (partner). **UI-C las rediseñó**: cada tarjeta ahora tiene dos botones — **`Run in Single`** (primario) corre la consulta en modo Single con `full_policy`, **sin cambiar de modo**, y **`Open in Compare →`** (secundario) sí salta a Compare. Esto elimina el "teleport silencioso" anterior: el cambio de modo queda siempre explícito.
 
-Al abrir la app sin haber hecho nada, en el centro aparecen **tres tarjetas de onboarding**: Permission Wall (analyst), Stale Detection (VP), Full Access (partner). Clickeás cualquiera y el sistema salta a modo Compare con el escenario ya ejecutado. **Esa es la pantalla de inicio más fuerte para una demo** — un clic, tres columnas, y el mensaje principal se ve solo.
+### Compare — empty state propio (UI-C)
+
+Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tres tarjetas de preview** que reflejan las mismas historias base (Permission Wall / VP Deal View / Stale Detection), cada una con un hint cuantitativo resumido (ej: "Naive surfaces 12 · RBAC + Full block 7"). Las tarjetas de Compare son **un solo click** (toda la tarjeta dispara `/compare`), porque el modo ya es explícito. En la primera corrida el onboarding desaparece y se revela el banner + las tres columnas.
 
 ---
 
@@ -48,7 +50,7 @@ Al abrir la app sin haber hecho nada, en el centro aparecen **tres tarjetas de o
 - **Qué historia contás:** "Así se ve cuando un usuario real consulta la base. Le da los documentos relevantes a los que su rol le da acceso, y le muestra con transparencia qué documentos existían pero fueron bloqueados."
 - **Cuándo mostrarlo en la demo:** como **apertura rápida** (un analyst busca algo, ve 5 docs, 7 bloqueados) o como **cierre detallado** (abrir el Decision Trace y señalar el resumen narrativo).
 - **Mensaje de negocio:** transparencia — "cada decisión queda documentada; esto es auditable por compliance".
-- **Coherencia de estado (UI-B):** cambiar el rol o la política mientras hay un resultado en pantalla muestra un banner discreto arriba ("Controls changed — press Run to refresh these results.") y desaturam las tarjetas viejas al 60% hasta que apretás **Run**. Esto evita el "bug visual" de que los controles digan una cosa y los resultados reflejen otra. Los botones de ejemplo de la fila Single (ARR growth / DD risks / IC memo) son **presets deterministas**: siempre corren con **Full Pipeline**, sin importar qué política estuviera seleccionada antes, y sincronizan el radio de política para que la UI quede coherente con el resultado renderizado.
+- **Coherencia de estado (UI-B):** cambiar el rol o la política mientras hay un resultado en pantalla muestra un banner discreto arriba ("Controls changed — press Run to refresh these results.") y desatura las tarjetas viejas al 60% hasta que apretás **Run**. Esto evita el "bug visual" de que los controles digan una cosa y los resultados reflejen otra. Los botones de ejemplo de la fila Single (`DD risks` / `IC memo`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con **Full Pipeline**, sin importar qué política estuviera seleccionada antes, y sincronizan el radio de política para que la UI quede coherente con el resultado renderizado.
 
 ### Compare — "la pantalla que vende sola"
 
@@ -82,7 +84,7 @@ Cada demo te dice: qué escribir, qué rol, qué policy, qué tab, qué señalar
 | Paso | Acción |
 |---|---|
 | Tab | **Compare** |
-| Cómo llegar | Click en el botón "Analyst wall ↔" (o en la tarjeta "Permission Wall" del empty state) |
+| Cómo llegar | Click en **`Open in Compare →`** de la tarjeta "Permission Wall" del empty state. (El shortcut row ya no duplica esta historia: la tarjeta de onboarding es el único acceso directo.) |
 | Buscador | `What is Meridian's ARR growth rate and net revenue retention?` |
 | Rol | **Analyst** |
 | Policy | (Compare corre las tres automáticamente) |
@@ -108,7 +110,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 | Paso | Acción |
 |---|---|
 | Tab | **Compare** |
-| Cómo llegar | Click en "VP deal view ↔" |
+| Cómo llegar | Click en **`Open in Compare →`** de la tarjeta "VP Deal View" del empty state. (UI-C quitó el shortcut "VP deal view ↔" de la fila Compare por redundante.) |
 | Buscador | `What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?` |
 | Rol | **VP** |
 
@@ -125,25 +127,26 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 ---
 
-### Demo C — "Partner view — el acceso completo"
+### Demo C — "Stale detection" (antes: "Partner view")
 
 | Paso | Acción |
 |---|---|
 | Tab | **Compare** |
-| Cómo llegar | Click en "Partner view ↔" |
+| Cómo llegar | Click en el shortcut **`Stale detection →`** (fila Compare) o en **`Open in Compare →`** de la tarjeta "Stale Detection" del empty state. UI-C renombró el escenario: la query y el rol (partner) **no cambiaron**; cambió la narrativa. |
 | Buscador | `What is the investment committee recommendation and LP update for the Meridian acquisition?` |
 | Rol | **Partner** |
 
 **Qué señalar:**
 
-- Los tres stats strips muestran **0 blocked** en todas las políticas.
-- Pero en Full Pipeline sigue habiendo stale. El partner tiene acceso total, pero el pipeline igual demota las versiones viejas.
+- Los tres stats strips muestran **0 blocked** en todas las políticas (partner tiene acceso completo).
+- En la columna **Full Pipeline**, el stats strip muestra **stale=2**: doc_002 (research notes v1, reemplazado por doc_003) y doc_007 (financial model v1, reemplazado por doc_008). Ambos aparecen con el badge "⚠ Superseded".
+- Confirmado en backend: `/compare` con esta query + `role=partner` devuelve `stl=2` con `demoted_as_stale: ['doc_007', 'doc_002']` en full_policy, y 0 stale en naive + rbac.
 
 **Qué decir:**
 
-> "Tener el rol más alto no significa ver documentos equivocados. Incluso con acceso completo, el partner sigue recibiendo la versión vigente del modelo priorizada sobre la obsoleta. Los permisos y la frescura son ortogonales — son dos capas independientes."
+> "El partner tiene acceso total — los permisos no filtran nada. Pero el pipeline sigue detectando que dos documentos fueron reemplazados por versiones más nuevas y los demote 0.5×. No es un tema de acceso: es un tema de higiene del contexto. Permisos y frescura son ortogonales — dos capas que operan en paralelo."
 
-**Por qué importa:** la demo anterior podía leerse como "el sistema se porta bien con un rol bajo". Esta muestra que **el comportamiento es consistente en todo el pipeline**, no depende del rol.
+**Por qué importa:** la demo antigua ("Partner view") leía como "partner ve todo, no pasa nada" — narrativamente débil. El reframe a **Stale Detection** enfoca la atención en la capa de frescura, que sigue trabajando incluso cuando RBAC no tiene nada que bloquear.
 
 ---
 
@@ -152,7 +155,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 | Paso | Acción |
 |---|---|
 | Tab | **Single** |
-| Cómo llegar | Click en "ARR growth" (Single row). El preset fuerza rol=Analyst y policy=Full Pipeline, sin importar qué estuviera seleccionado. |
+| Cómo llegar | Click en **`Run in Single`** de la tarjeta "Permission Wall" del empty state (UI-C: la fila Single ya no tiene "ARR growth" — la tarjeta de onboarding cubre esa historia con un botón primario que fuerza rol=Analyst y policy=Full Pipeline). Alternativa: tipear la query, elegir rol, apretar Run. |
 | Buscador | `What is Meridian's ARR growth rate and net revenue retention?` |
 | Rol | **Analyst** |
 | Policy | **Full Pipeline** |
@@ -207,9 +210,9 @@ Estás en el empty state. Tres tarjetas de onboarding al centro.
 
 > "Este es QueryTrace. Es un laboratorio que muestra cómo un sistema empresarial de retrieval le arma el contexto a un LLM, respetando permisos, frescura, y presupuesto de tokens. El corpus es un caso de M&A: Atlas Capital evaluando adquirir Meridian Technologies. Doce documentos, tres roles. Un analyst junior no debería ver el memo del comité, un VP no debería ver la carta a los LPs. Vamos a ver cómo el sistema se comporta."
 
-### 0:30 — 1:45 · Compare Mode con "Analyst wall"
+### 0:30 — 1:45 · Compare Mode con "Permission Wall"
 
-Click en la tarjeta **"Permission Wall"** (o en el botón "Analyst wall ↔"). La app salta a Compare.
+En la tarjeta "Permission Wall" del empty state, hacé click en el botón secundario **`Open in Compare →`**. La app salta explícitamente a Compare y corre la consulta. (UI-C: el click en el cuerpo de la tarjeta **no** cambia de modo; solo el botón "Open in Compare →" lo hace. Esto evita el "teleport silencioso" anterior.)
 
 > "Misma pregunta, mismo analyst, tres niveles de protección. Miren la columna de la izquierda, 'No Filters': el sistema le está pasando el memo del Investment Committee y la carta a los LPs — cosas confidenciales. Estas etiquetas rojas que dicen 'blocked in full' marcan exactamente qué se filtraría con la política completa."
 
@@ -233,7 +236,7 @@ Click en la pestaña **Evals**.
 
 ### 3:20 — 4:00 · Cierre con Single + Decision Trace
 
-Click en **Single**, después click en el botón "ARR growth".
+Click en **Single**, después click en **`Run in Single`** de la tarjeta "Permission Wall".
 
 > "Para cerrar: así se ve el uso real de una persona. Un analyst hace una consulta, ve 5 documentos relevantes, una barra le dice que hay 7 bloqueados por permisos. Expando el panel 'documents blocked' y veo los títulos, los tipos, y la razón. Abro el Decision Trace abajo y tengo la traza completa para auditoría. Esto es transparencia nativa, no un feature agregado al final."
 
@@ -323,7 +326,7 @@ Los tres ángulos comparten el mismo mensaje de fondo: **"hace visible lo invisi
 - [ ] El backend está corriendo (`uvicorn src.main:app --reload`) y responde en `/health`.
 - [ ] La página `http://localhost:8000/app/` carga sin errores.
 - [ ] El empty state aparece (las 3 tarjetas de onboarding al centro).
-- [ ] Clickeás "Analyst wall ↔" y carga Compare en <2 segundos.
+- [ ] Click en **`Open in Compare →`** de la tarjeta "Permission Wall" y carga Compare en <2 segundos.
 - [ ] En Compare, las tres columnas muestran datos, no skeletons.
 - [ ] Click en Evals — el banner verde dice "Zero permission violations".
 - [ ] Si vas a mostrar Admin: tené un PDF de prueba chico (<5 MB) listo para arrastrar.

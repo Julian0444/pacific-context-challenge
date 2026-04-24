@@ -27,9 +27,9 @@ The **Compare** tab shows all three policies side by side:
 
 | Scenario | How to trigger | What it demonstrates |
 |---|---|---|
-| **Analyst wall** | Compare tab → click "Analyst wall ↔" | Analyst is blocked from 7 VP/partner docs that naive retrieval surfaces. Full policy shows 7 blocked, naive shows 0. |
-| **VP deal view** | Compare tab → click "VP deal view ↔" | VP sees deal memos and financial models blocked from analyst. Stale doc_007 (financial model v1) is demoted by full policy. |
-| **Partner view** | Compare tab → click "Partner view ↔" | Partner has full corpus access. No permission blocks in any policy. Freshness scoring still surfaces stale pair. |
+| **Permission Wall** | Single empty state → card "Permission Wall" → `Open in Compare →` | Analyst is blocked from 7 VP/partner docs that naive retrieval surfaces. Full policy shows 7 blocked, naive shows 0. |
+| **VP Deal View** | Single empty state → card "VP Deal View" → `Open in Compare →` | VP sees deal memos and financial models blocked from analyst. Stale doc_007 (financial model v1) is demoted by full policy. |
+| **Stale Detection** (renamed from "Partner view") | Compare row shortcut `Stale detection →`, or Single empty state → card "Stale Detection" → `Open in Compare →` | Partner has full corpus access. No permission blocks in any policy. Full pipeline demotes 2 superseded docs 0.5× (doc_002, doc_007). |
 | **Evals dashboard** | Click "Evals" tab | Live pipeline metrics: precision@5, recall, permission violation rate, trace counts across 8 test queries. |
 
 ---

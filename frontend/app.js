@@ -393,6 +393,10 @@ function setLoadingCompare(on) {
   submitBtn.disabled = on;
   submitBtn.classList.toggle("loading", on);
   if (on) {
+    // UI-C: drop the Compare onboarding empty state once a comparison starts.
+    document.getElementById("compare-empty-state")?.remove();
+    const compareBanner = document.getElementById("compare-banner");
+    if (compareBanner) compareBanner.hidden = false;
     compareGrid.innerHTML = skeletonCompareHTML();
     compareBannerText.innerHTML = "Running comparison…";
   }

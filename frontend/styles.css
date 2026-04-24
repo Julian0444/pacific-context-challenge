@@ -2374,17 +2374,30 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  cursor: pointer;
   transition: all var(--dur) var(--ease);
   box-shadow: var(--shadow-card);
 }
 
-.onboard-card:hover {
+/* Single empty-state card (<div>): non-interactive container, clickable buttons live inside */
+div.onboard-card {
+  cursor: default;
+}
+
+/* Compare empty-state card (<button class="onboard-card onboard-card-compact">): fully clickable */
+button.onboard-card {
+  cursor: pointer;
+}
+
+button.onboard-card:hover {
   border-color: var(--accent-dim);
   background: var(--accent-subtle);
   color: var(--text-secondary);
   box-shadow: 0 4px 14px rgba(28, 26, 23, 0.07);
   transform: translateY(-1px);
+}
+
+button.onboard-card:hover .onboard-card-title {
+  color: var(--accent-dim);
 }
 
 .onboard-card-head {
@@ -2419,16 +2432,71 @@ body {
   margin-top: 0.1rem;
 }
 
-.onboard-card:hover .onboard-card-title {
-  color: var(--accent-dim);
-}
-
 .onboard-hint {
   font-family: var(--font-display);
   font-size: 0.76rem;
   color: var(--text-secondary);
   line-height: 1.5;
   margin-top: 0.1rem;
+}
+
+/* UI-C: dual-action row inside Single empty-state cards.
+   Primary = runs in Single (deterministic full_policy preset).
+   Secondary = switches to Compare mode and runs side-by-side. */
+.onboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.onboard-primary,
+.onboard-secondary {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  box-shadow: none;
+}
+
+.onboard-primary {
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.onboard-primary:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+  color: #fff;
+}
+
+.onboard-secondary {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+}
+
+.onboard-secondary:hover {
+  background: var(--accent-subtle);
+  color: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+/* Compare empty-state cards — single-click whole card, no action row. */
+.onboard-card-compact {
+  gap: 0.35rem;
+  padding: 0.95rem 1rem 1.05rem;
+}
+
+/* UI-C: Compare onboarding empty state. Removed by setLoadingCompare() on first run. */
+.compare-empty-state {
+  padding-top: 2.5rem;
+  padding-bottom: 2rem;
 }
 
 @media (max-width: 720px) {

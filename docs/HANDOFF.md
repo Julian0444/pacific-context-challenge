@@ -1088,3 +1088,81 @@ No backend endpoints were touched. `GET /health` → `{"status":"ok","ingest_ena
 - `summaryUserExp.md` — Section 4.1 updated with the UI-B coherence paragraph.
 - `docs/plans/2026-04-23-ui-b-single-state-coherence-plan.md` — preflight plan; Execution outcome can be appended later if desired (this HANDOFF entry carries the evidence).
 - All other plan docs — unchanged and still accurate.
+
+---
+
+## Session — 2026-04-23 (Session 31 / **UI-C — Scenario clarity, navigation, and Compare onboarding**)
+
+### Summary
+
+Frontend-only UX cleanup. Addressed four issues surfaced by the UI-B review and the scenario audit:
+
+1. **Silent mode teleport.** Onboard-cards in the Single empty state carried `data-mode="compare"`, so clicking them switched mode without any affordance. Fixed by splitting each card into a non-interactive `<div>` wrapper with a dual-action row: `Run in Single` (primary, `data-mode="single"`, `full_policy` preset) and `Open in Compare →` (secondary, `data-mode="compare"`). Mode transitions are now always explicit.
+2. **Scenario duplication.** The three base stories (Permission Wall / VP Deal View / Stale Detection) were repeated across 9 UI entry points. Deduped to 6: 3 empty-state cards + 2 Single row buttons (`DD risks`, `IC memo` — distinct queries) + 1 Compare row button (`Stale detection →`). Removed: `ARR growth` (Single row), `Analyst wall ↔` and `VP deal view ↔` (Compare row).
+3. **Compare had no empty state.** Entering Compare without a prior query showed an empty banner + blank grid. Added `#compare-empty-state` (first child of `#compare-section`) with three preview cards mirroring Single's layout — single-click whole-card affordance (`button.onboard-card.onboard-card-compact`), qualitative hints ("Naive surfaces 12 · RBAC + Full block 7"). `.compare-banner` starts `hidden`; `setLoadingCompare(true)` removes the empty state, reveals the banner, and injects the skeleton.
+4. **"Partner view" was narratively weak.** Partner has full corpus access, so the three-column contrast collapsed at "0 blocked everywhere". Renamed and reframed as "Stale Detection" (card title) and `Stale detection →` (shortcut). **Query and role unchanged** (`"What is the investment committee recommendation and LP update for the Meridian acquisition?"` + `role=partner`). The narrative now focuses on the 2 superseded documents (doc_002, doc_007) that the full pipeline demotes 0.5×. Confirmed at runtime: `POST /compare` with this payload returns `demoted_as_stale: ['doc_007', 'doc_002']` in `full_policy`.
+
+Minor interpretive call: Card 2 (VP) renamed from "Stale Detection" → "VP Deal View" to resolve the naming collision introduced by the partner-card rename. Query unchanged. Flagged in the preflight plan.
+
+### Files changed
+
+- `frontend/index.html` — restructured three Single empty-state `.onboard-card` entries into `<div>` wrappers with `.onboard-actions` rows containing `.onboard-primary` + `.onboard-secondary` buttons; renamed cards to Permission Wall / VP Deal View / Stale Detection with updated hints; dedup shortcut rows (removed `ARR growth`, `Analyst wall ↔`, `VP deal view ↔`; renamed `Partner view ↔` → `Stale detection →`); added `#compare-empty-state` block inside `#compare-section` with three compact preview cards; added `hidden` attribute to `#compare-banner`.
+- `frontend/app.js` — `setLoadingCompare(true)` now removes `#compare-empty-state` and reveals the banner (`compareBanner.hidden = false`). No other JS changes; existing `.example-btn` click handler covers both new `.onboard-primary` and `.onboard-secondary` buttons via `data-mode` dispatch with zero branching.
+- `frontend/styles.css` — moved `cursor: pointer` and hover-lift off `.onboard-card` base to `button.onboard-card` (scoped to Compare variant only); added `div.onboard-card { cursor: default; }`; added `.onboard-actions` (flex row, 0.5rem gap), `.onboard-primary` (filled accent button), `.onboard-secondary` (outlined ghost button with `→`), `.onboard-card-compact` (tighter padding for Compare variant), `.compare-empty-state` (top/bottom padding). Existing reduced-motion block unchanged (already covers `.onboard-card`).
+- `CLAUDE.md` — Single-mode paragraph rewritten to document the dual-action structure; Compare-mode paragraph appended with `#compare-empty-state` behavior; scenario-list paragraph rewritten to document the dedup + entry-point count.
+- `demo.md` — Section 2 empty-state + shortcut-row descriptions rewritten; Demo A/B "Cómo llegar" rows point at `Open in Compare →`; Demo C renamed "Partner view" → "Stale detection" with updated narrative; Demo D "Cómo llegar" updated (ARR growth preset removed); Section 5 guión updated; checklist updated.
+- `summaryUserExp.md` — §4.2 Compare scenarios block rewritten; §6.1 item 6 updated with new scenario names; §7.1 item 7 updated with the UI-C empty state description.
+- `docs/plans/2026-04-23-ui-c-scenarios-and-compare-clarity-plan.md` (new) — preflight plan saved at the start of this session.
+- `docs/HANDOFF.md` — this entry.
+
+No HTML template changes outside the onboarding + compare sections. No backend, test, evaluator, or dep changes. `src/` untouched.
+
+### Verification
+
+**Baseline and post-edit pytest (via `.venv/bin/python`):** 172 passed, 14 skipped, 0 failed (both runs this session). System `python3` still produces the out-of-scope 49-failure phantom baseline — do not use it.
+
+**Backend runtime smoke (via `.venv/bin/python -m uvicorn`):**
+
+- `GET /health` (default) → `{"status":"ok","ingest_enabled":true}` · `GET /health` with `ALLOW_INGEST=false` → `{"status":"ok","ingest_enabled":false}`. Admin-hide probe (`probeIngestCapability()`) untouched; logic verified unchanged.
+- `POST /query` — analyst + ARR + `full_policy` → `included=5, blocked=7, tokens=571` (UI-B baseline preserved).
+- `POST /compare` — partner + IC + LP query (Stale detection shortcut payload) → `full_policy` column reports `inc=12 blk=0 stl=2 drp=0` with `demoted_as_stale: ['doc_007', 'doc_002']`. Both superseded docs surfaced in context and correctly demoted. Verification step 5 satisfied.
+- `GET /evals` — returns the full aggregate block (`avg_precision_at_5=0.3`, `avg_recall=1.0`, `permission_violation_rate=0.0`).
+
+**Static DOM / copy audit:**
+
+- Onboard DOM confirmed via `curl /app/`: three `<div class="onboard-card">` containers, six `.example-btn` buttons (3 `.onboard-primary` + 3 `.onboard-secondary`), titles read Permission Wall / VP Deal View / Stale Detection, subtitles Analyst / VP / Partner.
+- Compare empty state confirmed: three `button.onboard-card.onboard-card-compact` entries, titles match the three base stories, subtitles include the role + query-hint.
+- Shortcut-row dedup confirmed: Single row reads `DD risks`, `IC memo` (no `ARR growth`); Compare row reads `Stale detection →` only (no `Analyst wall ↔`, no `VP deal view ↔`).
+
+**Grep consistency checks:**
+
+- `grep -rn "Partner view" demo.md summaryUserExp.md CLAUDE.md README.md` → references only survive as history notes ("antes: Partner view", "antigua \"Partner view\""). No live UI strings.
+- `grep -rn "auto-switch\|teleport" docs/ CLAUDE.md` → only the HANDOFF / plan entries describing the UI-C fix; no stale "auto-switch" descriptions in CLAUDE.md/demo.md.
+
+**Scope-budget check:** `git diff --name-only` shows only `frontend/index.html`, `frontend/app.js`, `frontend/styles.css` plus docs (CLAUDE.md, demo.md, summaryUserExp.md, docs/HANDOFF.md, docs/plans/2026-04-23-ui-c-*.md). Budget respected — 3 frontend files.
+
+**Post-Claude corroboration (Codex):** Playwright smoke passed against a same-origin local server: Single onboard card body does not run or switch modes; `Run in Single` stays in Single with `full_policy`; `Open in Compare →` and Compare preview cards run `/compare`; stale-detection payload returns exactly doc_002 + doc_007 in `decision_trace.demoted_as_stale`; UI-B stale banner still appears after a role divergence; Evals loads; Admin renders by default. Separate `ALLOW_INGEST=false` browser smoke passed: `/health` returns `ingest_enabled:false` and the Admin tab/section are hidden. Docs were also patched to remove stale live instructions that still referenced the removed `ARR growth` button.
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `063afa3` (Batch UI-B — Single mode state coherence).
+- **Tests:** 172 / 14 / 0 under `.venv/bin/python`.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** backend endpoints + static DOM verified during execution; post-run Codex Playwright corroboration also passed for the critical UI-C flows and `ALLOW_INGEST=false` Admin hide path.
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Compare row orphan chrome.** The Compare shortcut row now contains a single button (`Stale detection →`). The row label + lone button is coherent but visually sparser than before. Not a regression; noted for future cleanup if another Compare shortcut is ever re-added.
+- **Empty states are one-shot.** Both `#empty-state` (Single) and `#compare-empty-state` (Compare) are removed on first query and do not restore for the session. Consistent with UI-A/UI-B behavior.
+- **Compare-mode staleness asymmetry** (UI-B note, still open): changing radios in Compare mode does not dim columns. Out of scope for UI-C.
+
+### Doc status at end of Session 31
+
+- `docs/HANDOFF.md` — current (this entry).
+- `CLAUDE.md` — Frontend Single + Compare paragraphs + scenario list updated.
+- `demo.md` — Sections 2, 4 (A/B/C/D), 5, and 9 updated.
+- `summaryUserExp.md` — §4.2, §6.1, §7.1 updated.
+- `docs/plans/2026-04-23-ui-c-scenarios-and-compare-clarity-plan.md` — preflight plan for this batch.
+- All other plan docs — unchanged and still accurate.
