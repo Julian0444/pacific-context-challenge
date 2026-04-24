@@ -559,40 +559,9 @@ body {
   box-shadow: none;
 }
 
-/* Role dot on example buttons */
-.ex-role-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dot-analyst { background: var(--accent); }
-.dot-vp      { background: var(--fresh-high); }
-.dot-partner { background: var(--policy-full); }
-
 /* Scenario buttons — compare mode triggers */
 .scenario-btn {
   font-weight: 500;
-}
-
-.scenario-btn.dot-analyst-border {
-  color: var(--accent);
-  border-color: var(--policy-rbac-border);
-  background: var(--policy-rbac-bg);
-}
-
-.scenario-btn.dot-vp-border {
-  color: var(--fresh-high);
-  border-color: rgba(42, 91, 107, 0.22);
-  background: rgba(42, 91, 107, 0.06);
-}
-
-.scenario-btn.dot-partner-border {
-  color: var(--policy-full);
-  border-color: var(--policy-full-border);
-  background: var(--policy-full-bg);
 }
 
 .scenario-btn:hover {
@@ -2404,14 +2373,6 @@ button.onboard-card:hover .onboard-card-title {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-}
-
-.onboard-dot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .onboard-card-subtitle {
