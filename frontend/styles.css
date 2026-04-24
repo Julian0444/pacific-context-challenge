@@ -388,11 +388,12 @@ body {
   box-shadow: none;
 }
 
-/* ─── Policy Chips ─── */
+/* ─── Policy Tabs ─── */
 
 .policy-options {
   display: flex;
-  gap: 0.3rem;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .policy-option {
@@ -405,53 +406,51 @@ body {
   pointer-events: none;
 }
 
-.policy-chip {
-  display: inline-block;
+.policy-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.75rem 0.35rem;
+  border-bottom: 2px solid transparent;
+  transition: border-color var(--dur) var(--ease),
+              background var(--dur) var(--ease);
+  user-select: none;
+}
+
+.policy-tab-label {
   font-family: var(--font-mono);
   font-size: 0.7rem;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.3rem 0.65rem;
-  transition: all var(--dur) var(--ease);
-  user-select: none;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card);
+  font-weight: 600;
 }
 
-.policy-chip.policy-naive {
-  color: var(--policy-naive);
+.policy-tab-sublabel {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-tertiary);
 }
 
-.policy-chip.policy-rbac {
-  color: var(--policy-rbac);
+.policy-tab-naive .policy-tab-label { color: var(--policy-naive); }
+.policy-tab-rbac  .policy-tab-label { color: var(--policy-rbac); }
+.policy-tab-full  .policy-tab-label { color: var(--policy-full); }
+
+.policy-tab:hover {
+  background: var(--accent-subtle);
 }
 
-.policy-chip.policy-full {
-  color: var(--policy-full);
-}
-
-.policy-chip:hover {
-  border-color: var(--border-hover);
-  opacity: 0.9;
-}
-
-.policy-option input:checked + .policy-chip.policy-naive {
+.policy-option input:checked + .policy-tab-naive {
+  border-bottom-color: var(--policy-naive);
   background: var(--policy-naive-bg);
-  border-color: var(--policy-naive-border);
-  box-shadow: none;
 }
 
-.policy-option input:checked + .policy-chip.policy-rbac {
+.policy-option input:checked + .policy-tab-rbac {
+  border-bottom-color: var(--policy-rbac);
   background: var(--policy-rbac-bg);
-  border-color: var(--policy-rbac-border);
-  box-shadow: none;
 }
 
-.policy-option input:checked + .policy-chip.policy-full {
+.policy-option input:checked + .policy-tab-full {
+  border-bottom-color: var(--policy-full);
   background: var(--policy-full-bg);
-  border-color: var(--policy-full-border);
-  box-shadow: none;
 }
 
 /* ─── Role Selector Group (wraps chips + description) ─── */

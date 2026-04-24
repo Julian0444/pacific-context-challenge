@@ -78,15 +78,24 @@
               <div class="policy-options">
                 <label class="policy-option">
                   <input type="radio" name="policy" value="naive_top_k" />
-                  <span class="policy-chip policy-naive">No Filters</span>
+                  <span class="policy-tab policy-tab-naive">
+                    <span class="policy-tab-label">No Filters</span>
+                    <span class="policy-tab-sublabel">Retrieval only</span>
+                  </span>
                 </label>
                 <label class="policy-option">
                   <input type="radio" name="policy" value="permission_aware" />
-                  <span class="policy-chip policy-rbac">Permissions Only</span>
+                  <span class="policy-tab policy-tab-rbac">
+                    <span class="policy-tab-label">Permissions Only</span>
+                    <span class="policy-tab-sublabel">Retrieval + RBAC + Budget</span>
+                  </span>
                 </label>
                 <label class="policy-option">
                   <input type="radio" name="policy" value="full_policy" checked />
-                  <span class="policy-chip policy-full">Full Pipeline</span>
+                  <span class="policy-tab policy-tab-full">
+                    <span class="policy-tab-label">Full Pipeline</span>
+                    <span class="policy-tab-sublabel">Retrieval + RBAC + Freshness + Budget</span>
+                  </span>
                 </label>
               </div>
             </div>
