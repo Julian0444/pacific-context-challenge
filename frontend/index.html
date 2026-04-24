@@ -110,16 +110,16 @@
       <div class="examples">
         <div class="examples-row">
           <span class="examples-label">Single</span>
-          <button class="example-btn" data-query="What are the risks identified in the due diligence for Project Clearwater?" data-role="vp" data-mode="single" title="VP · sees deal memos, financial models, and diligence reports">
-DD risks
+          <button class="example-btn" data-query="What are the risks identified in the due diligence for Project Clearwater?" data-role="vp" data-mode="single" title="Shows diligence risk findings from deal materials and financial models">
+Diligence risks
           </button>
-          <button class="example-btn" data-query="What is the IC recommendation for the Meridian acquisition?" data-role="partner" data-mode="single" title="Partner · full corpus access including IC memos and LP updates">
-IC memo
+          <button class="example-btn" data-query="What is the IC recommendation for the Meridian acquisition?" data-role="partner" data-mode="single" title="Shows the investment committee recommendation for the Meridian acquisition">
+IC recommendation
           </button>
         </div>
         <div class="examples-row">
           <span class="examples-label">Compare</span>
-          <button class="example-btn scenario-btn" data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?" data-role="partner" data-mode="compare" title="Stale detection — full corpus access; the full pipeline demotes superseded docs 0.5×">
+          <button class="example-btn scenario-btn" data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?" data-role="partner" data-mode="compare" title="Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline">
             Stale detection →
           </button>
         </div>
@@ -148,7 +148,7 @@ IC memo
                       data-query="What is Meridian's ARR growth rate and net revenue retention?"
                       data-role="analyst"
                       data-mode="single"
-                      title="Run this scenario in Single mode (full pipeline)">
+                      title="Shows which documents an analyst can access — 7 are blocked by RBAC">
                 Run in Single
               </button>
               <button type="button"
@@ -156,7 +156,7 @@ IC memo
                       data-query="What is Meridian's ARR growth rate and net revenue retention?"
                       data-role="analyst"
                       data-mode="compare"
-                      title="Switch to Compare mode and run this scenario side by side">
+                      title="Opens side-by-side comparison — see how each policy handles analyst-level permissions">
                 Open in Compare →
               </button>
             </div>
@@ -165,15 +165,15 @@ IC memo
             <span class="onboard-card-head">
               <span class="onboard-card-subtitle">VP</span>
             </span>
-            <span class="onboard-card-title">VP Deal View</span>
-            <span class="onboard-hint">Deal memos + financial models — watch the outdated v1 model get demoted.</span>
+            <span class="onboard-card-title">Financial model access</span>
+            <span class="onboard-hint">Retrieves deal memos and financial models — the outdated v1 model gets demoted by freshness scoring.</span>
             <div class="onboard-actions">
               <button type="button"
                       class="example-btn onboard-primary"
                       data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
                       data-role="vp"
                       data-mode="single"
-                      title="Run this scenario in Single mode (full pipeline)">
+                      title="Shows financial projections and deal valuation — the superseded v1 model is freshness-penalized">
                 Run in Single
               </button>
               <button type="button"
@@ -181,7 +181,7 @@ IC memo
                       data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
                       data-role="vp"
                       data-mode="compare"
-                      title="Switch to Compare mode and run this scenario side by side">
+                      title="Opens side-by-side comparison — only Full Pipeline demotes the outdated financial model">
                 Open in Compare →
               </button>
             </div>
@@ -191,14 +191,14 @@ IC memo
               <span class="onboard-card-subtitle">Partner</span>
             </span>
             <span class="onboard-card-title">Stale Detection</span>
-            <span class="onboard-hint">Full corpus access — the full pipeline still demotes superseded documents 0.5×.</span>
+            <span class="onboard-hint">Full corpus access — superseded documents still appear but are freshness-penalized 0.5×.</span>
             <div class="onboard-actions">
               <button type="button"
                       class="example-btn onboard-primary"
                       data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
                       data-role="partner"
                       data-mode="single"
-                      title="Run this scenario in Single mode (full pipeline)">
+                      title="Shows IC and LP documents — superseded versions are demoted by freshness scoring">
                 Run in Single
               </button>
               <button type="button"
@@ -206,7 +206,7 @@ IC memo
                       data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
                       data-role="partner"
                       data-mode="compare"
-                      title="Switch to Compare mode and run this scenario side by side">
+                      title="Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline">
                 Open in Compare →
               </button>
             </div>
@@ -232,12 +232,12 @@ IC memo
                   data-role="analyst"
                   data-mode="compare"
                   data-story="permission-wall"
-                  title="Analyst · ARR query — compare naive vs RBAC vs full pipeline">
+                  title="Opens side-by-side comparison — No Filters surfaces all 12 docs while RBAC and Full Pipeline block 7">
             <span class="onboard-card-head">
               <span class="onboard-card-subtitle">Analyst · ARR</span>
             </span>
             <span class="onboard-card-title">Permission Wall</span>
-            <span class="onboard-hint">Naive surfaces 12 docs · RBAC + Full block 7.</span>
+            <span class="onboard-hint">No Filters surfaces 12 docs · RBAC + Full Pipeline block 7.</span>
           </button>
           <button type="button"
                   class="example-btn onboard-card onboard-card-compact"
@@ -245,12 +245,12 @@ IC memo
                   data-role="vp"
                   data-mode="compare"
                   data-story="vp-deal-view"
-                  title="VP · financial model query — watch the stale v1 model get demoted">
+                  title="Opens side-by-side comparison — only Full Pipeline demotes the outdated financial model">
             <span class="onboard-card-head">
               <span class="onboard-card-subtitle">VP · Financial models</span>
             </span>
-            <span class="onboard-card-title">VP Deal View</span>
-            <span class="onboard-hint">All three policies include the deal memo · only Full demotes the stale v1 model.</span>
+            <span class="onboard-card-title">Financial model access</span>
+            <span class="onboard-hint">All three policies include the deal memo · only Full Pipeline demotes the outdated v1 model.</span>
           </button>
           <button type="button"
                   class="example-btn onboard-card onboard-card-compact"
@@ -258,12 +258,12 @@ IC memo
                   data-role="partner"
                   data-mode="compare"
                   data-story="stale-detection"
-                  title="Partner · IC + LP query — full corpus retrievable; Full demotes stale docs 0.5×">
+                  title="Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline">
             <span class="onboard-card-head">
               <span class="onboard-card-subtitle">Partner · IC + LP</span>
             </span>
             <span class="onboard-card-title">Stale Detection</span>
-            <span class="onboard-hint">Full corpus retrievable · Full pipeline demotes superseded docs 0.5×.</span>
+            <span class="onboard-hint">Full corpus retrievable · only Full Pipeline demotes superseded documents 0.5×.</span>
           </button>
         </div>
         <p class="empty-hint">Or type your own query above and choose a role.</p>

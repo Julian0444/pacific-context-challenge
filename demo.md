@@ -29,16 +29,16 @@ Ese es el mental model que tiene que tener tu audiencia antes de que toques una 
 
 Debajo del buscador hay **dos filas de botones pre-armados** (dedupadas en UI-C: ya no repiten las historias de las tarjetas de onboarding):
 
-- Fila "Single" → `DD risks` (VP) y `IC memo` (partner). Atajos a consultas distintas de las de onboarding, sin cambio de modo.
+- Fila "Single" → `Diligence risks` (VP) y `IC recommendation` (partner). Atajos a consultas distintas de las de onboarding, sin cambio de modo.
 - Fila "Compare" → `Stale detection →` (partner, query IC + LP update). Este botón **sí** cambia a Compare — el glifo `↔`/`→` es afordancia explícita.
 
 ### El "empty state" (Single, por defecto)
 
-Al abrir la app sin haber hecho nada, en el centro aparecen **tres tarjetas de onboarding**: **Permission Wall** (analyst), **VP Deal View** (VP) y **Stale Detection** (partner). **UI-C las rediseñó**: cada tarjeta ahora tiene dos botones — **`Run in Single`** (primario) corre la consulta en modo Single con `full_policy`, **sin cambiar de modo**, y **`Open in Compare →`** (secundario) sí salta a Compare. Esto elimina el "teleport silencioso" anterior: el cambio de modo queda siempre explícito.
+Al abrir la app sin haber hecho nada, en el centro aparecen **tres tarjetas de onboarding**: **Permission Wall** (analyst), **Financial model access** (VP) y **Stale Detection** (partner). **UI-C las rediseñó**: cada tarjeta ahora tiene dos botones — **`Run in Single`** (primario) corre la consulta en modo Single con `full_policy`, **sin cambiar de modo**, y **`Open in Compare →`** (secundario) sí salta a Compare. Esto elimina el "teleport silencioso" anterior: el cambio de modo queda siempre explícito.
 
 ### Compare — empty state propio (UI-C)
 
-Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tres tarjetas de preview** que reflejan las mismas historias base (Permission Wall / VP Deal View / Stale Detection), cada una con un hint cuantitativo resumido (ej: "Naive surfaces 12 · RBAC + Full block 7"). Las tarjetas de Compare son **un solo click** (toda la tarjeta dispara `/compare`), porque el modo ya es explícito. En la primera corrida el onboarding desaparece y se revela el banner + las tres columnas.
+Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tres tarjetas de preview** que reflejan las mismas historias base (Permission Wall / Financial model access / Stale Detection), cada una con un hint cuantitativo resumido (ej: "Naive surfaces 12 · RBAC + Full block 7"). Las tarjetas de Compare son **un solo click** (toda la tarjeta dispara `/compare`), porque el modo ya es explícito. En la primera corrida el onboarding desaparece y se revela el banner + las tres columnas.
 
 ---
 
@@ -50,7 +50,7 @@ Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tre
 - **Qué historia contás:** "Así se ve cuando un usuario real consulta la base. Le da los documentos relevantes a los que su rol le da acceso, y le muestra con transparencia qué documentos existían pero fueron bloqueados."
 - **Cuándo mostrarlo en la demo:** como **apertura rápida** (un analyst busca algo, ve 5 docs, 7 bloqueados) o como **cierre detallado** (abrir el Decision Trace y señalar el resumen narrativo).
 - **Mensaje de negocio:** transparencia — "cada decisión queda documentada; esto es auditable por compliance".
-- **Coherencia de estado (UI-B):** cambiar el rol o la política mientras hay un resultado en pantalla muestra un banner discreto arriba ("Controls changed — press Run to refresh these results.") y desatura las tarjetas viejas al 60% hasta que apretás **Run**. Esto evita el "bug visual" de que los controles digan una cosa y los resultados reflejen otra. Los botones de ejemplo de la fila Single (`DD risks` / `IC memo`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con **Full Pipeline**, sin importar qué política estuviera seleccionada antes, y sincronizan el radio de política para que la UI quede coherente con el resultado renderizado.
+- **Coherencia de estado (UI-B):** cambiar el rol o la política mientras hay un resultado en pantalla muestra un banner discreto arriba ("Controls changed — press Run to refresh these results.") y desatura las tarjetas viejas al 60% hasta que apretás **Run**. Esto evita el "bug visual" de que los controles digan una cosa y los resultados reflejen otra. Los botones de ejemplo de la fila Single (`Diligence risks` / `IC recommendation`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con **Full Pipeline**, sin importar qué política estuviera seleccionada antes, y sincronizan el radio de política para que la UI quede coherente con el resultado renderizado.
 
 ### Compare — "la pantalla que vende sola"
 
@@ -110,7 +110,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 | Paso | Acción |
 |---|---|
 | Tab | **Compare** |
-| Cómo llegar | Click en **`Open in Compare →`** de la tarjeta "VP Deal View" del empty state. (UI-C quitó el shortcut "VP deal view ↔" de la fila Compare por redundante.) |
+| Cómo llegar | Click en **`Open in Compare →`** de la tarjeta "Financial model access" del empty state. (UI-C quitó el shortcut "VP deal view ↔" de la fila Compare por redundante.) |
 | Buscador | `What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?` |
 | Rol | **VP** |
 
@@ -341,4 +341,4 @@ Esta app tiene un solo mensaje. **"El retrieval tiene una capa de políticas ant
 
 Todo lo demás — las métricas, las tarjetas, el trace, los roles — son evidencia de ese mensaje. Si en algún momento durante la demo te sentís perdido, volvé a esa frase y mostrá Compare mode otra vez. Es la pantalla que más rápido comunica el valor del proyecto.
 
-Y si tu audiencia se queda con **una sola imagen en la cabeza**, que sea la de tres columnas: No Filters con el IC memo visible a un analyst, Permissions Only bloqueando 7 docs, Full Pipeline demorando los stale. Con eso, ya entendieron.
+Y si tu audiencia se queda con **una sola imagen en la cabeza**, que sea la de tres columnas: No Filters con la IC recommendation visible a un analyst, Permissions Only bloqueando 7 docs, Full Pipeline demorando los stale. Con eso, ya entendieron.

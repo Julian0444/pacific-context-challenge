@@ -125,7 +125,7 @@ Al final de los resultados hay un panel que se puede expandir llamado "Decision 
 - Para verificar que el sistema de permisos funciona correctamente.
 
 **Coherencia de controles y resultados (UI-B):**
-Si cambias el rol o la politica despues de haber ejecutado una consulta, los controles nuevos quedan seleccionados pero los resultados siguen siendo los de la corrida anterior. Para que no parezca que la UI miente, aparece un banner discreto arriba de los resultados ("Controls changed — press Run to refresh these results.") y las tarjetas viejas se atenuan al 60% de opacidad. El banner y la atenuacion desaparecen cuando apretas **Run** (o cuando volves a dejar los controles como estaban al momento del ultimo render). Los botones de ejemplo de la fila "Single" (`DD risks` / `IC memo`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con politica **Full Pipeline** y sincronizan el radio de politica, asi la demo se comporta igual sin importar que politica tuvieras seleccionada antes.
+Si cambias el rol o la politica despues de haber ejecutado una consulta, los controles nuevos quedan seleccionados pero los resultados siguen siendo los de la corrida anterior. Para que no parezca que la UI miente, aparece un banner discreto arriba de los resultados ("Controls changed — press Run to refresh these results.") y las tarjetas viejas se atenuan al 60% de opacidad. El banner y la atenuacion desaparecen cuando apretas **Run** (o cuando volves a dejar los controles como estaban al momento del ultimo render). Los botones de ejemplo de la fila "Single" (`Diligence risks` / `IC recommendation`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con politica **Full Pipeline** y sincronizan el radio de politica, asi la demo se comporta igual sin importar que politica tuvieras seleccionada antes.
 
 ---
 
@@ -155,16 +155,16 @@ Si cambias el rol o la politica despues de haber ejecutado una consulta, los con
 
 **Escenarios pre-armados (post UI-C):**
 
-Los tres escenarios base (Permission Wall / VP Deal View / Stale Detection) viven como **tarjetas en el empty state de Single**. Cada tarjeta tiene dos botones: `Run in Single` (corre en Single con full_policy, **no** cambia de modo) y `Open in Compare →` (salta explicitamente a Compare). UI-C elimino el "teleport silencioso" del onboarding anterior.
+Los tres escenarios base (Permission Wall / Financial model access / Stale Detection) viven como **tarjetas en el empty state de Single**. Cada tarjeta tiene dos botones: `Run in Single` (corre en Single con full_policy, **no** cambia de modo) y `Open in Compare →` (salta explicitamente a Compare). UI-C elimino el "teleport silencioso" del onboarding anterior.
 
 La fila de shortcuts "Compare" quedo reducida a **un solo boton**: `Stale detection →` (antes "Partner view ↔"). La query y el rol (partner, IC + LP update) no cambiaron; la narrativa se reenfoca en los 2 documentos demotados como stale (doc_002 y doc_007) por el full pipeline, en vez de enfatizar "partner no tiene bloqueos". Los shortcuts "Analyst wall ↔" y "VP deal view ↔" fueron removidos por duplicar las tarjetas de onboarding.
 
-La fila "Single" conserva `DD risks` (VP) y `IC memo` (partner) — queries distintas de las del onboarding, sin cambio de modo.
+La fila "Single" conserva `Diligence risks` (VP) y `IC recommendation` (partner) — queries distintas de las del onboarding, sin cambio de modo.
 
 **Las tres historias base:**
 
 1. **Permission Wall** (analyst, ARR query): naive devuelve 12 docs, RBAC+Full bloquean 7. El caso mas dramatico de "mira lo que pasa sin permisos".
-2. **VP Deal View** (VP, financial model query): el VP accede a los modelos, 2 docs bloqueados (partner-only), y en Full el modelo v1 queda demotado como stale.
+2. **Financial model access** (VP, financial model query): el VP accede a los modelos, 2 docs bloqueados (partner-only), y en Full el modelo v1 queda demotado como stale.
 3. **Stale Detection** (partner, IC + LP query): acceso total (0 bloqueos en los tres policies), pero Full pipeline demote 2 docs superseded (doc_002, doc_007) — demuestra que frescura y permisos son ortogonales.
 
 **Compare tambien tiene empty state (UI-C):** si el usuario entra a Compare sin haber corrido nada, ve tres tarjetas de preview que reflejan las mismas tres historias, con hints cuantitativos resumidos. Un click corre `/compare` y las tarjetas desaparecen para dar paso al banner + las tres columnas.
@@ -308,7 +308,7 @@ Busca sobre los **12 documentos del corpus**. Estos son documentos simulados per
 
 5. **Modo Compare**: Es una herramienta de comparacion, no de uso diario. Sirve para demostrar y validar que las politicas funcionan como se espera. Ideal para presentaciones, auditorias internas, y validacion con stakeholders.
 
-6. **Escenarios pre-armados (Permission Wall, VP Deal View, Stale Detection — post UI-C)**: Son atajos para demos rapidas. Viven como tarjetas del empty state en Single (con dos botones: `Run in Single` y `Open in Compare →`), y como un unico shortcut `Stale detection →` en la fila Compare. Los nombres antiguos eran "Analyst wall", "VP deal view" y "Partner view".
+6. **Escenarios pre-armados (Permission Wall, Financial model access, Stale Detection — post UI-C)**: Son atajos para demos rapidas. Viven como tarjetas del empty state en Single (con dos botones: `Run in Single` y `Open in Compare →`), y como un unico shortcut `Stale detection →` en la fila Compare. Los nombres antiguos eran "Analyst wall", "VP deal view" y "Partner view".
 
 7. **Selector de politica en modo Single (naive/rbac/full)**: Permite al usuario cambiar manualmente entre politicas para ver la diferencia. Es mas una herramienta de exploracion que de uso productivo.
 
@@ -420,7 +420,7 @@ Se ven los controles superiores: buscador, rol selector, politica selector, y bo
 
 6. **No hay forma de ver el contenido completo de un documento.** Las cards muestran un extracto cortado y no hay forma de expandirlas para leer el documento entero.
 
-7. **El estado vacio (post UI-C)** ofrece tres tarjetas de onboarding — Permission Wall, VP Deal View, Stale Detection — con dos botones explicitos cada una (`Run in Single` / `Open in Compare →`). Resuelve el problema previo del "Try Analyst wall" sin contexto y elimina el teleport silencioso al modo Compare.
+7. **El estado vacio (post UI-C)** ofrece tres tarjetas de onboarding — Permission Wall, Financial model access, Stale Detection — con dos botones explicitos cada una (`Run in Single` / `Open in Compare →`). Resuelve el problema previo del "Try Analyst wall" sin contexto y elimina el teleport silencioso al modo Compare.
 
 8. **En modo Compare, la columna NAIVE muestra freshness como "N/A" lo cual es correcto tecnicamente** (la politica no calcula freshness), pero visualmente parece un error o dato faltante.
 
