@@ -21,10 +21,10 @@
         </div>
       </div>
       <div class="mode-toggle" role="group" aria-label="View mode">
-        <button class="mode-btn active" data-mode="single" aria-pressed="true">Single</button>
-        <button class="mode-btn" data-mode="compare" aria-pressed="false">Compare</button>
-        <button class="mode-btn" data-mode="evals" aria-pressed="false">Evals</button>
-        <button class="mode-btn" data-mode="admin" aria-pressed="false">Admin</button>
+        <button class="mode-btn active" data-mode="single" aria-pressed="true">Query</button>
+        <button class="mode-btn" data-mode="compare" aria-pressed="false">Side-by-side</button>
+        <button class="mode-btn" data-mode="evals" aria-pressed="false">Metrics</button>
+        <button class="mode-btn" data-mode="admin" aria-pressed="false">Upload</button>
       </div>
     </div>
   </header>
@@ -38,7 +38,7 @@
             type="text"
             id="query-input"
             class="search-input"
-            placeholder="Ask about Meridian Technologies…"
+            placeholder="Try: 'ARR growth', 'integration risks', 'IC recommendation'…"
             autocomplete="off"
             spellcheck="false"
           />
@@ -101,7 +101,7 @@
             </div>
             <p class="policy-description" id="policy-description"></p>
             <div class="policy-warning" id="policy-warning" hidden>
-              <span aria-hidden="true">⚠</span> This policy skips all access controls. Restricted documents will appear in results regardless of role.
+              ⚠ Baseline only — no access controls. Use for comparison.
             </div>
           </div>
         </div>
@@ -141,14 +141,14 @@ IC recommendation
               <span class="onboard-card-subtitle">Analyst</span>
             </span>
             <span class="onboard-card-title">Permission Wall</span>
-            <span class="onboard-hint">Analyst query hits 7 documents blocked by RBAC.</span>
+            <span class="onboard-hint">Analyst query hits 10 documents blocked by RBAC.</span>
             <div class="onboard-actions">
               <button type="button"
                       class="example-btn onboard-primary"
                       data-query="What is Meridian's ARR growth rate and net revenue retention?"
                       data-role="analyst"
                       data-mode="single"
-                      title="Shows which documents an analyst can access — 7 are blocked by RBAC">
+                      title="Shows which documents an analyst can access — 10 are blocked by RBAC">
                 Run in Single
               </button>
               <button type="button"
@@ -232,12 +232,12 @@ IC recommendation
                   data-role="analyst"
                   data-mode="compare"
                   data-story="permission-wall"
-                  title="Opens side-by-side comparison — No Filters surfaces all 12 docs while RBAC and Full Pipeline block 7">
+                  title="Opens side-by-side comparison — No Filters surfaces all 16 docs while RBAC and Full Pipeline block 10">
             <span class="onboard-card-head">
               <span class="onboard-card-subtitle">Analyst · ARR</span>
             </span>
             <span class="onboard-card-title">Permission Wall</span>
-            <span class="onboard-hint">No Filters surfaces 12 docs · RBAC + Full Pipeline block 7.</span>
+            <span class="onboard-hint">No Filters surfaces 16 docs · RBAC + Full Pipeline block 10.</span>
           </button>
           <button type="button"
                   class="example-btn onboard-card onboard-card-compact"
@@ -283,7 +283,7 @@ IC recommendation
     <section id="evals-section" class="evals-section" hidden>
       <div class="evals-header">
         <h2 class="evals-title">Evaluation Dashboard</h2>
-        <p class="evals-subtitle">Precision@5 · recall · permission safety · trace counts — 8 corpus-grounded test queries</p>
+        <p class="evals-subtitle">Precision@5 · recall · permission safety · trace counts — 12 corpus-grounded test queries</p>
       </div>
       <div id="evals-content">
         <!-- Injected by app.js -->
@@ -334,8 +334,11 @@ IC recommendation
               <option value="deal_memo">deal_memo</option>
               <option value="internal_analysis">internal_analysis</option>
               <option value="internal_email">internal_email</option>
+              <option value="internal_memo">internal_memo</option>
               <option value="board_memo">board_memo</option>
+              <option value="legal_memo">legal_memo</option>
               <option value="lp_update">lp_update</option>
+              <option value="news_article">news_article</option>
               <option value="sector_overview">sector_overview</option>
             </select>
           </div>

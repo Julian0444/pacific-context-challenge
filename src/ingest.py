@@ -33,8 +33,9 @@ METADATA_PATH = os.path.join(os.path.dirname(__file__), "..", "corpus", "metadat
 VALID_MIN_ROLES = frozenset({"analyst", "vp", "partner"})
 VALID_DOC_TYPES = frozenset({
     "board_memo", "deal_memo", "financial_model", "internal_analysis",
-    "internal_email", "lp_update", "press_release", "public_filing",
-    "research_note", "sector_overview",
+    "internal_email", "internal_memo", "legal_memo", "lp_update",
+    "news_article", "press_release", "public_filing", "research_note",
+    "sector_overview",
 })
 VALID_SENSITIVITY = frozenset({"low", "medium", "high", "confidential"})
 

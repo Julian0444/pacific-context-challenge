@@ -39,12 +39,9 @@ const COMPARE_ORDER = ["naive_top_k", "permission_aware", "full_policy"];
 // ── Role descriptions (shown under the role selector) ──
 
 const ROLE_DESCRIPTIONS = {
-  analyst:
-    "Entry-level deal team. Access limited to public filings, research notes, and press releases. Cannot view internal memos, financial models, or board materials.",
-  vp:
-    "Vice President. Extended access — includes internal deal memos, financial models, and communications. Cannot view IC memos or LP updates.",
-  partner:
-    "Partner-level. Full corpus access — all documents visible, including board materials and LP communications.",
+  analyst: "Sees 6 of 16 docs — public filings, research notes, press release, sector overview, public news.",
+  vp: "Sees 12 of 16 docs — adds deal memos, financial models, diligence analyses, internal memos.",
+  partner: "Sees 16 of 16 docs — full corpus including IC memo, LP update, and legal diligence.",
 };
 
 // Raw excerpt storage for expand/collapse — keyed by card index, avoids data-attr innerHTML
@@ -879,7 +876,7 @@ function skeletonEvalsHTML() {
   return `
     <div class="evals-loading">
       <div class="evals-loading-spinner"></div>
-      <p class="evals-loading-text">Running 8 pipeline queries…</p>
+      <p class="evals-loading-text">Running 12 pipeline queries…</p>
     </div>`;
 }
 

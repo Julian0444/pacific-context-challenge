@@ -199,7 +199,7 @@
       "project_clearwater"
     ],
     "short_summary": "Investment Committee memo recommending approval of Meridian acquisition at $340M EV (8.9x ARR). Covers investment rationale, risks, mitigations, and proposed deal structure.",
-    "excerpt": "ATLAS CAPITAL PARTNERS\nINVESTMENT COMMITTEE MEMORANDUM\nPROJECT CLEARWATER: ACQUISITION OF MERIDIAN TECHNOLOGIES, INC.\nApril 18, 2024 | STRICTLY CONFIDENTIAL \u2014 PARTNER ACCESS ONLY\n\nEXECUTIVE SUMMARY\n\nAtlas Capital Partners Fund IV recommends proceeding with the acquisition of Meridian\nTechnologies, Inc. at an enterprise value of $340 million, subject to final legal and\nfinancial confirmations. This memorandum presents the full investment rationale, risk\nsummary, and proposed deal terms for Invest"
+    "excerpt": "PARTNER-ONLY \u00b7 DO NOT DISTRIBUTE\n\nATLAS CAPITAL PARTNERS\nINVESTMENT COMMITTEE MEMORANDUM\nPROJECT CLEARWATER: ACQUISITION OF MERIDIAN TECHNOLOGIES, INC.\nApril 18, 2024 | STRICTLY CONFIDENTIAL \u2014 PARTNER ACCESS ONLY\n\nEXECUTIVE SUMMARY\n\nAtlas Capital Partners Fund IV recommends proceeding with the acquisition of Meridian\nTechnologies, Inc. at an enterprise value of $340 million, subject to final legal and\nfinancial confirmations. This memorandum presents the full investment rationale, risk\nsummary, "
   },
   {
     "id": "doc_011",
@@ -219,7 +219,7 @@
       "project_clearwater"
     ],
     "short_summary": "Q1 2024 LP letter. References Project Clearwater in pipeline without naming the target. Notes one exit (Brightpath, 2.8x MOIC) and market valuation commentary.",
-    "excerpt": "ATLAS CAPITAL PARTNERS\nLIMITED PARTNER QUARTERLY UPDATE \u2014 Q1 2024\nApril 15, 2024 | CONFIDENTIAL \u2014 LP DISTRIBUTION ONLY\n\nDear Limited Partners,\n\nThis letter provides an update on Atlas Capital Partners Fund IV portfolio activity and\ndeal pipeline for Q1 2024.\n\nFUND IV PORTFOLIO SUMMARY\n\n  Portfolio companies (active):         8\n  Total deployed capital:               $612M of $850M committed\n  Weighted average gross IRR (unrealized): 23.4%\n  Q1 2024 exit:                         Brightpath Logist"
+    "excerpt": "PARTNER-ONLY \u00b7 DO NOT DISTRIBUTE\n\nATLAS CAPITAL PARTNERS\nLIMITED PARTNER QUARTERLY UPDATE \u2014 Q1 2024\nApril 15, 2024 | CONFIDENTIAL \u2014 LP DISTRIBUTION ONLY\n\nKEY UPDATE: Project Clearwater is in advanced diligence and expected to reach the Investment Committee this month.\n\nDear Limited Partners,\n\nThis letter provides an update on Atlas Capital Partners Fund IV portfolio activity and\ndeal pipeline for Q1 2024.\n\nFUND IV PORTFOLIO SUMMARY\n\n  Portfolio companies (active):         8\n  Total deployed capi"
   },
   {
     "id": "doc_012",
@@ -240,5 +240,92 @@
     ],
     "short_summary": "Detailed ARR breakdown by customer. Top 3 = 58.5% of ARR ($22.3M). Notes concentration increased from Q3 2023 estimates. Flags August 2024 Customer 3 renewal as a pre-close risk.",
     "excerpt": "ATLAS CAPITAL PARTNERS \u2014 INTERNAL ANALYSIS\nPROJECT CLEARWATER: CUSTOMER CONCENTRATION RISK ASSESSMENT\nApril 8, 2024 | CONFIDENTIAL \u2014 VP AND ABOVE\n\nPREPARED BY: Diana Park, VP\n\nOVERVIEW\n\nThis memo summarizes the findings of our customer concentration analysis for Meridian\nTechnologies, based on the customer ARR schedule provided by management on April 3, 2024.\n\nCONCENTRATION FINDINGS (AS OF MARCH 31, 2024, ESTIMATED)\n\n  Customer 1 (Regional Bank A):       $9.4M ARR     24.7% of total\n  Customer 2"
+  },
+  {
+    "id": "doc_013",
+    "file_name": "atlas_meridian_legal_diligence_regulatory_inquiry.txt",
+    "title": "Atlas Capital \u2014 Legal Diligence Memo: Meridian Regulatory Inquiry",
+    "type": "legal_memo",
+    "date": "2024-04-16",
+    "min_role": "partner",
+    "sensitivity": "confidential",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "legal",
+      "regulatory_inquiry",
+      "revenue_recognition",
+      "project_clearwater"
+    ],
+    "short_summary": "PARTNER-ONLY legal diligence memo. Flags a pending regulatory inquiry into Meridian revenue recognition for implementation fees and recommends indemnity/closing protections.",
+    "excerpt": "PARTNER-ONLY \u00b7 DO NOT DISTRIBUTE \u2014 LEGAL DILIGENCE MEMO: pending regulatory inquiry into Meridian revenue recognition practices.\nApril 16, 2024 | STRICTLY CONFIDENTIAL \u2014 PARTNER ACCESS ONLY\n\nPREPARED BY: Atlas Legal Diligence Team\n\nSUMMARY\n\nOutside counsel has identified an open inquiry from the Texas Department of Banking related to Meridian's recognition of implementation fees on multi-year ClearFlow contracts. The matter is not public, has not been disclosed in Meridian's 10-K, and should not"
+  },
+  {
+    "id": "doc_014",
+    "file_name": "atlas_ic_memo_draft_v09_meridian_defer.txt",
+    "title": "Atlas Capital \u2014 IC Memo Draft v0.9: Defer Project Clearwater",
+    "type": "board_memo",
+    "date": "2024-04-09",
+    "min_role": "partner",
+    "sensitivity": "confidential",
+    "superseded_by": "doc_010",
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "ic_memo",
+      "board",
+      "draft",
+      "stale",
+      "defer_recommendation",
+      "project_clearwater"
+    ],
+    "short_summary": "STALE. Partner-only IC draft v0.9 recommended deferring Project Clearwater pending legal, customer concentration, and CTO diligence. Superseded by final approval memo doc_010.",
+    "excerpt": "SUPERSEDED DRAFT \u2014 PARTNER-ONLY \u2014 PRELIMINARY RECOMMENDATION: DEFER Clearwater pending legal and customer-risk clarification.\nDraft v0.9 | April 9, 2024 | STRICTLY CONFIDENTIAL \u2014 PARTNER ACCESS ONLY\n\nTHIS DRAFT HAS BEEN SUPERSEDED BY THE FINAL IC MEMO DATED APRIL 18, 2024.\nDO NOT USE FOR INVESTMENT COMMITTEE PURPOSES.\n\nEXECUTIVE SUMMARY\n\nThis preliminary IC draft recommended deferring approval of the Meridian acquisition until the deal team resolved three open items: customer concentration, the "
+  },
+  {
+    "id": "doc_015",
+    "file_name": "fintech_press_meridian_500m_valuation_rumor.txt",
+    "title": "Fintech Market Wire \u2014 Meridian Rumored $500M Valuation",
+    "type": "news_article",
+    "date": "2024-03-28",
+    "min_role": "analyst",
+    "sensitivity": "low",
+    "superseded_by": null,
+    "tags": [
+      "meridian",
+      "public",
+      "news",
+      "valuation",
+      "rumor",
+      "market_chatter",
+      "500m"
+    ],
+    "short_summary": "Public tech press article citing a rumored $500M valuation from market chatter. Contrasts with more conservative internal buyer diligence around the $340M deal model.",
+    "excerpt": "TECH PRESS ARTICLE \u2014 Meridian rumored $500M valuation based on public market chatter, not internal diligence or Atlas materials.\nMarch 28, 2024 | PUBLIC NEWS SOURCE\n\nFintech Market Wire has learned from two people familiar with recent financing conversations that Meridian Technologies may be seeking strategic alternatives at a rumored $500M valuation. The figure appears to be based on public SaaS multiples, Meridian's reported $38.1M FY2023 ARR, and prior growth commentary from third-party resea"
+  },
+  {
+    "id": "doc_016",
+    "file_name": "atlas_meridian_cto_departure_context_memo.txt",
+    "title": "Atlas Capital \u2014 Project Clearwater CTO Departure Context Memo",
+    "type": "internal_memo",
+    "date": "2024-04-04",
+    "min_role": "vp",
+    "sensitivity": "high",
+    "superseded_by": null,
+    "tags": [
+      "atlas",
+      "internal",
+      "meridian",
+      "cto",
+      "engineering",
+      "retention",
+      "integration",
+      "project_clearwater"
+    ],
+    "short_summary": "VP-level memo explaining Rohan Mehta's CTO departure, engineering retention risk, platform migration continuity, and recommended $1.8M retention pool.",
+    "excerpt": "VP AND ABOVE \u2014 CTO departure context memo: engineering retention risk and product-continuity assessment for Project Clearwater.\nApril 4, 2024 | CONFIDENTIAL \u2014 VP AND ABOVE\n\nPREPARED BY: Sarah Chen, Associate\n\nSUMMARY\n\nThis memo provides context on Rohan Mehta's January 2024 departure as Meridian CTO. Management described the departure as voluntary and unrelated to commercial performance, but customer references indicate Mehta was the original architect of the ClearFlow reconciliation engine and "
   }
 ]

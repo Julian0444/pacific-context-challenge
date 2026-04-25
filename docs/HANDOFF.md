@@ -1166,3 +1166,58 @@ No HTML template changes outside the onboarding + compare sections. No backend, 
 - `summaryUserExp.md` — §4.2, §6.1, §7.1 updated.
 - `docs/plans/2026-04-23-ui-c-scenarios-and-compare-clarity-plan.md` — preflight plan for this batch.
 - All other plan docs — unchanged and still accurate.
+
+---
+
+## Session — 2026-04-25 (Session 32 / **UI-E — Demo corpus narrative upgrade**)
+
+### Summary
+
+Expanded the authored Meridian / Project Clearwater demo corpus from 12 to 16 documents so the live demo has sharper narrative contrast without changing retrieval or policy logic.
+
+The batch adds four substantive documents:
+
+1. `doc_013` — partner-only legal diligence memo on a pending regulatory inquiry.
+2. `doc_014` — partner-only draft IC memo v0.9 recommending defer, superseded by `doc_010`.
+3. `doc_015` — public tech-press article with a `$500M` rumored valuation that contrasts with the internal `$340M` model.
+4. `doc_016` — VP memo explaining the CTO departure and integration risk.
+
+It also adds a visible `PARTNER-ONLY · DO NOT DISTRIBUTE` header to `doc_010` and `doc_011`, while keeping their core recommendation / LP-update facts inside the first 500 characters consumed by the indexer excerpt path.
+
+### Files changed
+
+- `corpus/documents/` — four new source `.txt` files plus first-line headers on `doc_010` / `doc_011`.
+- `corpus/metadata.json` — 16 documents, role visibility now analyst 6 / VP 12 / partner 16, and three stale pairs (`doc_002 -> doc_003`, `doc_007 -> doc_008`, `doc_014 -> doc_010`).
+- `evals/test_queries.json` — 12 corpus-grounded queries, adding regulatory, IC draft/final, valuation, and CTO scenarios.
+- `artifacts/` — rebuilt FAISS, BM25, and `index_documents.json` from the 16-doc corpus.
+- `frontend/app.js`, `frontend/index.html` — role descriptions and live copy updated to 6/16, 12/16, 16/16; eval copy updated to 12 queries; admin doc_type options include the new corpus categories.
+- `src/ingest.py`, `tests/test_ingest.py` — upload validation accepts the new seeded doc types (`internal_memo`, `legal_memo`, `news_article`) and tests cover them.
+- `tests/test_main.py`, `tests/test_evaluator.py` — evaluator count / precision baseline updated for the 12-query corpus.
+- `README.md`, `CLAUDE.md`, `demo.md`, `summaryUserExp.md`, `script_es.md`, `script_en.md`, `docs/backendSummary.md`, `docs/backendSummarySpanish.md` — demo-facing counts, narratives, and metrics updated.
+- `docs/plans/2026-04-25-ui-e-demo-corpus-upgrade-plan.md` — execution plan and evidence for this batch.
+
+### Verification
+
+- `.venv/bin/python -m src.indexer` — loaded 16 docs; saved 16 FAISS vectors; saved 16 BM25 docs.
+- `.venv/bin/python -m src.evaluator` — 12 queries, 0 failures, `avg_precision_at_5=0.3333`, `avg_recall=1.0000`, `permission_violation_rate=0.0`, `avg_context_docs=11.83`, `avg_total_tokens=1448`, `avg_blocked_count=4.17`, `avg_stale_count=2.08`, `avg_dropped_count=0.0`, `avg_budget_utilization=0.71`.
+- `.venv/bin/python -m pytest` — 175 passed, 14 skipped.
+- FastAPI smoke via `TestClient`:
+  - Analyst ARR compare: No Filters includes 16; Permissions Only / Full Pipeline include 6 and block 10; Full demotes 1 stale doc.
+  - VP financial model compare: No Filters includes 16; Permissions Only / Full Pipeline include 12 and block 4; Full demotes 2 stale docs.
+  - Partner IC/LP compare: Full Pipeline demotes all 3 stale pairs.
+  - Partner draft/final query surfaces `doc_014` with `superseded_by=doc_010`.
+  - `/evals` reports `queries_run=12`, `queries_failed=0`, `avg_recall=1.0`, `permission_violation_rate=0.0`.
+
+### Known non-blocking behavior
+
+- `dropped_by_budget` remains `0.0` in the evaluator. The corpus upgrade improves narrative contrast and raises budget utilization, but it does not force budget drops without code or more high-scoring long excerpts.
+- Historical plan and handoff entries still mention the older 12-doc / 8-query state as audit history. Current live docs and UI copy reflect the 16-doc / 12-query baseline.
+- `top_k * 3` over-retrieval and historical dead-code notes are unchanged.
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `7a6c6de` (Batch UI-D3 — scenario labels and tooltips reframed).
+- **Tests:** 175 passed, 14 skipped under `.venv/bin/python`.
+- **Evaluator:** 12 queries, 0 failures, recall 1.0, permission violations 0%.
+- **Demo status:** READY for a 16-doc narrative demo after optional browser spot-check.

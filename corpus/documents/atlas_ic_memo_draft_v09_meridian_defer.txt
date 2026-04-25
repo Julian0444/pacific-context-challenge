@@ -1,0 +1,21 @@
+SUPERSEDED DRAFT — PARTNER-ONLY — PRELIMINARY RECOMMENDATION: DEFER Clearwater pending legal and customer-risk clarification.
+Draft v0.9 | April 9, 2024 | STRICTLY CONFIDENTIAL — PARTNER ACCESS ONLY
+
+THIS DRAFT HAS BEEN SUPERSEDED BY THE FINAL IC MEMO DATED APRIL 18, 2024.
+DO NOT USE FOR INVESTMENT COMMITTEE PURPOSES.
+
+EXECUTIVE SUMMARY
+
+This preliminary IC draft recommended deferring approval of the Meridian acquisition until the deal team resolved three open items: customer concentration, the CTO departure, and a legal diligence question around revenue recognition. At this stage, the draft proposed pausing final negotiations rather than approving a signing mandate.
+
+RATIONALE FOR DEFER RECOMMENDATION
+
+1. Customer concentration had not yet been reconciled against management's ARR schedule. The draft assumed top-3 concentration could exceed 60% and requested confirmation from Customer 3 before signing.
+
+2. Engineering diligence had not completed reference checks on the CTO departure. The draft treated the departure as a product-continuity risk until the retention plan for senior engineers was costed.
+
+3. Legal diligence had not completed its assessment of the pending regulatory inquiry into implementation-fee revenue recognition.
+
+SUPERSESSION NOTE
+
+The final IC memo (doc_010) superseded this draft after the deal team reduced entry EV to $340M, added customer-renewal protections, modeled engineering retention packages, and added legal indemnity language.

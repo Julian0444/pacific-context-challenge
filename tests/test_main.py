@@ -156,9 +156,9 @@ def test_evals_has_aggregate_keys():
     )
 
 
-def test_evals_has_eight_queries():
+def test_evals_has_twelve_queries():
     data = client.get("/evals").json()
-    assert len(data["per_query"]) == 8
+    assert len(data["per_query"]) == 12
 
 
 def test_evals_no_permission_violations():

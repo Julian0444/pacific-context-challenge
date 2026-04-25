@@ -155,8 +155,8 @@ def run_pipeline(
 
     # Stage 1 — Retrieve
     # Over-retrieve by 3× to compensate for downstream permission attrition.
-    # For a 12-doc corpus with analyst access (5 of 12 visible), top_k=8
-    # leaves only 2-3 candidates after filtering.  The budget packer still
+    # For a small corpus with restricted analyst access, top_k=8 can leave
+    # only 2-3 candidates after filtering.  The budget packer still
     # enforces the token budget regardless of how many candidates enter.
     retrieve_k = policy.top_k * 3
     candidates: List[ScoredDocument] = _unwrap(

@@ -10,6 +10,8 @@ El working tree también tenía drift sin commitear (`corpus/documents/agenda.tx
 
 **Update 2026-04-22 (UI-A):** la contaminación del corpus fue removida. `agenda.txt` / `doc_013` ya no existe, los artifacts se reconstruyeron a 12 vectores, y el test fue refactoreado previamente para leer `corpus_size` dinámicamente desde `metadata.json`. Estado actual de `pytest`: `172 passed, 14 skipped, 0 failed`. CR-1 más abajo es histórico.
 
+**Update 2026-04-25 (UI-E):** el corpus de demo fue expandido intencionalmente a 16 documentos redactados (`doc_013`–`doc_016` ahora son legal diligence, IC draft, artículo público de valuación, y memo de CTO). Los artifacts se reconstruyeron a 16 vectores y el evaluator ahora corre 12 queries corpus-grounded. La contaminación `agenda.txt` de UI-A sigue resuelta; el nuevo `doc_013` es contenido redactado, no el viejo probe Agenda.
+
 ---
 
 ## Índice visual del análisis
@@ -230,7 +232,7 @@ Dentro de `run_pipeline` (`src/pipeline.py:149-195`):
 | `src/retriever.py` | Retrieval híbrido. `retrieve()` (default), `semantic_retrieve()` (comparación). Singletons lazy `_model`, `_bm25`; `invalidate_caches()` resetea `_bm25`. | Lee FAISS + `index_documents.json` + `bm25_corpus.json` en cada llamada a `retrieve()`. FAISS no se cachea in-process. |
 | `src/indexer.py` | Rebuild completo: carga docs, embedea con MiniLM-L6-v2, escribe `querytrace.index` + `index_documents.json` + `bm25_corpus.json`. `tokenize_for_bm25()` usado por indexer y retriever. | Escribe tres artifacts a `artifacts/`. |
 | `src/ingest.py` | PDF → texto → append metadata → reindex. `_INGEST_LOCK` threading.Lock, validación, sanitizador de filename, generador de doc_id. | Escribe `corpus/documents/<file>.txt`, muta `corpus/metadata.json`, invoca `indexer.build_and_save()`. |
-| `src/evaluator.py` | Harness de 8 queries, precision@k + recall + permission_violation_rate. Usa `run_pipeline()` así que las métricas reflejan el contexto ensamblado. | Lee `evals/test_queries.json`. |
+| `src/evaluator.py` | Harness de 12 queries, precision@k + recall + permission_violation_rate. Usa `run_pipeline()` así que las métricas reflejan el contexto ensamblado. | Lee `evals/test_queries.json`. |
 | `src/stages/*.py` | Cuatro stages de cómputo puro. Sin I/O, sin globales. Cada una devuelve un dataclass con nombre. | — |
 | `src/protocols.py` | `RetrieverProtocol`, `RoleStoreProtocol`, `MetadataStoreProtocol` para inyección de dependencias. | — |
 | `src/freshness.py` | Helpers puros. `compute_freshness()` usada por la stage de freshness. `apply_freshness()` está muerta. | — |
@@ -485,7 +487,7 @@ DecisionTrace
 - Fix: borrar o marcar como deprecated.
 
 **MI-2 — Desempate no uniforme entre los rankings de FAISS y BM25**
-- `src/retriever.py:107` usa `np.argsort(-scores, kind="stable")`, FAISS devuelve por score descendente. Para corpora con empates (improbable en 12 docs), la fusión puede favorecer la regla de desempate de un retriever. OK para prod, vale la pena anotarlo.
+- `src/retriever.py:107` usa `np.argsort(-scores, kind="stable")`, FAISS devuelve por score descendente. Para corpora con empates (improbable en este corpus chico), la fusión puede favorecer la regla de desempate de un retriever. OK para prod, vale la pena anotarlo.
 
 **MI-3 — `_normalize_scores` colapsa todos los scores iguales a 1.0**
 - `src/retriever.py:140-141`. Un caller comparando top-1 contra top-N no puede distinguir "un doc claramente mejor" de "ninguna señal." Improbable en la práctica pero merece un comentario.
@@ -495,7 +497,7 @@ DecisionTrace
 - Fix: agregar `model_config = ConfigDict(extra="forbid")`.
 
 **MI-5 — `score_freshness` reconstruye `meta_by_id` y `reference_date` en cada call**
-- `src/stages/freshness_scorer.py:46-48`. Para 12 docs esto está bien (µs), pero el pipeline recomputa esto por-request aunque `_metadata` se cargó una vez al startup y sólo muta por ingest. Un cache lazy por revisión de metadata sería un poco más limpio — no es issue de performance hoy.
+- `src/stages/freshness_scorer.py:46-48`. Para el corpus chico de demo esto está bien (µs), pero el pipeline recomputa esto por-request aunque `_metadata` se cargó una vez al startup y sólo muta por ingest. Un cache lazy por revisión de metadata sería un poco más limpio — no es issue de performance hoy.
 
 **MI-6 — `/evals` nunca reintenta una carga que falló**
 - `src/main.py:167-174`. Si `run_evals` lanza (metadata corrupta, queries ausentes), la excepción se propaga, `_evals_cache` queda None, y el próximo call re-lanza. El cache es write-through-on-success-only. No es bug, pero significa que una falla transitoria durante el warmup de evals mantiene el endpoint roto hasta que la excepción pare.

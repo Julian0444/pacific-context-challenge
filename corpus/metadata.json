@@ -229,6 +229,89 @@
         "renewal"
       ],
       "short_summary": "Detailed ARR breakdown by customer. Top 3 = 58.5% of ARR ($22.3M). Notes concentration increased from Q3 2023 estimates. Flags August 2024 Customer 3 renewal as a pre-close risk."
+    },
+    {
+      "id": "doc_013",
+      "file_name": "atlas_meridian_legal_diligence_regulatory_inquiry.txt",
+      "title": "Atlas Capital \u2014 Legal Diligence Memo: Meridian Regulatory Inquiry",
+      "type": "legal_memo",
+      "date": "2024-04-16",
+      "min_role": "partner",
+      "sensitivity": "confidential",
+      "superseded_by": null,
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "legal",
+        "regulatory_inquiry",
+        "revenue_recognition",
+        "project_clearwater"
+      ],
+      "short_summary": "PARTNER-ONLY legal diligence memo. Flags a pending regulatory inquiry into Meridian revenue recognition for implementation fees and recommends indemnity/closing protections."
+    },
+    {
+      "id": "doc_014",
+      "file_name": "atlas_ic_memo_draft_v09_meridian_defer.txt",
+      "title": "Atlas Capital \u2014 IC Memo Draft v0.9: Defer Project Clearwater",
+      "type": "board_memo",
+      "date": "2024-04-09",
+      "min_role": "partner",
+      "sensitivity": "confidential",
+      "superseded_by": "doc_010",
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "ic_memo",
+        "board",
+        "draft",
+        "stale",
+        "defer_recommendation",
+        "project_clearwater"
+      ],
+      "short_summary": "STALE. Partner-only IC draft v0.9 recommended deferring Project Clearwater pending legal, customer concentration, and CTO diligence. Superseded by final approval memo doc_010."
+    },
+    {
+      "id": "doc_015",
+      "file_name": "fintech_press_meridian_500m_valuation_rumor.txt",
+      "title": "Fintech Market Wire \u2014 Meridian Rumored $500M Valuation",
+      "type": "news_article",
+      "date": "2024-03-28",
+      "min_role": "analyst",
+      "sensitivity": "low",
+      "superseded_by": null,
+      "tags": [
+        "meridian",
+        "public",
+        "news",
+        "valuation",
+        "rumor",
+        "market_chatter",
+        "500m"
+      ],
+      "short_summary": "Public tech press article citing a rumored $500M valuation from market chatter. Contrasts with more conservative internal buyer diligence around the $340M deal model."
+    },
+    {
+      "id": "doc_016",
+      "file_name": "atlas_meridian_cto_departure_context_memo.txt",
+      "title": "Atlas Capital \u2014 Project Clearwater CTO Departure Context Memo",
+      "type": "internal_memo",
+      "date": "2024-04-04",
+      "min_role": "vp",
+      "sensitivity": "high",
+      "superseded_by": null,
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "cto",
+        "engineering",
+        "retention",
+        "integration",
+        "project_clearwater"
+      ],
+      "short_summary": "VP-level memo explaining Rohan Mehta's CTO departure, engineering retention risk, platform migration continuity, and recommended $1.8M retention pool."
     }
   ]
 }

@@ -6,7 +6,7 @@ Esta guía existe para un propósito específico: **que puedas abrir la app, seg
 
 ## 1. Resumen ejecutivo (lo que dirías en 30 segundos)
 
-> "QueryTrace simula cómo un sistema de búsqueda empresarial con IA ensambla el contexto que le pasaría a un LLM para responder. El corpus es un caso de M&A realista: un fondo de capital privado evaluando adquirir una fintech. Hay doce documentos y tres roles — un analista no debería ver el memo del Investment Committee, un VP no debería ver la carta a los LPs. La app muestra en vivo qué documentos entran al contexto, cuáles se bloquean, y **por qué**, todo auditable. No es un chatbot; es la capa invisible que decide qué ve el LLM *antes* de que el LLM hable."
+> "QueryTrace simula cómo un sistema de búsqueda empresarial con IA ensambla el contexto que le pasaría a un LLM para responder. El corpus es un caso de M&A realista: un fondo de capital privado evaluando adquirir una fintech. Hay dieciséis documentos y tres roles — un analista no debería ver el memo del Investment Committee, un VP no debería ver la carta a los LPs ni el memo legal partner-only. La app muestra en vivo qué documentos entran al contexto, cuáles se bloquean, y **por qué**, todo auditable. No es un chatbot; es la capa invisible que decide qué ve el LLM *antes* de que el LLM hable."
 
 Con eso ya comunicaste tres cosas: **dominio realista, permisos, trazabilidad**. El resto de la demo es evidencia visual.
 
@@ -38,7 +38,7 @@ Al abrir la app sin haber hecho nada, en el centro aparecen **tres tarjetas de o
 
 ### Compare — empty state propio (UI-C)
 
-Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tres tarjetas de preview** que reflejan las mismas historias base (Permission Wall / Financial model access / Stale Detection), cada una con un hint cuantitativo resumido (ej: "Naive surfaces 12 · RBAC + Full block 7"). Las tarjetas de Compare son **un solo click** (toda la tarjeta dispara `/compare`), porque el modo ya es explícito. En la primera corrida el onboarding desaparece y se revela el banner + las tres columnas.
+Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tres tarjetas de preview** que reflejan las mismas historias base (Permission Wall / Financial model access / Stale Detection), cada una con un hint cuantitativo resumido (ej: "Naive surfaces 16 · RBAC + Full block 10"). Las tarjetas de Compare son **un solo click** (toda la tarjeta dispara `/compare`), porque el modo ya es explícito. En la primera corrida el onboarding desaparece y se revela el banner + las tres columnas.
 
 ---
 
@@ -48,7 +48,7 @@ Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tre
 
 - **Qué se ve:** barra de resumen (docs / tokens / role / policy / blocked / stale / Export JSON), tarjetas de documentos, una sección colapsable "🔒 N documents blocked by permissions", y un Decision Trace colapsable al fondo.
 - **Qué historia contás:** "Así se ve cuando un usuario real consulta la base. Le da los documentos relevantes a los que su rol le da acceso, y le muestra con transparencia qué documentos existían pero fueron bloqueados."
-- **Cuándo mostrarlo en la demo:** como **apertura rápida** (un analyst busca algo, ve 5 docs, 7 bloqueados) o como **cierre detallado** (abrir el Decision Trace y señalar el resumen narrativo).
+- **Cuándo mostrarlo en la demo:** como **apertura rápida** (un analyst busca algo, ve 6 docs, 10 bloqueados) o como **cierre detallado** (abrir el Decision Trace y señalar el resumen narrativo).
 - **Mensaje de negocio:** transparencia — "cada decisión queda documentada; esto es auditable por compliance".
 - **Coherencia de estado (UI-B):** cambiar el rol o la política mientras hay un resultado en pantalla muestra un banner discreto arriba ("Controls changed — press Run to refresh these results.") y desatura las tarjetas viejas al 60% hasta que apretás **Run**. Esto evita el "bug visual" de que los controles digan una cosa y los resultados reflejen otra. Los botones de ejemplo de la fila Single (`Diligence risks` / `IC recommendation`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con **Full Pipeline**, sin importar qué política estuviera seleccionada antes, y sincronizan el radio de política para que la UI quede coherente con el resultado renderizado.
 
@@ -61,8 +61,8 @@ Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tre
 
 ### Evals — "los números duros"
 
-- **Qué se ve:** un banner narrativo arriba ("Zero permission violations across 8 test queries"), 10 tarjetas de métricas agregadas, y una tabla con 8 filas (una por query de test).
-- **Qué historia contás:** "Esto no es una demo subjetiva — son métricas de 8 queries corriendo a través del pipeline real. Permission Violations: 0%. Recall: 100%."
+- **Qué se ve:** un banner narrativo arriba ("Zero permission violations across 12 test queries"), 10 tarjetas de métricas agregadas, y una tabla con 12 filas (una por query de test).
+- **Qué historia contás:** "Esto no es una demo subjetiva — son métricas de 12 queries corriendo a través del pipeline real. Permission Violations: 0%. Recall: 100%."
 - **Cuándo mostrarlo en la demo:** **después del Compare**, para pasar de lo cualitativo a lo cuantitativo.
 - **Mensaje de negocio:** "esto podés ponerlo en un reporte a legal o auditoría. No es una promesa, es un test reproducible".
 
@@ -91,13 +91,13 @@ Cada demo te dice: qué escribir, qué rol, qué policy, qué tab, qué señalar
 
 **Qué señalar en la pantalla:**
 
-1. Columna **No Filters**: stats strip muestra un número alto de included y **0 blocked**. Entre las tarjetas hay documentos etiquetados en rojo con **"blocked in full"** — son el memo del IC (doc_011), el LP update (doc_012), memos internos, modelos financieros. *Señalalos con el mouse.*
-2. Columna **Permissions Only**: stats strip ahora muestra **7 blocked**. Abrí el Decision Trace — los chips rojos de "Blocked" dicen "doc_006 ·vp", "doc_011 ·partner", etc. Cada chip te dice el rol que hubiera sido necesario.
-3. Columna **Full Pipeline**: mismos 7 blocked, **más** chips amarillos de Stale (doc_002 → doc_003). Un documento obsoleto sigue apareciendo pero con penalización 0.5× de frescura.
+1. Columna **No Filters**: stats strip muestra un número alto de included y **0 blocked**. Entre las tarjetas hay documentos etiquetados en rojo con **"blocked in full"** — son el memo del IC, el LP update, memos internos, modelos financieros y el memo legal partner-only. *Señalalos con el mouse.*
+2. Columna **Permissions Only**: stats strip ahora muestra **10 blocked**. Abrí el Decision Trace — los chips rojos de "Blocked" dicen "doc_006 ·vp", "doc_013 ·partner", etc. Cada chip te dice el rol que hubiera sido necesario.
+3. Columna **Full Pipeline**: mismos 10 blocked, **más** chips amarillos de Stale (doc_002 → doc_003). Un documento obsoleto sigue apareciendo pero con penalización 0.5× de frescura.
 
 **Qué decir en voz alta:**
 
-> "Misma pregunta, mismo analyst. En la columna No Filters, el sistema le está pasando al LLM el memo del Investment Committee y la carta a los LPs — cosas que un analista junior jamás debería ver. En la segunda columna, RBAC bloquea 7 documentos y te dice exactamente cuáles y por qué. En la tercera, además detecta que la research note de Q3 fue reemplazada por la de Q4 y le baja la frescura para que el LLM priorice la versión vigente. Todo esto sin que el LLM se entere — pasa *antes* del prompt."
+> "Misma pregunta, mismo analyst. En la columna No Filters, el sistema le está pasando al LLM el memo del Investment Committee, la carta a los LPs y un memo legal partner-only — cosas que un analista junior jamás debería ver. En la segunda columna, RBAC bloquea 10 documentos y te dice exactamente cuáles y por qué. En la tercera, además detecta que la research note de Q3 fue reemplazada por la de Q4 y le baja la frescura para que el LLM priorice la versión vigente. Todo esto sin que el LLM se entere — pasa *antes* del prompt."
 
 **Por qué importa para la empresa:**
 
@@ -139,12 +139,12 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 **Qué señalar:**
 
 - Los tres stats strips muestran **0 blocked** en todas las políticas (partner tiene acceso completo).
-- En la columna **Full Pipeline**, el stats strip muestra **stale=2**: doc_002 (research notes v1, reemplazado por doc_003) y doc_007 (financial model v1, reemplazado por doc_008). Ambos aparecen con el badge "⚠ Superseded".
-- Confirmado en backend: `/compare` con esta query + `role=partner` devuelve `stl=2` con `demoted_as_stale: ['doc_007', 'doc_002']` en full_policy, y 0 stale en naive + rbac.
+- En la columna **Full Pipeline**, el stats strip muestra **stale=3**: doc_002 (research notes v1, reemplazado por doc_003), doc_007 (financial model v1, reemplazado por doc_008) y doc_014 (IC draft defer recommendation, reemplazado por doc_010). Aparecen con el badge "⚠ Superseded".
+- Confirmado en backend: `/compare` con esta query + `role=partner` devuelve `stale=3` con `demoted_as_stale` incluyendo `doc_014 → doc_010` en full_policy, y 0 stale en naive + rbac.
 
 **Qué decir:**
 
-> "El partner tiene acceso total — los permisos no filtran nada. Pero el pipeline sigue detectando que dos documentos fueron reemplazados por versiones más nuevas y los demote 0.5×. No es un tema de acceso: es un tema de higiene del contexto. Permisos y frescura son ortogonales — dos capas que operan en paralelo."
+> "El partner tiene acceso total — los permisos no filtran nada. Pero el pipeline sigue detectando que tres documentos fueron reemplazados por versiones más nuevas y los demote 0.5×. No es un tema de acceso: es un tema de higiene del contexto. Permisos y frescura son ortogonales — dos capas que operan en paralelo."
 
 **Por qué importa:** la demo antigua ("Partner view") leía como "partner ve todo, no pasa nada" — narrativamente débil. El reframe a **Stale Detection** enfoca la atención en la capa de frescura, que sigue trabajando incluso cuando RBAC no tiene nada que bloquear.
 
@@ -162,11 +162,11 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 **Qué señalar:**
 
-1. Barra de resumen arriba: **5 docs, ~570 tokens, analyst role, Full Pipeline, 7 blocked, 1 stale**.
+1. Barra de resumen arriba: **6 docs, ~675 tokens, analyst role, Full Pipeline, 10 blocked, 1 stale**.
 2. La primera tarjeta tiene relevancia 1.00 (el 10-K de Meridian — tiene sentido, es la fuente oficial de datos de ARR).
 3. Segunda tarjeta: research note con tag "⚠ Superseded by doc_003 — freshness penalized 0.5×".
-4. Click en el botón **"🔒 7 documents blocked by permissions"**: se despliega una mini-lista con título, tipo, y la razón ("Requires partner role — you are analyst").
-5. Click en **Decision Trace** al fondo. Arriba hay un resumen en lenguaje natural: *"5 documents were included (571 tokens, 28% of budget). 7 documents were blocked — your role (analyst) cannot access vp and partner level materials. doc_002 was demoted (superseded by doc_003, freshness penalized by 0.5×)."*
+4. Click en el botón **"🔒 10 documents blocked by permissions"**: se despliega una mini-lista con título, tipo, y la razón ("Requires partner role — you are analyst").
+5. Click en **Decision Trace** al fondo. Arriba hay un resumen en lenguaje natural: *"6 documents were included (675 tokens, 33% of budget). 10 documents were blocked — your role (analyst) cannot access vp and partner level materials. doc_002 was demoted (superseded by doc_003, freshness penalized by 0.5×)."*
 6. Abajo del resumen hay chips coloreados: verdes (incluidos), rojos (bloqueados), amarillos (stale), grises (dropped por presupuesto).
 
 **Qué decir:**
@@ -185,16 +185,16 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 **Qué señalar:**
 
-1. El **banner narrativo** arriba en verde: *"Zero permission violations across 8 test queries — the context layer never leaked restricted documents. 100% recall — every expected document was found."*
+1. El **banner narrativo** arriba en verde: *"Zero permission violations across 12 test queries — the context layer never leaked restricted documents. 100% recall — every expected document was found."*
 2. Las 10 tarjetas de métricas. Señalá específicamente:
    - **Permission Violations: 0.0%** (en verde) — la métrica que realmente importa.
    - **Recall: 1.0000** — nunca se perdió un documento esperado.
    - **Avg Blocked**: número promedio de documentos bloqueados por query. Es evidencia de que el filtro *está haciendo algo* en la mayoría de las queries.
-3. La tabla por query: 8 filas, con rol, métricas y una columna final "Violations" que dice "none" en todas.
+3. La tabla por query: 12 filas, con rol, métricas y una columna final "Violations" que dice "none" en todas.
 
 **Qué decir:**
 
-> "Este dashboard corre el pipeline completo contra 8 queries de test escritas para cubrir los tres roles. Cero violaciones de permisos en 8 de 8. Recall perfecto. Y cada fila es reproducible — no es una screenshot, es el endpoint `/evals` respondiendo en vivo."
+> "Este dashboard corre el pipeline completo contra 12 queries de test escritas para cubrir los tres roles. Cero violaciones de permisos en 12 de 12. Recall perfecto. Y cada fila es reproducible — no es una screenshot, es el endpoint `/evals` respondiendo en vivo."
 
 **Por qué importa:** es la evidencia que un CTO o un head of security le pediría a cualquier herramienta de context/retrieval antes de dejarla pasar a producción.
 
@@ -208,7 +208,7 @@ Este es el guión que recomiendo para una demo de 4 minutos con margen. Podés r
 
 Estás en el empty state. Tres tarjetas de onboarding al centro.
 
-> "Este es QueryTrace. Es un laboratorio que muestra cómo un sistema empresarial de retrieval le arma el contexto a un LLM, respetando permisos, frescura, y presupuesto de tokens. El corpus es un caso de M&A: Atlas Capital evaluando adquirir Meridian Technologies. Doce documentos, tres roles. Un analyst junior no debería ver el memo del comité, un VP no debería ver la carta a los LPs. Vamos a ver cómo el sistema se comporta."
+> "Este es QueryTrace. Es un laboratorio que muestra cómo un sistema empresarial de retrieval le arma el contexto a un LLM, respetando permisos, frescura, y presupuesto de tokens. El corpus es un caso de M&A: Atlas Capital evaluando adquirir Meridian Technologies. Dieciséis documentos, tres roles. Un analyst junior no debería ver el memo del comité, un VP no debería ver la carta a los LPs ni el memo legal. Vamos a ver cómo el sistema se comporta."
 
 ### 0:30 — 1:45 · Compare Mode con "Permission Wall"
 
@@ -218,7 +218,7 @@ En la tarjeta "Permission Wall" del empty state, hacé click en el botón secund
 
 *Señalá con el mouse las tarjetas rojas en la columna de la izquierda.*
 
-> "Columna del medio: permisos activados. Siete documentos bloqueados. Y si abren el Decision Trace, cada bloqueo tiene razón explícita: 'requires partner role'. Columna de la derecha: pipeline completo. Mismos siete bloqueos, más dos documentos marcados como stale — son versiones viejas de research notes y modelos financieros que fueron reemplazadas. El sistema igual los incluye, pero con penalización de frescura para que el LLM los pese menos."
+> "Columna del medio: permisos activados. Diez documentos bloqueados. Y si abren el Decision Trace, cada bloqueo tiene razón explícita: 'requires partner role'. Columna de la derecha: pipeline completo. Mismos diez bloqueos, más documentos marcados como stale — versiones viejas de research, modelos financieros y un draft de IC que fueron reemplazados. El sistema igual los incluye, pero con penalización de frescura para que el LLM los pese menos."
 
 ### 1:45 — 2:30 · Decision Trace expandido
 
@@ -230,7 +230,7 @@ Ya está abierto en Compare. Señalá el resumen en lenguaje natural de la colum
 
 Click en la pestaña **Evals**.
 
-> "Hasta acá fue cualitativo. Esto es cuantitativo. Ocho queries de test, cada una corriendo a través del pipeline. La métrica que importa está arriba: **Permission Violations: cero por ciento**. En ocho queries, el sistema nunca dejó pasar un documento restringido. Recall: uno coma cero — nunca perdimos un documento que debía aparecer."
+> "Hasta acá fue cualitativo. Esto es cuantitativo. Doce queries de test, cada una corriendo a través del pipeline. La métrica que importa está arriba: **Permission Violations: cero por ciento**. En doce queries, el sistema nunca dejó pasar un documento restringido. Recall: uno coma cero — nunca perdimos un documento que debía aparecer."
 
 *Si hay tiempo, señalá la tabla y mencioná la columna "Violations" llena de "none".*
 
@@ -238,7 +238,7 @@ Click en la pestaña **Evals**.
 
 Click en **Single**, después click en **`Run in Single`** de la tarjeta "Permission Wall".
 
-> "Para cerrar: así se ve el uso real de una persona. Un analyst hace una consulta, ve 5 documentos relevantes, una barra le dice que hay 7 bloqueados por permisos. Expando el panel 'documents blocked' y veo los títulos, los tipos, y la razón. Abro el Decision Trace abajo y tengo la traza completa para auditoría. Esto es transparencia nativa, no un feature agregado al final."
+> "Para cerrar: así se ve el uso real de una persona. Un analyst hace una consulta, ve 6 documentos relevantes, una barra le dice que hay 10 bloqueados por permisos. Expando el panel 'documents blocked' y veo los títulos, los tipos, y la razón. Abro el Decision Trace abajo y tengo la traza completa para auditoría. Esto es transparencia nativa, no un feature agregado al final."
 
 ### 4:00 — (opcional) · Cierre de negocio
 
@@ -302,8 +302,8 @@ Los tres ángulos comparten el mismo mensaje de fondo: **"hace visible lo invisi
 
 ### Partes débiles — tené respuesta lista, no las saques vos
 
-1. **Precision@5 = 0.30 en Evals.** Parece bajo. Si te preguntan: *"El corpus tiene 12 documentos y muchas queries son amplias, entonces el 'top 5 esperado' es una vara muy alta. Lo que importa es Recall = 1.0 — nunca perdimos un doc — y Permission Violations = 0%."* No toques el tema vos; si te preguntan, pivotá a recall.
-2. **Corpus chico (12 docs).** No hables de escala. Si te preguntan: *"Es un demo; el pipeline no tiene dependencia de tamaño, el retriever está construido sobre FAISS y BM25 que escalan a millones."* (esta es la única vez donde mencionás la arquitectura — y solo si preguntan).
+1. **Precision@5 = 0.3333 en Evals.** Puede parecer bajo. Si te preguntan: *"El corpus tiene 16 documentos y muchas queries son amplias, entonces el 'top 5 esperado' es una vara muy alta. Lo que importa es Recall = 1.0 — nunca perdimos un doc — y Permission Violations = 0%."* No toques el tema vos; si te preguntan, pivotá a recall.
+2. **Corpus chico (16 docs).** No hables de escala. Si te preguntan: *"Es un demo; el pipeline no tiene dependencia de tamaño, el retriever está construido sobre FAISS y BM25 que escalan a millones."* (esta es la única vez donde mencionás la arquitectura — y solo si preguntan).
 3. **Los excerpts están cortados a 200 caracteres.** Si alguien quiere ver el documento completo, no hay forma desde la UI. Tené un "Show more ▾" a mano para ampliar un poco, pero no prometas full-document view.
 4. **No hay highlighting del texto matched dentro del excerpt.** Si te lo piden, decí "es un feature trivial de agregar, pero no es lo que este proyecto está demostrando".
 5. **Admin mode y filesystem efímero en Render.** Si deployás con `ALLOW_INGEST=false`, el tab ni aparece y nadie pregunta. Si lo dejás habilitado, el PDF que subas va a desaparecer en el próximo redeploy. Si vas a mostrar Admin en una demo pública, deployá con un Render Disk (persistente) o hacé la demo localmente.
