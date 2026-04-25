@@ -288,6 +288,12 @@ body {
 
 .search-btn.loading .btn-spinner {
   opacity: 1;
+  animation: btn-spinner-pulse 1.4s var(--ease) infinite;
+}
+
+@keyframes btn-spinner-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
 }
 
 .btn-spinner {
@@ -382,11 +388,12 @@ body {
   box-shadow: none;
 }
 
-/* ─── Policy Chips ─── */
+/* ─── Policy Tabs ─── */
 
 .policy-options {
   display: flex;
-  gap: 0.3rem;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .policy-option {
@@ -399,53 +406,105 @@ body {
   pointer-events: none;
 }
 
-.policy-chip {
-  display: inline-block;
+.policy-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.75rem 0.35rem;
+  border-bottom: 2px solid transparent;
+  transition: border-color var(--dur) var(--ease),
+              background var(--dur) var(--ease);
+  user-select: none;
+}
+
+.policy-tab-label {
   font-family: var(--font-mono);
   font-size: 0.7rem;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.3rem 0.65rem;
-  transition: all var(--dur) var(--ease);
-  user-select: none;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card);
+  font-weight: 600;
 }
 
-.policy-chip.policy-naive {
-  color: var(--policy-naive);
+.policy-tab-sublabel {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-tertiary);
 }
 
-.policy-chip.policy-rbac {
-  color: var(--policy-rbac);
+.policy-tab-naive .policy-tab-label { color: var(--policy-naive); }
+.policy-tab-rbac  .policy-tab-label { color: var(--policy-rbac); }
+.policy-tab-full  .policy-tab-label { color: var(--policy-full); }
+
+.policy-tab:hover {
+  background: var(--accent-subtle);
 }
 
-.policy-chip.policy-full {
-  color: var(--policy-full);
-}
-
-.policy-chip:hover {
-  border-color: var(--border-hover);
-  opacity: 0.9;
-}
-
-.policy-option input:checked + .policy-chip.policy-naive {
+.policy-option input:checked + .policy-tab-naive {
+  border-bottom-color: var(--policy-naive);
   background: var(--policy-naive-bg);
-  border-color: var(--policy-naive-border);
-  box-shadow: none;
 }
 
-.policy-option input:checked + .policy-chip.policy-rbac {
+.policy-option input:checked + .policy-tab-rbac {
+  border-bottom-color: var(--policy-rbac);
   background: var(--policy-rbac-bg);
-  border-color: var(--policy-rbac-border);
-  box-shadow: none;
 }
 
-.policy-option input:checked + .policy-chip.policy-full {
+.policy-option input:checked + .policy-tab-full {
+  border-bottom-color: var(--policy-full);
   background: var(--policy-full-bg);
-  border-color: var(--policy-full-border);
-  box-shadow: none;
+}
+
+/* ─── Role Selector Group (wraps chips + description) ─── */
+
+.role-selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-self: flex-start;
+}
+
+.role-description {
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  max-width: 500px;
+  transition: opacity 80ms var(--ease);
+}
+
+/* ─── Policy Selector Group (wraps chips + description + warning) ─── */
+
+.policy-selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-self: flex-start; /* prevent vertical centering against shorter Role group */
+}
+
+.policy-description {
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  transition: opacity 80ms var(--ease);
+}
+
+.policy-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  color: #7a5200;
+  background: rgba(251, 191, 36, 0.13);
+  border-left: 2px solid rgba(251, 191, 36, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.55rem;
+  line-height: 1.45;
+}
+
+.policy-warning > span {
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 /* ─── Example Queries ─── */
@@ -499,40 +558,9 @@ body {
   box-shadow: none;
 }
 
-/* Role dot on example buttons */
-.ex-role-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dot-analyst { background: var(--accent); }
-.dot-vp      { background: var(--fresh-high); }
-.dot-partner { background: var(--policy-full); }
-
 /* Scenario buttons — compare mode triggers */
 .scenario-btn {
   font-weight: 500;
-}
-
-.scenario-btn.dot-analyst-border {
-  color: var(--accent);
-  border-color: var(--policy-rbac-border);
-  background: var(--policy-rbac-bg);
-}
-
-.scenario-btn.dot-vp-border {
-  color: var(--fresh-high);
-  border-color: rgba(42, 91, 107, 0.22);
-  background: rgba(42, 91, 107, 0.06);
-}
-
-.scenario-btn.dot-partner-border {
-  color: var(--policy-full);
-  border-color: var(--policy-full-border);
-  background: var(--policy-full-bg);
 }
 
 .scenario-btn:hover {
@@ -590,6 +618,44 @@ body {
   flex-shrink: 0;
 }
 
+/* ─── Export button (Single + Compare) ─── */
+
+.export-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease),
+              border-color var(--dur) var(--ease),
+              background var(--dur) var(--ease);
+}
+
+.export-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.export-btn:active {
+  transform: translateY(1px);
+}
+
+.export-btn-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
 /* ─── Result Card ─── */
 
 .result-card {
@@ -602,18 +668,24 @@ body {
   box-shadow: var(--shadow-card);
   transition: border-color var(--dur) var(--ease),
               box-shadow var(--dur) var(--ease),
-              background var(--dur) var(--ease);
-  opacity: 0;
-  transform: translateY(6px);
-  animation: card-in 0.4s var(--ease) forwards;
+              background var(--dur) var(--ease),
+              transform var(--dur) var(--ease);
+  animation: result-card-in 0.4s var(--ease);
 }
 
 .result-card:hover {
   border-color: var(--border-hover);
   background: var(--bg-card-hover);
   box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 
+@keyframes result-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Shared entrance used by compare-col and compare-card — unchanged semantics. */
 @keyframes card-in {
   to {
     opacity: 1;
@@ -653,22 +725,96 @@ body {
   color: var(--text-tertiary);
 }
 
+.card-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-meta {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.card-meta-badge {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.4rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  font-size: 0.6rem;
+  line-height: 1.5;
+}
+
+.compare-card-meta {
+  margin-bottom: 0.35rem;
+}
+
 .card-content {
+  max-height: 4.8em;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  margin-bottom: 0;
+}
+
+.card-content.expanded {
+  max-height: 600px;
+  overflow: auto;
+}
+
+.card-content-text {
   font-family: var(--font-display);
   font-size: 0.85rem;
   font-weight: 400;
   line-height: 1.6;
   color: var(--text-secondary);
-  margin-bottom: 0.8rem;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+  margin: 0;
+}
+
+.card-expand-btn {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0.2rem 0;
+  margin-bottom: 0.6rem;
+  cursor: pointer;
+  display: block;
+  text-align: right;
+  width: 100%;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.card-expand-btn:hover {
+  opacity: 0.75;
+}
+
+.compare-card-title {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
 }
 
 .card-metrics {
   display: flex;
   gap: 1.2rem;
+  margin-top: 0.6rem;
   margin-bottom: 0.6rem;
 }
 
@@ -754,6 +900,155 @@ body {
   line-height: 1.4;
 }
 
+/* ─── Stale / Superseded Badge ─── */
+
+.stale-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  background: rgba(139, 105, 20, 0.08);
+  border: 1px solid rgba(139, 105, 20, 0.22);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
+  margin-bottom: 0.55rem;
+  line-height: 1.45;
+}
+
+.stale-icon {
+  font-size: 0.72rem;
+  color: var(--accent);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.stale-text {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--accent-dim);
+}
+
+.stale-text strong {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.compare-stale-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  font-weight: 500;
+  color: var(--accent-dim);
+  background: rgba(139, 105, 20, 0.08);
+  border: 1px solid rgba(139, 105, 20, 0.22);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+/* ─── Blocked Documents Section (single mode) ─── */
+
+.blocked-section {
+  margin-top: 1rem;
+  margin-bottom: 0.6rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.blocked-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--trace-blocked);
+  background: var(--trace-blocked-bg);
+  border: none;
+  border-left: 3px solid var(--trace-blocked);
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur) var(--ease);
+}
+
+.blocked-header:hover {
+  background: rgba(184, 50, 50, 0.12);
+}
+
+.blocked-header-icon {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.blocked-header-label {
+  flex: 1;
+  letter-spacing: 0.02em;
+}
+
+.blocked-caret {
+  font-size: 0.7rem;
+  color: var(--trace-blocked);
+  transition: transform var(--dur) var(--ease);
+}
+
+.blocked-section.open .blocked-caret {
+  transform: rotate(180deg);
+}
+
+.blocked-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.blocked-section.open .blocked-body {
+  max-height: 2000px;
+}
+
+.blocked-body-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.blocked-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.75rem;
+}
+
+.blocked-card-title {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+  margin-bottom: 0.3rem;
+}
+
+.blocked-card-meta {
+  margin-bottom: 0.35rem;
+}
+
+.blocked-card-reason {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--trace-blocked);
+  line-height: 1.5;
+}
+
+.blocked-card-reason strong {
+  font-weight: 600;
+  color: var(--accent-dim);
+}
+
 /* ─── Decision Trace Panel ─── */
 
 .trace-panel {
@@ -816,14 +1111,49 @@ body {
 }
 
 .trace-body {
-  display: none;
-  padding: 0.75rem 1rem;
+  overflow: hidden;
+  max-height: 0;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 0;
+  padding-bottom: 0;
   background: var(--bg-card);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid transparent;
+  transition: max-height 0.3s var(--ease),
+              padding 0.3s var(--ease),
+              border-top-color 0.3s var(--ease);
+}
+
+/* Natural-language summary (IDEA 4) — renders as first child of .trace-body */
+.trace-summary {
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.65rem;
+  background: var(--bg-surface);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.trace-summary strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Compact variant for compare mode — tighter padding and size */
+.trace-summary-compact {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
 }
 
 .trace-panel.open .trace-body {
-  display: block;
+  max-height: 4000px;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-top-color: var(--border);
 }
 
 .trace-row {
@@ -1508,6 +1838,25 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* Narrative banner (IDEA 6) — executive summary above metric cards */
+.evals-narrative {
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.evals-narrative strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 /* Aggregate metric cards grid */
 .metrics-grid {
   display: grid;
@@ -1525,7 +1874,16 @@ body {
   flex-direction: column;
   gap: 0.35rem;
   box-shadow: var(--shadow-card);
-  animation: cardIn 0.3s var(--ease) both;
+  animation: cardIn 0.3s var(--ease);
+  transition: transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease),
+              border-color var(--dur) var(--ease);
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--border-hover);
 }
 
 @keyframes cardIn {
@@ -1547,6 +1905,14 @@ body {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+/* Micro-explanation below value (IDEA 6) */
+.metric-card-hint {
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: var(--text-tertiary);
+  margin-top: 0.1rem;
 }
 
 /* Per-query table */
@@ -1603,6 +1969,33 @@ body {
 .evals-id-cell {
   font-weight: 600;
   color: var(--accent) !important;
+}
+
+/* Query cell: id badge + truncated query text (IDEA 6) */
+.evals-query-cell {
+  max-width: 320px;
+  white-space: normal !important;
+}
+
+.evals-qid {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.35rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+.evals-qtext {
+  display: inline;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  vertical-align: middle;
 }
 
 .evals-role-chip {
@@ -1748,5 +2141,439 @@ body {
 
   .evals-table {
     font-size: 0.62rem;
+  }
+}
+
+/* ─── Admin / ingest panel ─── */
+
+.admin-section {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 2rem;
+}
+
+.admin-header {
+  margin-bottom: 1.25rem;
+}
+
+.admin-title {
+  font-family: var(--font-display, "Bricolage Grotesque", serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem;
+}
+
+.admin-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--bg-surface, #fbf7ef);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.admin-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.admin-field label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.admin-field input[type="text"],
+.admin-field input[type="date"],
+.admin-field input[type="file"],
+.admin-field select {
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.12));
+  background: #fff;
+  color: var(--text-primary);
+}
+
+.admin-field input:focus,
+.admin-field select:focus {
+  outline: 2px solid var(--accent, #b45309);
+  outline-offset: 1px;
+}
+
+.admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.admin-btn {
+  position: relative;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--accent, #b45309);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 120ms ease, opacity 120ms ease;
+}
+
+.admin-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #92400e);
+}
+
+.admin-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.admin-btn-spinner {
+  display: none;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-left: 0.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: admin-spin 0.7s linear infinite;
+  vertical-align: -2px;
+}
+
+.admin-btn.loading .admin-btn-spinner {
+  display: inline-block;
+}
+
+@keyframes admin-spin {
+  to { transform: rotate(360deg); }
+}
+
+.admin-status {
+  font-size: 0.83rem;
+  line-height: 1.5;
+  padding: 0.7rem 0.9rem;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+}
+
+.admin-status-loading {
+  background: rgba(59, 130, 246, 0.08);
+  border-left-color: rgb(59, 130, 246);
+  color: var(--text-primary);
+}
+
+.admin-status-success {
+  background: rgba(22, 163, 74, 0.1);
+  border-left-color: rgb(22, 163, 74);
+  color: var(--text-primary);
+}
+
+.admin-status-error {
+  background: rgba(220, 38, 38, 0.1);
+  border-left-color: rgb(220, 38, 38);
+  color: var(--text-primary);
+}
+
+.admin-note {
+  display: block;
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #78716c);
+  line-height: 1.6;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+}
+
+.admin-note code {
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: 0.72rem;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+}
+
+/* ─── Guided Empty State (onboarding scenario grid) ─── */
+
+.onboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  max-width: 780px;
+  margin: 1.5rem auto 0.25rem;
+  text-align: left;
+}
+
+.onboard-card {
+  /* overrides .example-btn's inline-flex row layout */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 1rem 1.05rem 1.15rem;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--dur) var(--ease);
+  box-shadow: var(--shadow-card);
+}
+
+/* Single empty-state card (<div>): non-interactive container, clickable buttons live inside */
+div.onboard-card {
+  cursor: default;
+}
+
+/* Compare empty-state card (<button class="onboard-card onboard-card-compact">): fully clickable */
+button.onboard-card {
+  cursor: pointer;
+}
+
+button.onboard-card:hover {
+  border-color: var(--accent-dim);
+  background: var(--accent-subtle);
+  color: var(--text-secondary);
+  box-shadow: 0 4px 14px rgba(28, 26, 23, 0.07);
+  transform: translateY(-1px);
+}
+
+button.onboard-card:hover .onboard-card-title {
+  color: var(--accent-dim);
+}
+
+.onboard-card-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.onboard-card-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.onboard-card-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-top: 0.1rem;
+}
+
+.onboard-hint {
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 0.1rem;
+}
+
+/* UI-C: dual-action row inside Single empty-state cards.
+   Primary = runs in Single (deterministic full_policy preset).
+   Secondary = switches to Compare mode and runs side-by-side. */
+.onboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.onboard-primary,
+.onboard-secondary {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  box-shadow: none;
+}
+
+.onboard-primary {
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.onboard-primary:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+  color: #fff;
+}
+
+.onboard-secondary {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+}
+
+.onboard-secondary:hover {
+  background: var(--accent-subtle);
+  color: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+/* Compare empty-state cards — single-click whole card, no action row. */
+.onboard-card-compact {
+  gap: 0.35rem;
+  padding: 0.95rem 1rem 1.05rem;
+}
+
+/* UI-C: Compare onboarding empty state. Removed by setLoadingCompare() on first run. */
+.compare-empty-state {
+  padding-top: 2.5rem;
+  padding-bottom: 2rem;
+}
+
+@media (max-width: 720px) {
+  .onboard-grid {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+    gap: 0.7rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Mode-switch fade-in ─── */
+/* Applied transiently in switchMode() via .mode-enter, removed on animationend. */
+
+.mode-enter {
+  animation: mode-fade 200ms ease-out;
+}
+
+@keyframes mode-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Stale-state banner (UI-B) ─────────────────────────────────────────────
+   Shown above the results summary bar when the currently-checked role or
+   policy radios diverge from the (role, policy) pair that produced the
+   rendered result. The .results-stale class on #results-section dims the
+   cards below so the mismatch is immediately visible. Both are cleared on
+   Run, on Single preset click, and on mode switch away from Single. */
+
+.stale-results-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  margin-bottom: 0.85rem;
+  background: var(--accent-subtle);
+  border: 1px solid var(--policy-rbac-border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  animation: stale-banner-in var(--dur) var(--ease);
+}
+
+.stale-banner-icon {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.stale-banner-text {
+  line-height: 1.4;
+}
+
+.stale-banner-text strong {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent-dim);
+}
+
+@keyframes stale-banner-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#results-section.results-stale .summary-bar,
+#results-section.results-stale .result-card,
+#results-section.results-stale .blocked-section,
+#results-section.results-stale .trace-panel {
+  opacity: 0.6;
+  transition: opacity var(--dur) var(--ease);
+}
+
+/* ─── Reduced motion ─── */
+/* Respect user OS / browser preference. Disables new transitions and entrance
+   animations added in NICE-A / IDEA 13 while preserving functional behavior. */
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-enter,
+  .result-card,
+  .compare-col,
+  .compare-card,
+  .metric-card,
+  .search-btn.loading .btn-spinner,
+  .stale-results-banner {
+    animation: none !important;
+  }
+
+  .result-card,
+  .metric-card,
+  .compare-card,
+  .export-btn,
+  .trace-body,
+  .search-btn,
+  .onboard-card,
+  .admin-submit-btn,
+  #results-section.results-stale .summary-bar,
+  #results-section.results-stale .result-card,
+  #results-section.results-stale .blocked-section,
+  #results-section.results-stale .trace-panel {
+    transition: none !important;
+  }
+
+  .result-card:hover,
+  .metric-card:hover {
+    transform: none;
+  }
+
+  .trace-body {
+    transition: none !important;
   }
 }

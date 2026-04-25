@@ -78,6 +78,7 @@ def score_freshness(
             title=doc.title,
             short_summary=doc.short_summary,
             sensitivity=doc.sensitivity,
+            doc_type=doc.doc_type,
             freshness_score=freshness_score,
             is_stale=is_stale,
         )

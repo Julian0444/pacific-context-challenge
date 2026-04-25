@@ -90,6 +90,10 @@ def pack_budget(
                 freshness_score=doc.freshness_score,
                 tags=doc.tags,
                 token_count=tk,
+                title=doc.title,
+                doc_type=doc.doc_type,
+                date=doc.date,
+                superseded_by=doc.superseded_by,
             )
         )
         total_tokens += tk

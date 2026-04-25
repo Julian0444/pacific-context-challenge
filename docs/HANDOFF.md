@@ -2,1242 +2,50 @@
 
 ---
 
-## Session — 2026-04-05 (Session 1: Project Bootstrap)
-
-### Summary
-
-Bootstrapped the QueryTrace project from scratch:
-
-1. **Repo scaffolding** — Created full project structure. All `src/` Python modules created as stubs with docstrings and `raise NotImplementedError`. Frontend files (`index.html`, `app.js`, `styles.css`) created with working markup and JS that calls `POST /query`. Wrote initial `CLAUDE.md`.
-
-2. **Financial corpus** — Built a 12-document fictional corpus about Atlas Capital Partners evaluating the acquisition of Meridian Technologies ("Project Clearwater"). Documents span public filings, research notes, deal memos, financial models, internal emails, board materials, and an LP update. Two explicit stale/superseded pairs (doc_002→doc_003, doc_007→doc_008). Three role levels enforced via `min_role`. `corpus/metadata.json` and `corpus/roles.json` created.
-
-3. **Indexing and retrieval** — Implemented `src/indexer.py` and `src/retriever.py`. The indexer embeds with `all-MiniLM-L6-v2` and builds a FAISS `IndexFlatIP` (cosine similarity via normalized vectors). Artifacts persisted to `artifacts/`. Retriever loads the index and returns top-k results with full metadata.
-
-### Current State
-
-- **Branch:** `main`, commit `6e55da7` (Initial commit)
-- All work was uncommitted at end of session.
-
----
-
-## Session — 2026-04-05 (Session 2: Pipeline Implementation)
-
-### Summary
-
-Implemented the full retrieval pipeline using TDD (test-first for each module), wired the API endpoint, and updated `CLAUDE.md` to reflect the implemented state.
-
-**What was done:**
-
-1. **Fixed role default** in `src/models.py` — changed `QueryRequest.role` default from `"viewer"` to `"analyst"` to match corpus role definitions.
-
-2. **Implemented `src/policies.py`** — `load_roles()` reads `corpus/roles.json` and returns the roles dict. `filter_by_role()` compares the requesting role's `access_rank` against each document's `min_role` rank. Unknown roles raise `ValueError`. (6 tests)
-
-3. **Implemented `src/freshness.py`** — `compute_freshness()` uses exponential decay (`exp(-ln2 × age_days / half_life_days)`). `apply_freshness()` attaches `freshness_score` to each chunk and applies a 0.5× multiplicative penalty for superseded documents (`superseded_by != null`). Stale docs are demoted, not removed. (7 tests)
-
-4. **Implemented `src/context_assembler.py`** — Ranks chunks by a 50/50 weighted combination of similarity score and freshness score. Greedily packs chunks into a token budget (default 2048) using `tiktoken` (`cl100k_base` encoding). Falls back from `content` to `excerpt` key. Returns `(context_list, total_tokens)`. (5 tests)
-
-5. **Wired `src/main.py`** — Connected `POST /query` to the full pipeline: `retrieve → filter_by_role → apply_freshness → assemble`. Added CORS middleware. Roles and metadata loaded once at startup. Invalid roles return HTTP 400. (6 tests)
-
-6. **Updated `CLAUDE.md`** — Rewrote to reflect actual implemented architecture, commands, and remaining stubs.
-
-**Key design decisions:**
-
-- Data flows as plain dicts between pipeline stages (not Pydantic models). Conversion to `DocumentChunk` happens only at the response boundary in `main.py`.
-- The assembler uses `excerpt` (first 500 chars from indexer) when full `content` is not in the chunk — this is the case for retriever results.
-- Stale penalty is a constant `STALE_PENALTY = 0.5` in `freshness.py`.
-
-### Current State
-
-- **Branch:** `main`
-- **Commits:** `6e55da7` (Initial commit), `24c34a8` (Initial implementation)
-- **Working tree:** clean (all changes committed)
-- **Tests:** 24 passing (0 failing)
-  - `tests/test_policies.py` — 6 tests
-  - `tests/test_freshness.py` — 7 tests
-  - `tests/test_context_assembler.py` — 5 tests
-  - `tests/test_main.py` — 6 tests
-- **Server:** `POST /query` verified working end-to-end via `curl`
-- **FAISS index:** built and persisted in `artifacts/` (12 vectors, 384 dimensions)
-
-### Remaining Tasks (ordered)
-
-1. **Fix frontend role dropdown** — `frontend/index.html` has stale options (`viewer`, `analyst`, `admin`). Should be `analyst`, `vp`, `partner` to match `corpus/roles.json`. The `app.js` already sends the selected value correctly.
-
-2. **Implement `src/evaluator.py`** — All three functions (`load_test_queries`, `precision_at_k`, `run_evals`) still raise `NotImplementedError`. Should load queries from `evals/test_queries.json`, run them through the pipeline, and compute precision@k.
-
-3. **Populate `evals/test_queries.json`** — Current file has two placeholder entries with empty `expected_doc_ids` and one uses the invalid role `"viewer"`. Needs real test queries with expected document IDs based on the corpus and role access rules.
-
-4. **Decide on `artifacts/` gitignore** — The FAISS index and payloads are binary/generated files (~2MB). Either commit them for convenience or add to `.gitignore` and require `python3 -m src.indexer` after clone.
-
-5. **Frontend polish** — `app.js` renders `chunk.content` (which is the 500-char excerpt) and shows similarity `score`, but doesn't display `freshness_score` or `tags`. Consider showing these for debugging/demo purposes.
-
-### Blockers and Warnings
-
-- **Python 3.9 environment:** System Python is 3.9.6 with LibreSSL 2.8.3. `tf-keras` was installed to work around a Keras 3 incompatibility in `sentence-transformers`. Upgrading dependencies may break this.
-- **Freshness scores are very small:** All corpus documents are from 2023–2024, so with the default `half_life_days=30` and a current date in 2026, freshness scores are near zero (e.g., `2.1e-08`). This means the assembler ranking is dominated by similarity score in practice. Consider increasing `half_life_days` or using the document dates relative to each other rather than absolute age.
-- **No `__init__.py` in `src/`:** The package works because imports use `src.module` syntax and the repo root is on `sys.path`, but adding one may be needed for certain tooling.
-
-### Suggested First Action
-
-Fix the frontend role dropdown in `frontend/index.html` (change options to `analyst`/`vp`/`partner`) — it's a one-minute fix and makes the UI functional for demos. Then tackle the evaluator.
-
----
-
-## Session — 2026-04-05 16:30 (Session 3: Evaluation Harness)
-
-### Summary
-
-Implemented the full evaluation harness (`src/evaluator.py`) and replaced placeholder eval queries with 8 realistic, corpus-grounded test cases covering all required scenario types.
-
-**What was done:**
-
-1. **Implemented `src/evaluator.py`** — Three functions fully implemented:
-   - `load_test_queries(path)` — loads and validates query dicts from JSON.
-   - `precision_at_k(retrieved_ids, expected_ids, k)` — standard P@k with denominator clamped to `min(k, len(retrieved))` to avoid penalizing short results caused by role filtering or budget.
-   - `run_evals(queries, k, top_k, token_budget)` — runs the full pipeline (`retrieve → filter_by_role → apply_freshness → assemble`) for each query and returns per-query and aggregate metrics.
-   - Metrics computed: precision@k, recall, permission_violation_rate, avg_context_docs, avg_total_tokens, avg_freshness_score.
-   - CLI entry point: `python3 -m src.evaluator` (with `--k`, `--top-k`, `--token-budget` flags).
-
-2. **Replaced `evals/test_queries.json`** — 8 real queries based on the Atlas Capital / Meridian corpus, each with `expected_doc_ids`, `forbidden_doc_ids` (where relevant), and a `notes` field explaining the intent:
-   - q001: ARR/NRR normal retrieval (analyst)
-   - q002: Summit Financial estimate revision / stale doc (analyst)
-   - q003: Permissions wall — analyst blocked from 5 vp/partner docs in raw top-8 (analyst)
-   - q004: Customer concentration breakdown (vp)
-   - q005: Financial model v1 vs v2 revision (vp)
-   - q006: IC recommendation and deal structure (partner)
-   - q007: Integration risks and CTO departure (vp)
-   - q008: LP quarterly update / partner-only reporting (partner)
-
-3. **Added `tests/test_evaluator.py`** — 16 tests: 6 unit tests for `precision_at_k`, 4 for `load_test_queries`, and 6 integration tests running the full pipeline.
-
-**Key design decisions:**
-
-- Evaluates against the **final assembled context** (not raw retriever candidates), since that is what QueryTrace surfaces to users.
-- `precision_at_k` clamps k to `len(retrieved)` — a context of 3 docs (due to analyst filtering) should not be scored as if 5 were expected.
-- `forbidden_doc_ids` used only where a role boundary is meaningfully tested (q003 analyst, q004/q007 vp). Partner queries have no forbidden docs since partner sees everything.
-- Pipeline imports are deferred inside `run_evals()` to avoid loading the sentence-transformer model at import time.
-
-**Observed eval results (actual pipeline output):**
-- Avg Precision@5: **0.3354** — low because assembled context contains many semantically adjacent docs beyond the narrow expected set.
-- Avg Recall: **1.0000** — all expected docs are found within the 2048-token budget.
-- Permission violation rate: **0%** — role filtering is working correctly across all 8 queries.
-- Avg freshness score: **2.0e-08** — confirms the freshness-dominates-nothing issue (see Blockers).
-
-### Current State
-
-- **Branch:** `main`
-- **Commits:** `6e55da7` (Initial commit), `24c34a8` (Initial implementation)
-- **Working tree:** uncommitted changes in `src/evaluator.py`, `evals/test_queries.json`, `docs/HANDOFF.md`; untracked `tests/test_evaluator.py`
-- **Tests:** 40 passing (0 failing)
-  - `tests/test_policies.py` — 6 tests
-  - `tests/test_freshness.py` — 7 tests
-  - `tests/test_context_assembler.py` — 5 tests
-  - `tests/test_main.py` — 6 tests
-  - `tests/test_evaluator.py` — 16 tests
-
-### Remaining Tasks (ordered)
-
-1. **Fix frontend role dropdown** — `frontend/index.html` has options `viewer`, `analyst`, `admin`. Change to `analyst`, `vp`, `partner`.
-
-2. **Fix freshness half-life** — With `half_life_days=30` and a corpus from 2023–2024, all freshness scores are ~1e-8 by 2026. The stale demotion (0.5× penalty) is invisible at this scale. Options: (a) increase `half_life_days` to ~365 so scores are distinguishable, or (b) compute freshness relative to the newest document in the corpus rather than absolute calendar time. This is the highest-impact quality fix.
-
-3. **Commit all uncommitted work** — `src/evaluator.py`, `evals/test_queries.json`, `tests/test_evaluator.py`, `docs/HANDOFF.md` are all modified/untracked and need a commit.
-
-4. **Decide on `artifacts/` gitignore** — FAISS index and payloads are binary/generated. Either commit them (convenience) or add to `.gitignore` and document `python3 -m src.indexer` as a setup step.
-
-5. **Frontend polish** — `app.js` shows `score` but not `freshness_score` or `tags`. Low priority but useful for demos.
-
-### Blockers and Warnings
-
-- **Freshness scores are effectively zero:** `half_life_days=30` with 2-year-old corpus makes all freshness scores ~1e-8. The 0.5× stale penalty in `freshness.py` has no observable effect on ranking since `0.5 × 1e-8 ≈ 1e-8`. Fix by raising `half_life_days` to ~365 in `freshness.py` (`STALE_PENALTY` and decay both need updating for the effect to be visible in evals).
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility. Upgrading deps may break this.
-- **No `__init__.py` in `src/`:** Works via `src.module` import style with repo root on `sys.path`. Certain tooling (e.g., mypy, some IDEs) may need it.
-
-### Suggested First Action
-
-Fix the freshness half-life in `src/freshness.py` — change `half_life_days=30` default to `365` (or make it corpus-relative). Re-run `python3 -m src.evaluator` and confirm that stale docs (doc_002, doc_007) rank visibly below their current replacements (doc_003, doc_008) in the assembled context output. This is the single change that makes the freshness feature meaningful.
-
----
-
-## Session — 2026-04-05 (Session 4: Corpus-Relative Freshness)
-
-### Summary
-
-Fixed the freshness scoring problem so stale-document demotion is meaningful and visible in eval output.
-
-**What was done:**
-
-1. **Switched to corpus-relative freshness** in `src/freshness.py` — age is now measured from the newest document in the corpus (`max(doc dates)` = `2024-04-18`), not from the current calendar date. This makes freshness scores time-independent: they remain in a useful 0.5–1.0 range regardless of when the eval runs. Added a `reference_date` parameter to `compute_freshness()`; `apply_freshness()` derives it automatically from the metadata.
-
-2. **Changed `half_life_days` default** from 30 to 365 — appropriate for a corpus spanning ~10 months (2023-06 to 2024-04).
-
-3. **Updated `tests/test_freshness.py`** — added 5 new tests for corpus-relative behavior: explicit reference_date, newer-vs-older comparison, meaningful score range, and visible stale-pair demotion gap (>0.3). All 7 original tests still pass unchanged (they explicitly passed `half_life_days=30`).
-
-4. **Added evaluator freshness assertion** in `tests/test_evaluator.py` — `test_run_evals_freshness_is_meaningful` asserts `avg_freshness_score > 0.1` to prevent regression.
-
-**Impact on eval output:**
-
-| Metric | Before | After |
-|--------|--------|-------|
-| avg_freshness_score | 2.0e-08 | **7.58e-01** |
-| Stale doc ranking | indistinguishable from fresh | visibly demoted |
-
-Concrete ranking improvements:
-- q001: `doc_003` (current Q4 note) now ranks above `doc_002` (stale Q3 note)
-- q003: `doc_005` (correct answer) now ranks first (freshness tiebreak)
-- q007: `doc_009` + `doc_006` now rank 1st/2nd instead of stale `doc_002` being ahead
-
-**Key design decision:** Corpus-relative dating was chosen over simply increasing `half_life_days` because it produces time-independent scores. Running the evaluator in 2026 or 2030 yields the same results.
-
-### Current State
-
-- **Branch:** `main`
-- **Commits:** `6e55da7` (Initial commit), `24c34a8` (Initial implementation)
-- **Working tree:** uncommitted changes in `src/freshness.py`, `src/evaluator.py`, `evals/test_queries.json`, `tests/test_freshness.py`, `docs/HANDOFF.md`; untracked `tests/test_evaluator.py`
-- **Tests:** 46 passing (0 failing)
-  - `tests/test_policies.py` — 6 tests
-  - `tests/test_freshness.py` — 12 tests
-  - `tests/test_context_assembler.py` — 5 tests
-  - `tests/test_main.py` — 6 tests
-  - `tests/test_evaluator.py` — 17 tests
-
-### Remaining Tasks (ordered)
-
-1. ~~Fix freshness half-life~~ — **Done.** Corpus-relative freshness implemented, stale demotion is visible.
-
-2. **Fix frontend role dropdown** — `frontend/index.html` has options `viewer`, `analyst`, `admin`. Change to `analyst`, `vp`, `partner`.
-
-3. **Commit all uncommitted work** — Everything from Sessions 3 and 4 is uncommitted: `src/evaluator.py`, `src/freshness.py`, `evals/test_queries.json`, `tests/test_evaluator.py`, `tests/test_freshness.py`, `docs/HANDOFF.md`.
-
-4. **Decide on `artifacts/` gitignore** — FAISS index and payloads are binary/generated. Either commit them (convenience) or add to `.gitignore` and document `python3 -m src.indexer` as a setup step.
-
-5. **Frontend polish** — `app.js` shows `score` but not `freshness_score` or `tags`. Low priority but useful for demos.
-
-### Blockers and Warnings
-
-- ~~**Freshness scores are effectively zero**~~ — **Resolved.** Corpus-relative dating produces scores in 0.5–1.0 range.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility. Upgrading deps may break this.
-- **No `__init__.py` in `src/`:** Works via `src.module` import style with repo root on `sys.path`. Certain tooling (e.g., mypy, some IDEs) may need it.
-
-### Suggested First Action
-
-Fix the frontend role dropdown (`frontend/index.html` — change `viewer`/`analyst`/`admin` to `analyst`/`vp`/`partner`), then commit all uncommitted work from Sessions 2–4.
-
----
-
-## Session — 2026-04-06 (Session 5: Commit & Consolidation)
-
-### Summary
-
-All work from Sessions 3 and 4 (evaluator harness, test queries, corpus-relative freshness) was committed in a single commit.
-
-- **Commit `5e2db23`** — "Task 5": includes `src/evaluator.py`, `src/freshness.py`, `evals/test_queries.json`, `tests/test_evaluator.py`, `tests/test_freshness.py`, `docs/HANDOFF.md`.
-
-No code changes were made in this session beyond the commit.
-
-### Current State
-
-- **Branch:** `main`
-- **Commits:** `6e55da7` (Initial commit) → `24c34a8` (Initial implementation) → `5e2db23` (Task 5)
-- **Working tree:** clean (untracked files are only auto-generated skill definitions in `.claude/skills/` and `.agents/`, not project code)
-- **Tests:** 46 passing (0 failing)
-  - `tests/test_policies.py` — 6 tests
-  - `tests/test_freshness.py` — 12 tests
-  - `tests/test_context_assembler.py` — 5 tests
-  - `tests/test_main.py` — 6 tests
-  - `tests/test_evaluator.py` — 17 tests
-
-### Remaining Tasks (ordered)
-
-1. **Fix frontend role dropdown** — `frontend/index.html` has options `viewer`, `analyst`, `admin`. Change to `analyst`, `vp`, `partner`. One-minute fix.
-
-2. **Decide on `artifacts/` gitignore** — FAISS index and payloads are binary/generated (~2MB). Either commit them or add to `.gitignore` and require `python3 -m src.indexer` after clone.
-
-3. **Frontend polish** — `app.js` shows `score` but not `freshness_score` or `tags`. Low priority but useful for demos.
-
-### Blockers and Warnings
-
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility. Upgrading deps may break this.
-- **No `__init__.py` in `src/`:** Works via `src.module` import style with repo root on `sys.path`. Certain tooling (e.g., mypy, some IDEs) may need it.
-
-### Suggested First Action
-
-Fix the frontend role dropdown in `frontend/index.html` — change the three `<option>` values from `viewer`/`analyst`/`admin` to `analyst`/`vp`/`partner`. Then open the page in a browser and verify `POST /query` works with each role.
-
----
-
-## Session — 2026-04-06 (Session 6: Frontend Redesign)
-
-### Summary
-
-Complete frontend redesign from the basic scaffold into a polished, demo-ready interface. Fixed the stale role dropdown and rebuilt all three frontend files from scratch.
-
-**What was done:**
-
-1. **Fixed role alignment** — Replaced `viewer`/`analyst`/`admin` with `analyst`/`vp`/`partner` as radio-chip toggles. Zero occurrences of old invalid roles remain.
-
-2. **Redesigned the UI** — "Midnight Analysis Desk" aesthetic: dark navy-black base (`#08090d`), warm amber/gold accent (`#c8a55a`), Bricolage Grotesque display font, IBM Plex Mono for data. Designed as an internal analysis/context-inspection tool, not a generic search page.
-
-3. **Added rich data display** — Each result card now shows:
-   - `doc_id` with rank number
-   - Content excerpt (4-line clamp)
-   - Relevance score as horizontal bar + numeric value
-   - Freshness score as horizontal bar + numeric value
-   - Tags as muted pills
-   - Left accent stripe colored by score quality (green/amber/red)
-   - Summary bar above results: document count, token count, role
-
-4. **Added UX improvements:**
-   - 3 example query buttons ("ARR growth", "DD risks", "IC memo") that auto-fill query + role and submit
-   - Loading state with skeleton cards and shimmer animation
-   - Network-specific error messaging ("Backend unavailable" with start command vs API errors)
-   - Empty state with hexagon icon and description of what QueryTrace does
-   - No-results state for empty context arrays
-   - Spinner on submit button during loading
-   - `top_k=8` default aligned with project direction
-
-5. **Verified end-to-end** — Server started, `POST /query` tested with all three roles, invalid role returns 400, all data fields (score, freshness_score, tags, total_tokens, doc_id) rendered correctly. 46 tests still passing.
-
-**Design decisions:**
-- Static HTML + CSS + vanilla JS (no frameworks, no build step)
-- Google Fonts loaded from CDN (Bricolage Grotesque, IBM Plex Mono)
-- CSS variables for full theme consistency
-- Responsive layout (mobile stacks search row and metrics)
-- `escapeHTML()` used for all user/API content to prevent XSS
-
-### Current State
-
-- **Branch:** `main`
-- **Commits:** `6e55da7` → `24c34a8` → `5e2db23` (Task 5)
-- **Working tree:** modified `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`, `docs/HANDOFF.md`
-- **Tests:** 46 passing (0 failing)
-
-### Remaining Tasks (ordered)
-
-1. ~~Fix frontend role dropdown~~ — **Done.** Roles are `analyst`/`vp`/`partner`.
-
-2. ~~Frontend polish~~ — **Done.** Score, freshness_score, tags, total_tokens all rendered with metric bars and pills.
-
-3. **Commit frontend work** — `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`, `docs/HANDOFF.md` are modified and uncommitted.
-
-4. **Decide on `artifacts/` gitignore** — FAISS index and payloads are binary/generated (~2MB). Either commit them or add to `.gitignore` and require `python3 -m src.indexer` after clone.
-
-### Blockers and Warnings
-
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility. Upgrading deps may break this.
-- **No `__init__.py` in `src/`:** Works via `src.module` import style with repo root on `sys.path`. Certain tooling may need it.
-- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from `fonts.googleapis.com`. If offline, falls back to `system-ui` and `Menlo`/`monospace`.
-
-### Suggested First Action
-
-Commit the frontend changes, then open `frontend/index.html` in a browser with the server running (`uvicorn src.main:app --reload`) and click each example query button to confirm the full demo flow works visually.
-
----
-
-## Session — 2026-04-10 (Session 7: Contract Models & Protocols)
-
-### Summary
-
-Introduced the full Pydantic contract layer (`src/models.py`) and the Protocol interface file (`src/protocols.py`) that will underpin `pipeline.py` + `stages/`. No existing pipeline logic was changed — this session is pure contracts.
-
-**What was done:**
-
-1. **Rewrote `src/models.py`** — 13 typed models covering the full pipeline from upstream to downstream:
-   - `UserContext`, `PolicyConfig` — request context and run-time knobs
-   - `ScoredDocument` — typed shape for retriever output (`extra="ignore"` to absorb `rank`, `file_name`, `type` keys the retriever adds)
-   - `FreshnessScoredDocument` — after `apply_freshness`; adds `freshness_score` + `is_stale`
-   - `BlockedDocument`, `StaleDocument`, `IncludedDocument` — decision outcomes for the trace
-   - `TraceMetrics`, `DecisionTrace` — observability layer; `DecisionTrace` nests all three outcome lists + metrics
-   - `PipelineResult` — internal result before API serialisation; holds `context`, `total_tokens`, optional `trace`
-   - `QueryRequest` — backward compat; adds `policy_name: str = "default"` alongside existing `query`/`role`/`top_k`
-   - `QueryResponse` — backward compat; adds `decision_trace: Optional[DecisionTrace] = None`; `context` + `total_tokens` unchanged
-   - `DocumentChunk` — preserved verbatim; used by the live endpoint
-
-   All domain models: `frozen=True + extra="forbid"`. `ScoredDocument`: `frozen=True + extra="ignore"`. API boundary models: `extra="forbid"` only (no frozen, FastAPI handles construction).
-
-2. **Created `src/protocols.py`** — three `@runtime_checkable` Protocol classes:
-   - `RetrieverProtocol` — `(query: str, top_k: int) → List[Dict]`; satisfied by `src.retriever.retrieve` and any BM25/stub alternative
-   - `RoleStoreProtocol` — dict-like access to roles; decouples `main.py` load from pipeline stages
-   - `MetadataStoreProtocol` — dict-like access to corpus metadata
-
-3. **Created `tests/test_models.py`** — 24 contract tests covering required fields, defaults, immutability, `extra` rejection, and backward-compat API fields.
-
-### Compatibility Decisions
-
-| Decision | Reason |
-|----------|--------|
-| `ScoredDocument` uses `extra="ignore"` | Retriever returns `rank`, `file_name`, `type` — strict rejection would break ingestion |
-| `FreshnessScoredDocument` does NOT inherit `ScoredDocument` | Avoids Pydantic v2 frozen-model inheritance complexity; conversion via `model_dump() \| {...}` |
-| `policy_name` added to `QueryRequest` | New field with safe default — existing clients unaffected |
-| `decision_trace` is `Optional` in `QueryResponse` | Currently always `null`; existing frontend ignores unknown keys |
-| `DocumentChunk` left without frozen/forbid | Active in the live response path — hardening deferred until pipeline.py lands |
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `ae7766f` (Task 6 and backend almost done)
-- **Working tree:** modified `src/models.py`, `CLAUDE.md`; untracked `src/protocols.py`, `tests/test_models.py`, `docs/HANDOFF.md`
-- **Tests:** 70 passing, 0 failing (46 original + 24 new contract tests)
-- **Verified:** `POST /query` returns `query`, `context`, `total_tokens` — frontend unbroken
-
-### Remaining Tasks (ordered)
-
-1. **Commit this session's work** — `src/models.py`, `src/protocols.py`, `tests/test_models.py`, `docs/HANDOFF.md`.
-
-2. **Implement `src/pipeline.py`** — Orchestrator that wires `RetrieverProtocol → filter_by_role → apply_freshness → assemble` using the new typed models; replaces the inline logic in `main.py`. Should populate `DecisionTrace` as it runs.
-
-3. **Implement `src/stages/`** — Individual stage functions typed against the new models (input/output as Pydantic models, not dicts).
-
-4. **Wire `main.py` to `pipeline.py`** — Replace the current inline pipeline with a call to the new orchestrator; `decision_trace` in the response will then be non-null.
-
-5. **Hybrid retrieval** — BM25 + semantic fusion (satisfies `RetrieverProtocol`; no changes to downstream stages needed).
-
-6. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary. Commit for convenience or `.gitignore` + document `python3 -m src.indexer`.
-
-### Blockers and Warnings
-
-- **`ScoredDocument` not yet used by live pipeline** — The retriever still returns raw dicts; `pipeline.py` will need `ScoredDocument.model_validate(raw_dict)` at the ingestion boundary.
-- **`CLAUDE.md` stale** — Says `evaluator.py` is not implemented and `evals/test_queries.json` has placeholders. Both are wrong. Needs a one-time cleanup.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed to work around Keras 3 incompatibility.
-- **Google Fonts dependency:** Frontend loads from CDN; falls back to system fonts offline.
-
-### Suggested First Action
-
-Commit the session work, then start `src/pipeline.py`: define `run_pipeline(request: QueryRequest, retriever: RetrieverProtocol, roles: RoleStoreProtocol, metadata: MetadataStoreProtocol) → PipelineResult` and move the inline logic from `main.py` into it, converting each stage's dict output to the appropriate typed model.
-
----
-
-## Session — 2026-04-11 (Session 8: Pipeline Orchestrator)
-
-### Summary
-
-Implemented the explicit pipeline orchestrator (`src/pipeline.py`), introduced policy presets, and rewired `main.py` to be a minimal HTTP boundary. All existing tests pass unchanged alongside 18 new pipeline integration tests.
-
-**What was done:**
-
-1. **Created `src/pipeline.py`** — Five-stage orchestrator with abort-on-first-failure semantics:
-   - `_retrieve_stage` — calls `RetrieverProtocol`, validates each result into `ScoredDocument`
-   - `_permission_stage` — compares access ranks, produces `(permitted, List[BlockedDocument])`
-   - `_freshness_stage` — wraps existing `apply_freshness`, produces `(List[FreshnessScoredDocument], List[StaleDocument])`
-   - `_assemble_stage` — wraps existing `assemble()` or bypasses budget when `skip_budget=True`
-   - `_build_trace` — assembles `DecisionTrace` from all stage outputs
-   - Each stage returns `StageOk | StageErr`. `_unwrap()` raises `PipelineError` on `StageErr`.
-   - `run_pipeline()` is the single public entry point.
-
-2. **Introduced policy presets in `src/policies.py`**:
-   - `naive_top_k` — dangerous baseline: retrieval only, no permission filter, no freshness, no budget enforcement (`skip_permission_filter=True`, `skip_freshness=True`, `skip_budget=True`)
-   - `permission_aware` — retrieval + RBAC, no freshness, budget enforced (`skip_freshness=True`)
-   - `full_policy` — full pipeline: RBAC + freshness + budget
-   - `default` — alias for `full_policy`
-   - `resolve_policy(name, top_k)` resolves a preset and applies the request's `top_k` override
-
-3. **Extended `PolicyConfig`** in `src/models.py` — added `skip_permission_filter`, `skip_freshness`, `skip_budget` (all default `False`, backward-compatible)
-
-4. **Rewired `src/main.py`** — Now a minimal HTTP boundary: validate role → `run_pipeline()` → map `PipelineResult` to `QueryResponse`. No pipeline business logic remains. `decision_trace` is now populated in every response.
-
-5. **Fixed protocol definitions** (P0-1, P0-2 from integration plan):
-   - `MetadataStoreProtocol` — updated to match actual raw metadata shape (`metadata["documents"]` → list)
-   - `RoleStoreProtocol.keys()` — return type changed from `List[str]` to `Iterable[str]`
-
-6. **Added `token_count` to assembler output** (P1-1) — `context_assembler.py` now includes `token_count` in each output dict, required by `IncludedDocument`
-
-7. **Created `tests/test_pipeline.py`** — 18 integration tests covering:
-   - Happy path (default, full_policy)
-   - Trace metrics, user context, policy config in trace
-   - Analyst blocked docs in trace, partner sees all
-   - Stale docs in trace
-   - Token budget enforcement, small budget limits context
-   - All three policy presets (naive_top_k, permission_aware, full_policy)
-   - Retriever failure → PipelineError, empty retrieval, invalid policy name
-
-**Key design decisions:**
-
-| Decision | Reason |
-|----------|--------|
-| Wrap existing stage functions, don't rewrite | Avoid breaking existing tests; typed stages deferred to P3 |
-| `StageOk` / `StageErr` dataclasses, not exceptions | Each stage result is inspectable; pipeline controls flow, not exceptions |
-| `PipelineError` exception for abort | Clean for the HTTP boundary to catch and map to 500 |
-| Permission check reimplemented in pipeline (not calling `filter_by_role`) | Avoids model→dict→model roundtrip; logic is 3 lines |
-| `naive_top_k` skips budget | Spec requires it as the dangerous baseline — retrieval only |
-| `resolve_policy` uses `model_copy(update=...)` for top_k override | PolicyConfig is frozen; can't mutate |
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `ae7766f` (Task 6 and backend almost done)
-- **Working tree:** modified `src/models.py`, `src/protocols.py`, `src/policies.py`, `src/context_assembler.py`, `src/main.py`, `CLAUDE.md`, `docs/HANDOFF.md`; untracked `src/pipeline.py`, `tests/test_pipeline.py`, `tests/test_models.py`, `docs/plans/`
-- **Tests:** 88 passing (0 failing)
-  - `tests/test_policies.py` — 6 tests
-  - `tests/test_freshness.py` — 12 tests
-  - `tests/test_context_assembler.py` — 5 tests
-  - `tests/test_main.py` — 6 tests
-  - `tests/test_evaluator.py` — 17 tests
-  - `tests/test_models.py` — 24 tests
-  - `tests/test_pipeline.py` — 18 tests
-- **Endpoint verified:** `POST /query` returns `query`, `context` (with doc_id/content/score/freshness_score/tags), `total_tokens`, and `decision_trace`
-- **Frontend compatible:** response shape unchanged for existing fields; `decision_trace` is additive
-
-### Remaining Tasks (ordered)
-
-1. **Commit all uncommitted work** — Session 7 (models, protocols, test_models) and Session 8 (pipeline, policies, main rewire, assembler fix, test_pipeline, plans).
-
-2. **Wire `evaluator.py` to `pipeline.py`** (P2-3) — Replace the duplicated inline pipeline in `run_evals()` with calls to `run_pipeline()`. Extract metrics from `PipelineResult.trace`.
-
-3. **Create `src/stages/`** with typed stage functions (P3-1) — Each function accepts and returns Pydantic models, replacing dict↔model conversion in pipeline.py.
-
-4. **Refactor `freshness.py`** to return new dicts instead of mutating in-place (P3-2) — Required before P3-1 can fully land.
-
-5. **Clean up `CLAUDE.md`** (P3-3) — Remove stale claims about evaluator and test_queries.
-
-6. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary.
-
-### Blockers and Warnings
-
-- **`evaluator.py` still has its own inline pipeline** — Runs retrieve → filter → freshness → assemble independently. Should be wired to `run_pipeline()` to avoid logic divergence.
-- **`freshness.py` mutates dicts in-place** — Incompatible with frozen Pydantic models. The pipeline works around this by converting to/from dicts at the boundary, but typed stages (P3-1) require this to be fixed first.
-- **`CLAUDE.md` stale** — Still says `evaluator.py` is not implemented and `evals/test_queries.json` has placeholders.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-- **Google Fonts dependency:** Frontend loads from CDN; falls back to system fonts offline.
-
-### Suggested First Action
-
-Commit all uncommitted work from Sessions 7 and 8. Then wire `evaluator.py` to `run_pipeline()` (P2-3) — this eliminates the last copy of inline pipeline logic.
-
----
-
-## Session — 2026-04-11 (Session 9 / Prompt 3: Typed Stages & Trace Hardening)
-
-### Summary
-
-Created `src/stages/` with four typed, pure-compute stage modules, refactored `pipeline.py` to delegate to them, and hardened the `DecisionTrace` model with missing observability fields. A hostile review pass identified gaps that were fixed before closing the session.
-
-**What was done:**
-
-1. **Created `src/stages/`** — four typed stage modules with named result dataclasses (no I/O, no side effects):
-   - `permission_filter.py` — `filter_permissions(docs, user_ctx, roles) → PermissionResult`; handles unknown `min_role` values by blocking rather than aborting.
-   - `freshness_scorer.py` — `score_freshness(docs, metadata, half_life_days) → FreshnessResult`; calls `compute_freshness()` directly and constructs new typed objects (no in-place mutation). Tracks stale docs with `penalty_applied` field.
-   - `budget_packer.py` — `pack_budget(docs, token_budget, enforce_budget) → BudgetResult`; ranks by 50/50 combined score, tracks documents dropped by budget as `DroppedByBudget`.
-   - `trace_builder.py` — `build_trace(...) → DecisionTrace`; aggregates all stage outputs including `ttft_proxy_ms` and `budget_utilization`.
-
-2. **Refactored `src/pipeline.py`** — Stage wrapper functions now delegate entirely to `src/stages/`. Stage results are named dataclasses (`PermissionResult`, `FreshnessResult`, `BudgetResult`) instead of raw tuples. Added `time.monotonic()` timing for `ttft_proxy_ms`.
-
-3. **Hardened `src/models.py`** (hostile review fixes):
-   - Added `DroppedByBudget` model — docs that scored well but were cut by the token budget.
-   - Renamed `DecisionTrace.blocked` → `blocked_by_permission` and `stale` → `demoted_as_stale` for unambiguous field names.
-   - Added `DecisionTrace.dropped_by_budget`, `total_tokens`, and `ttft_proxy_ms`.
-   - Added `TraceMetrics.dropped_count` and `budget_utilization`.
-
-4. **Added `tests/test_stages.py`** — 435-line test file with unit tests for each stage in isolation (synthetic inputs, no FAISS) and pipeline-level integration tests for blocked/stale/dropped-by-budget scenarios.
-
-5. **Updated `tests/test_models.py`** and **`tests/test_pipeline.py`** — Added coverage for new model fields and updated assertions for renamed `DecisionTrace` fields.
-
-**Hostile review findings and fixes:**
-
-| Finding | Fix |
-|---------|-----|
-| `DecisionTrace.blocked` and `stale` were ambiguous — same names used in `policies.py` for different semantics | Renamed to `blocked_by_permission` and `demoted_as_stale` |
-| No tracking of documents dropped by the token budget | Added `DroppedByBudget` model + `dropped_by_budget` list on `DecisionTrace` |
-| `TraceMetrics` had no `dropped_count` or `budget_utilization` | Both fields added |
-| No latency signal on the trace | Added `ttft_proxy_ms` (wall-clock time of `run_pipeline()`) |
-| Pipeline stage functions had logic inline instead of delegating to typed stages | Extracted into `src/stages/`; pipeline wrappers are now thin error boundaries only |
-| Stage results were raw tuples — fragile destructuring | Replaced with frozen dataclasses (`PermissionResult`, `FreshnessResult`, `BudgetResult`) |
-
-**Key design decisions:**
-
-- `freshness_scorer.py` calls `compute_freshness()` directly (bypasses `apply_freshness()` which mutates dicts). The mutation API in `freshness.py` is preserved for backward-compat with `evaluator.py` but is no longer on the critical path.
-- `budget_packer.py` handles `enforce_budget=False` (the `naive_top_k` preset) via the same function — no separate code path.
-- Unknown `min_role` values in `permission_filter.py` produce a blocked entry instead of raising, preventing a bad corpus doc from aborting an otherwise valid query.
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `71f0258` (Task 2 completed)
-- **Working tree:** modified `src/models.py` (staged), `src/pipeline.py` (unstaged), `tests/test_models.py` (staged), `tests/test_pipeline.py` (unstaged), `CLAUDE.md` (unstaged), `docs/HANDOFF.md` (unstaged), `docs/plans/2026-04-10-pipeline-integration-plan.md` (unstaged); untracked `src/stages/`, `tests/test_stages.py`
-- **Tests:** 117 passing (0 failing)
-  - `tests/test_policies.py` — 6 tests
-  - `tests/test_freshness.py` — 12 tests
-  - `tests/test_context_assembler.py` — 5 tests
-  - `tests/test_main.py` — 6 tests
-  - `tests/test_evaluator.py` — 17 tests
-  - `tests/test_models.py` — updated (staged)
-  - `tests/test_pipeline.py` — updated (unstaged)
-  - `tests/test_stages.py` — 29 new tests (untracked)
-
-### Remaining Tasks (ordered)
-
-1. **Commit all work** — `src/models.py`, `src/pipeline.py`, `src/stages/`, `tests/test_models.py`, `tests/test_pipeline.py`, `tests/test_stages.py`, `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`.
-
-2. **Wire `evaluator.py` to `pipeline.py`** (P2-3) — `run_evals()` still contains its own inline pipeline. Replace with `run_pipeline()` calls. This eliminates the last copy of duplicated pipeline logic.
-
-3. **`freshness.py` mutation** (P3-2 remainder) — `apply_freshness()` still mutates dicts in-place. The stages layer works around this, but a clean refactor would return new dicts. Low urgency now that stages bypass the mutation.
-
-4. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary; either commit or require `python3 -m src.indexer` after clone.
-
-### Blockers and Warnings
-
-- **`evaluator.py` still has its own inline pipeline** — Diverges from `pipeline.py` and won't benefit from future stage improvements. Wire to `run_pipeline()` before adding more policy presets.
-- **`freshness.py` `apply_freshness()` still mutates** — Not on the critical request path anymore (stages bypass it) but still called by `evaluator.py`'s inline pipeline.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-
-### Suggested First Action
-
-Commit all uncommitted work from Sessions 7, 8, and 9. Then wire `evaluator.py` to `run_pipeline()` (P2-3).
-
----
-
-## Session — 2026-04-11 (Session 10 / Prompt 4: Hybrid Retrieval)
-
-### Summary
-
-Replaced the pure semantic (FAISS-only) retriever with a hybrid retriever combining FAISS cosine similarity and BM25 lexical matching via Reciprocal Rank Fusion (RRF). Added 20 retriever tests, regenerated artifacts, and addressed an evaluator regression caused by the changed ranking.
-
-**What was done:**
-
-1. **Rewrote `src/retriever.py`** — Hybrid retrieval replaces semantic-only:
-   - `_semantic_ranks()` — FAISS cosine similarity over all corpus docs (1-based rank dict)
-   - `_bm25_ranks()` — BM25Okapi over tokenized corpus (1-based rank dict)
-   - `_rrf_fuse()` — Reciprocal Rank Fusion: `score(d) = 1/(60+rank_sem) + 1/(60+rank_bm25)`; docs missing from one ranking get worst-case default rank
-   - `_normalize_scores()` — min-max normalizes fused scores to [0, 1]
-   - `retrieve()` is now the hybrid entry point; `semantic_retrieve()` preserved for comparison and backward-compat testing
-   - Both satisfy `RetrieverProtocol` — no downstream stage changes needed
-   - Lazy-loaded singletons for both the sentence-transformers model and the BM25 object
-
-2. **Extended `src/indexer.py`** — Added BM25 corpus building:
-   - `tokenize_for_bm25()` — lowercase, stopword-filtered, min-length-2 tokenizer
-   - `build_bm25_corpus()` — tokenizes all docs in corpus order (same row order as FAISS)
-   - `save_bm25_corpus()` / `load_bm25_corpus()` — persist to/from `artifacts/bm25_corpus.json`
-   - `build_and_save()` updated to also build and save the BM25 corpus
-
-3. **Added `rank_bm25` to `requirements.txt`**
-
-4. **Generated and committed `artifacts/bm25_corpus.json`** — Built by running `python3 -m src.indexer`. The FAISS index (`querytrace.index`, `index_documents.json`) was already present from a prior session; only the BM25 corpus was new.
-
-5. **Added `tests/test_retriever.py`** — 20 tests across four classes:
-   - `TestProtocol` (2) — both `retrieve` and `semantic_retrieve` satisfy `RetrieverProtocol`
-   - `TestResultShape` (6) — result is a list of dicts, required keys present, scores in [0,1], top score = 1.0, ranks sequential, top_k clamped to corpus size
-   - `TestHybridVsSemantic` (4) — BM25 materially changes ranking for exact-name queries (Rohan Mehta), exact-figure queries ($38.1M), rescues doc_006 for CTO query, promotes doc_012 for customer concentration
-   - `TestRRFFusion` (8) — unit tests for `_rrf_fuse` and `_normalize_scores` with synthetic data
-
-6. **Initial evaluator regression and tuning fix** — Switching to hybrid retrieval changed the ranking of raw candidates, causing the permission-filter stage to thin out the candidate set before expected docs could make it into context for analyst queries. Fixed by adding `retrieve_k = policy.top_k * 3` in `pipeline.py` (over-retrieves 3× before filtering). The comment explains: for a 12-doc corpus with analyst access, `top_k=8` leaves only 2–3 candidates after filtering 7 restricted docs. Eval metrics recovered to pre-hybrid levels after this tuning.
-
-**Key design decisions:**
-
-| Decision | Reason |
-|----------|--------|
-| RRF K=60 | Standard constant from Cormack et al. (2009); dampens rank differences between heterogeneous systems |
-| Rank all docs, not just top-k | With 12-doc corpus, full ranking is cheap; avoids missing docs that FAISS would rank poorly but BM25 promotes |
-| Stopword filtering in BM25 tokenizer | Prevents corpus-common function words from dominating IDF in small corpora |
-| `retrieve_k = policy.top_k * 3` | Over-retrieval compensates for permission attrition; budget packer still enforces final token limit |
-| `semantic_retrieve` preserved | Protocol compatibility tests; useful for A/B comparison against hybrid |
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `c08ac87` (Task 4 Checkpoint)
-- **Working tree:** clean
-- **Tests:** 137 passing, 0 failing
-  - `tests/test_policies.py` — 6 tests
-  - `tests/test_freshness.py` — 12 tests
-  - `tests/test_context_assembler.py` — 5 tests
-  - `tests/test_main.py` — 6 tests
-  - `tests/test_evaluator.py` — 17 tests
-  - `tests/test_models.py` — 24 tests (exact count from last counted state; may have been updated in Prompt 3)
-  - `tests/test_pipeline.py` — 18 tests
-  - `tests/test_stages.py` — 29 tests
-  - `tests/test_retriever.py` — 20 tests (new in Prompt 4)
-- **Verified command:** `python3 -m pytest tests/ -q --tb=no` → **137 passed** (run during this session)
-- **Artifacts:** `artifacts/bm25_corpus.json` committed. FAISS index files were already present.
-
-### Remaining Tasks (ordered)
-
-1. **Wire `evaluator.py` to `run_pipeline()`** (P2-3) — `run_evals()` still contains its own inline pipeline (`retrieve → filter_by_role → apply_freshness → assemble`). Replace with `run_pipeline()` calls. Extract assembled doc IDs and freshness scores from `PipelineResult.trace.included`. This eliminates the last copy of duplicated pipeline logic.
-
-2. **Update `tests/test_evaluator.py`** — Current tests exercise the inline pipeline path. After wiring, assertions about `assembled_ids` format and freshness source need updating to match the `IncludedDocument` interface from `PipelineResult.trace`.
-
-3. **Verify eval metrics after wiring** — Run `python3 -m src.evaluator`. Expect: `avg_recall = 1.0000`, `permission_violation_rate = 0%`, `avg_precision_at_5 ≥ 0.33`.
-
-4. **P3-2 closure** — Once evaluator is wired, `apply_freshness()` will no longer be called anywhere on the request path. Can then safely remove or deprecate the mutation API in `freshness.py`.
-
-5. **Decide on `artifacts/` gitignore** — FAISS index is ~2MB binary. `bm25_corpus.json` is 1 line (minified JSON). Currently all three artifact files are committed (they appear in the working tree). Decision needed: stay committed (convenient for CI) or gitignore + document `python3 -m src.indexer` as setup step.
-
-### Blockers and Warnings
-
-- **`evaluator.py` inline pipeline diverges from `pipeline.py`** — Uses `filter_by_role` (roles as arg 2) and `apply_freshness` (mutation path), whereas `pipeline.py` uses `filter_permissions` (staged) and `score_freshness`. Drift will widen if pipeline is updated without also updating the evaluator.
-- **`apply_freshness()` still mutates dicts in-place** — Not on the critical request path (stages bypass it), but still called by `evaluator.py`. Removing it before P2-3 would break the evaluator.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-
-### Suggested First Action
-
-Wire `evaluator.py` to `run_pipeline()` (P2-3). The plan doc (`docs/plans/2026-04-10-pipeline-integration-plan.md`) has a concrete code skeleton showing the replacement. After wiring, run `python3 -m pytest tests/test_evaluator.py -v` to confirm all 17+ tests still pass, then run `python3 -m src.evaluator` to verify metrics.
-
----
-
-## Session — 2026-04-12 (Session 11 / Prompt 5: Evaluator Wiring & Test Hardening)
-
-### Summary
-
-Wired `src/evaluator.py` to `run_pipeline()`, removed the dead `token_budget` evaluator interface, added trace-level metrics to evaluator output, and hardened both `tests/test_evaluator.py` and `tests/test_pipeline.py`. Legacy dict-plumbing tests were skipped with clear deprecation notices. Two passes of hostile review completed; verdict is `risks_noted` with one MINOR fix pending.
-
-**What was done:**
-
-1. **Wired `src/evaluator.py` to `run_pipeline()`** (P2-3 complete) — Replaced the inline `retrieve → filter_by_role → apply_freshness → assemble` pipeline in `run_evals()` with `run_pipeline(QueryRequest(...), retrieve, roles, metadata)`. Assembled doc IDs and freshness scores now come from typed `PipelineResult.trace.included` (`IncludedDocument` objects), not raw dicts. Pipeline imports deferred inside `run_evals()` to avoid loading sentence-transformers at import time.
-
-2. **Removed dead `token_budget` interface** — `run_evals(token_budget=...)` parameter and `--token-budget` CLI flag were silently ignored (pipeline uses policy budget; `QueryRequest` has no `token_budget` field). Both removed. Module docstring updated to state budget is policy-owned.
-
-3. **Added trace-level metrics to evaluator output** — Per-query records now include `blocked_count`, `stale_count`, `dropped_count`, `budget_utilization` from `result.trace.metrics`. Aggregate adds `avg_blocked_count`, `avg_stale_count`, `avg_dropped_count`, `avg_budget_utilization`.
-
-4. **Added `None` guard for `result.trace`** — After the try/except block, evaluator checks `if result.trace is None` and appends an error record rather than crashing.
-
-5. **Added 5 new tests to `tests/test_evaluator.py`** (17 → 22 total):
-   - `test_run_evals_trace_metrics_present` — each per-query result has blocked/stale/dropped/budget_util keys
-   - `test_run_evals_aggregate_trace_metrics` — aggregate has avg_* trace keys
-   - `test_run_evals_analyst_queries_have_blocked_docs` — q003 shows `blocked_count > 0`
-   - `test_run_evals_budget_utilization_bounded` — 0 ≤ budget_util ≤ 1
-   - `test_run_evals_precision_floor` — `avg_precision_at_5 ≥ 0.20` regression guard
-
-6. **Added 10 new tests to `tests/test_pipeline.py`** (18 → 28 total):
-   - `test_trace_document_accounting_complete` — included+blocked+dropped == retrieved
-   - `test_trace_has_all_required_sections` — all trace sections present and correctly typed
-   - `test_stale_demotion_half_penalty` — `s.penalty_applied == 0.5` for all stale docs
-   - `test_permission_safety_analyst_never_sees_restricted` — blocked_ids disjoint from included_ids
-   - `TestAllPoliciesTraceStructure` — parametrized accounting test for all 3 presets + naive-vs-full blocking difference
-   - `test_permission_aware_enforces_budget` — budget respected under permission_aware policy
-   - `test_trace_included_equals_result_context` — `trace.included == result.context` identity check
-
-7. **Marked legacy dict-plumbing tests as skipped** — 14 tests total across three files:
-   - `tests/test_policies.py` — 4 `filter_by_role` tests (`@_LEGACY_SKIP`); 2 `load_roles` tests remain active. Module docstring explains what is live vs deprecated.
-   - `tests/test_freshness.py` — 5 `apply_freshness` tests (`@_LEGACY_SKIP`); 7 `compute_freshness` tests remain active.
-   - `tests/test_context_assembler.py` — all 5 `assemble()` tests skipped via `pytestmark`; module docstring points to `stages/budget_packer.py` as the replacement.
-
-8. **Hostile review (2 passes):**
-   - Pass 1: 2 MAJOR (no precision floor, trace None guard unplaced), 3 MINOR (legacy tests still passing, permission_aware budget test, trace.included identity not tested). All five addressed.
-   - Pass 2: 1 MINOR remains — `test_permission_aware_enforces_budget` assertion `result.total_tokens <= token_budget` is trivially true for small corpus (all docs fit in budget). Fix: add `assert result.trace.policy_config.skip_budget is False`. Verdict: `risks_noted`.
-
-**P3-2 closed as side-effect** — `apply_freshness()` is no longer called anywhere on the request path. The mutation API in `freshness.py` exists but is dead code.
-
-**Precision drop explained** — `avg_precision_at_5` dropped from 0.3375 (inline pipeline) to 0.3000 (production pipeline). Not a regression: the production pipeline over-retrieves 3× and fills the entire token budget with all role-visible docs. Recall is unchanged at 1.0. The floor test is set at 0.20 to absorb ranking variance without masking genuine retrieval failures.
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `34ade1b` (Task 3 completed)
-- **Working tree:** clean
-- **Tests:** 138 passed, 14 skipped, 0 failed
-  - `tests/test_policies.py` — 2 passed, 4 skipped (filter_by_role legacy)
-  - `tests/test_freshness.py` — 7 passed, 5 skipped (apply_freshness legacy)
-  - `tests/test_context_assembler.py` — 5 skipped (assemble() legacy, pytestmark)
-  - `tests/test_main.py` — 6 passed
-  - `tests/test_evaluator.py` — 22 passed
-  - `tests/test_models.py` — 24 passed
-  - `tests/test_pipeline.py` — 28 passed
-  - `tests/test_stages.py` — 29 passed
-  - `tests/test_retriever.py` — 20 passed
-
-- **Evaluator metrics** (`python3 -m src.evaluator`, default policy, k=5, top_k=8):
-  - Avg Precision@5: **0.3000**
-  - Avg Recall: **1.0000**
-  - Permission violation rate: **0%**
-  - Avg context docs: 8.62
-  - Avg total tokens: 1078.0
-  - Avg freshness score: 7.68e-01
-  - Avg blocked count: 3.38
-  - Avg stale count: 1.62
-  - Avg dropped count: 0.0
-  - Avg budget utilization: 53%
-
-- **Hostile review verdict:** `risks_noted` (Pass 2) — one MINOR pending
-
-### Remaining Tasks (ordered)
-
-1. **Fix hostile review MINOR** — `test_permission_aware_enforces_budget` in `tests/test_pipeline.py`: add `assert result.trace.policy_config.skip_budget is False` before the token count assertion. The current assertion is trivially true for a 12-doc corpus.
-
-2. **Hostile review Pass 3** — After the MINOR fix, re-run hostile review to achieve two consecutive clean passes and reach `clean` verdict.
-
-3. **Frontend comparison view** — Add a toggle or side-by-side panel in the UI to compare `naive_top_k` vs `full_policy` results for the same query. Surfaces the permission filtering and stale demotion differences visually.
-
-4. **Dashboard / observability** — Expose `decision_trace` fields (blocked_by_permission, demoted_as_stale, dropped_by_budget, budget_utilization) in the frontend result view. Currently the frontend only shows per-doc scores and total_tokens.
-
-5. **Demo readiness** — The backend and eval harness are production-ready. Demo blocker is the frontend not yet showing `decision_trace` data. Once the trace fields are surfaced, the full pipeline story (retrieval → permission → freshness → budget → trace) is demonstrable end-to-end in the browser.
-
-6. **Decide on `artifacts/` gitignore** — Three artifact files are currently committed. No change needed urgently.
-
-### Blockers and Warnings
-
-- **Hostile review verdict not yet `clean`** — One MINOR outstanding in `test_pipeline.py`. Low risk: the assertion is correct, just not discriminating enough.
-- **`apply_freshness()` and `filter_by_role()` are dead code** — No longer called anywhere on the request path. They can be removed or deprecated when convenient; there is no urgency.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-
-### Suggested First Action
-
-Apply the one-line MINOR fix to `test_permission_aware_enforces_budget` (add `assert result.trace.policy_config.skip_budget is False`), then run `python3 -m pytest tests/test_pipeline.py -v` to confirm. Run hostile review Pass 3 to reach `clean` verdict. Then turn to frontend `decision_trace` display.
-
----
-
-## Session — 2026-04-12 (Session 12 / Prompt 6: Context Policy Lab Frontend)
-
-### Summary
-
-Upgraded the frontend into a full **Context Policy Lab** — a single/compare mode UI with structured Decision Trace rendering. Added a minimal additive `POST /compare` backend endpoint. No existing backend logic was changed.
-
-**What was done:**
-
-1. **Added `POST /compare` endpoint to `src/main.py`** — Strictly additive; calls `run_pipeline()` for each requested policy and returns one `QueryResponse` per policy keyed by policy name. Role and policy validation: invalid role → 400, unknown policy name → 400 (ValueError from `resolve_policy` propagated). `/query` is fully unchanged.
-
-2. **Added `CompareRequest` and `CompareResponse` models to `src/models.py`** — `CompareRequest` accepts `query`, `role`, `top_k`, and `policies` (default: all three presets). `CompareResponse` returns `query`, `role`, and `results: Dict[str, QueryResponse]`. Added `Dict` to typing imports.
-
-3. **Added 3 tests to `tests/test_main.py`** (6 → 9 tests):
-   - `test_compare_returns_all_three_policies` — basic compare returns all three policies with required fields
-   - `test_compare_invalid_role_returns_400`
-   - `test_compare_unknown_policy_returns_400`
-
-4. **Rewrote `frontend/index.html`** — Structural additions:
-   - Mode toggle (Single / Compare) in sticky header
-   - Policy selector in controls row (naive / rbac / full chips with color coding) — visible in single mode only
-   - `#compare-section` (hidden by default) holds the compare grid
-   - "Sarah as Analyst ↔" scenario button triggers compare mode with analyst + ARR query
-   - Preserved all existing role chips, example buttons, results section
-
-5. **Rewrote `frontend/styles.css`** — Major additions (preserving all existing visual language):
-   - Mode toggle pill, `.mode-btn.active` = gold background
-   - Policy chip colors: naive=red (`#b85c5c`), rbac=amber (`#c8a55a`), full=green (`#5a9a6a`)
-   - `.compare-grid` — 3-column CSS grid, expands `.main` to `min(1260px, 100vw)`
-   - `.compare-col` — header with colored band per policy, stats strip, compact cards, trace panel
-   - `.col-badge-{naive,rbac,full}` — severity badges
-   - `.col-stat.stat-{blocked,stale,dropped}` — counts colored red/amber/orange
-   - `.trace-panel` — collapsible audit drawer (`open` class toggles `.trace-body` display)
-   - Four trace chip types: `trace-chip-{included,blocked,stale,dropped}` with per-category colors
-   - `.budget-bar-fill` — budget utilization bar
-   - `.compare-card` — compact doc card for compare columns with `::before` accent stripe
-   - `.doc-flag.flag-blocked` — annotation for docs visible in naive but blocked in full
-   - Responsive: 3 columns → 1 column at 960px
-
-6. **Rewrote `frontend/app.js`** — Complete rewrite preserving all existing functionality:
-   - `currentMode: 'single' | 'compare'` state; `switchMode()` toggles section visibility and `.main.compare-mode`
-   - `runSingleQuery(query, role, policy)` — calls `POST /query` with `policy_name`; renders single result + trace panel
-   - `runCompare(query, role)` — calls `POST /compare`; renders 3-column compare view
-   - `renderCompare(data)` — builds cross-policy highlights: detects which doc_ids are blocked in `full_policy` and flags them in the `naive_top_k` column with `flag-blocked` annotation
-   - `buildTracePanelHTML(trace, startOpen)` — reusable trace panel; starts collapsed in single mode, expanded in compare mode
-   - `wireTraceToggles(container)` — delegates expand/collapse after innerHTML injection
-   - `COMPARE_ORDER = ['naive_top_k', 'permission_aware', 'full_policy']` — canonical column order
-   - Skeleton states for both modes; all error paths route through `renderError(err, container)`
-   - `escapeHTML()` applied to all user and API content
-
-**Key design decisions:**
-
-| Decision | Reason |
-|----------|--------|
-| `POST /compare` calls `run_pipeline()` N times, not a custom path | Guarantees identical semantics to `/query`; single source of truth for pipeline logic |
-| Trace starts expanded in compare mode | Side-by-side comparison is only readable if all three traces are immediately visible |
-| Cross-policy highlight uses `full_policy`'s `blocked_by_permission` list | Accurately identifies docs that naive wrongly surfaces; avoids client-side RBAC logic |
-| `.main.compare-mode` class for wider max-width | Avoids modifying the container on single-mode pages; no layout flash |
-| Sarah-as-Analyst button switches mode + submits | The scenario is meaningless in single-mode; compare mode is the correct context |
-
-**Two CSS bugs found and fixed during verification (not present in pre-verification code):**
-- `[hidden]` attribute was overridden by `.selector-group { display: flex }` (author stylesheet beats user-agent `[hidden] { display: none }`). Fixed by adding `[hidden] { display: none !important }` to reset.
-- No `scroll-padding-top` on `html`, causing sticky header to overlap controls when `scrollIntoView` fired after long compare results. Fixed with `scroll-padding-top: 68px`.
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `54f3c60` (Task 5)
-- **Working tree:** modified `src/main.py`, `src/models.py`, `tests/test_main.py`, `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`, `docs/HANDOFF.md`
-- **Tests:** 141 passed, 14 skipped, 0 failed (confirmed with full output, no truncation)
-- **Frontend:** fully verified end-to-end against live server via Playwright — 51/51 checks pass
-  - Page load: brand, tagline, mode toggle, role/policy chips, scenario button ✓
-  - Single mode: result cards, summary bar, Decision Trace (collapsed→expanded, all 4 categories, chips, budget bar) ✓
-  - Compare mode: 3 columns (NAIVE/RBAC/FULL), stats strip, 3 open trace panels, compact cards ✓
-  - Sarah-as-Analyst: auto-switch to compare, analyst role, ARR query, 7 `flag-blocked` annotations in naive column, full_policy shows 7 blocked vs naive 0 ✓
-  - State recovery: switch back to single, VP query returns results ✓
-  - No JS console errors ✓
-
-**Follow-up fix (same session):**
-- Applied hostile review MINOR: added `assert result.trace.policy_config.skip_budget is False` to `test_permission_aware_enforces_budget` in `tests/test_pipeline.py`. This ensures the test fails if `permission_aware` is ever misconfigured with `skip_budget=True`. 141 passed, 14 skipped, 0 failed after fix.
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `54f3c60` (Task 5) — all Prompt 6 + MINOR fix work is uncommitted
-- **Working tree:** modified `src/main.py`, `src/models.py`, `tests/test_main.py`, `tests/test_pipeline.py`, `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
-- **Tests:** 141 passed, 14 skipped, 0 failed
-- **Frontend:** verified end-to-end via Playwright — 51/51 checks pass (see details above)
-
-### Remaining Tasks (ordered)
-
-1. **Commit this batch** — All modified files listed above. Suggested message: "Prompt 6: Context Policy Lab frontend + /compare endpoint + MINOR test fix".
-
-2. **Hostile review Pass 3** — Re-run hostile review on backend tests to move from `risks_noted` to `clean` verdict. The MINOR fix is now applied.
-
-3. **Remaining DOCX demo items** — Confirm any outstanding DOCX scenarios not yet surfaced in the UI (permissions demo and compare view are covered; check if DOCX specifies any additional user journeys).
-
-### Blockers and Warnings
-
-- **All Prompt 6 work is uncommitted** — 9 modified files need to be committed.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
-
-### Suggested First Action
-
-Commit the full batch, then run hostile review Pass 3 to close the `risks_noted` verdict.
-
----
-
-## Session — 2026-04-12 (Session 13 / Prompt 6 Pass 3: Compare Hardening & Clean Verdict)
-
-### Summary
-
-Closed the hostile review at `clean` verdict. Applied three targeted fixes to the compare endpoint and its tests — no changes to pipeline logic, frontend, or any other module.
-
-**What was done:**
-
-1. **Empty-policies guard in `POST /compare`** (`src/main.py`) — Added `if not request.policies: raise HTTPException(400, "policies list must not be empty")` before the policy loop. Prevents a vacuous 200 with an empty `results` dict when `policies: []` is sent.
-
-2. **`test_compare_returns_all_three_policies` strengthened** (`tests/test_main.py`) — Replaced the generic query with an analyst-role query against restricted documents (`"investment committee memo deal terms LP update"`, `role="analyst"`, `top_k=12`). Added three new assertions:
-   - `assert policy_result["decision_trace"] is not None` — rules out null trace serialised as present key
-   - `assert naive_trace["metrics"]["blocked_count"] == 0` — naive_top_k skips permission filter
-   - `assert full_trace["metrics"]["blocked_count"] > 0` — full_policy enforces RBAC for analyst
-
-3. **`test_compare_empty_policies_returns_400` added** (`tests/test_main.py`) — Covers the degenerate empty-list case end-to-end.
-
-**Hostile review Pass 3 outcome:**
-- No CRITICAL, no MAJOR, no MINOR findings
-- Two consecutive clean passes (Pass 2 had no new findings; Pass 3 confirmed)
-- Verdict: `clean`
-
-**Remaining open items from prior passes (not addressed — acknowledged as display-quality only):**
-- m-2: `naive_top_k` freshness scores render as 0.0 (indistinguishable from stale docs) — no fix in this batch; a `N/A` display would remove the misleading signal but correctness is unaffected
-- m-3: `POLICY_META` fallback in `app.js` defaults to green FULL-style badge for unknown policy names — cosmetic, no runtime impact
-- n-1: `DocumentChunk` mapping loop is copy-pasted between `/query` and `/compare` — a `_to_chunks()` helper would eliminate it; not a defect
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `d9350f0` (Task 6) — contains all Prompt 6 frontend + `/compare` + Prompt 5 MINOR fix
-- **Working tree:** 2 modified files uncommitted:
-  - `src/main.py` — empty-policies guard
-  - `tests/test_main.py` — strengthened compare test + new empty-policies test
-- **Tests:** 142 passed, 14 skipped, 0 failed (verified: `python3 -m pytest tests/ -q`)
-- **Test breakdown:**
-  - `tests/test_policies.py` — 2 passed, 4 skipped (filter_by_role legacy)
-  - `tests/test_freshness.py` — 7 passed, 5 skipped (apply_freshness legacy)
-  - `tests/test_context_assembler.py` — 5 skipped (assemble() legacy)
-  - `tests/test_main.py` — 11 passed (was 9; +2 from this session)
-  - `tests/test_evaluator.py` — 22 passed
-  - `tests/test_models.py` — 24 passed
-  - `tests/test_pipeline.py` — 28 passed
-  - `tests/test_stages.py` — 29 passed
-  - `tests/test_retriever.py` — 20 passed
-- **Evaluator metrics** (unchanged from Prompt 5):
-  - Avg Precision@5: **0.3000**
-  - Avg Recall: **1.0000**
-  - Permission violation rate: **0%**
-  - Avg freshness score: 7.68e-01
-  - Avg blocked count: 3.38, avg stale count: 1.62, avg dropped count: 0.0
-  - Avg budget utilization: 53%
-- **Hostile review verdict:** `clean` (two consecutive clean passes)
-- **Frontend:** unchanged from Prompt 6 — 51/51 Playwright checks pass
-
-### Remaining Tasks (ordered)
-
-1. **Commit this session's work** — `src/main.py`, `tests/test_main.py`. Suggested message: "Prompt 6 Pass 3: harden /compare tests and add empty-policies guard".
-
-2. **Prompt 7A — Evaluator API exposure** — Surface the evaluator as an API endpoint (`GET /evals` or similar) so the frontend can display live eval metrics on the dashboard. Or alternatively, surface the results as a static JSON that the frontend can fetch.
-
-3. **Prompt 7A — Dashboard / observability panel** — Add an Evals or Metrics panel to the frontend showing precision@5, recall, permission_violation_rate, and avg trace counts. This completes the demo story: query → trace → aggregate metrics.
-
-4. **Demo readiness check** — Confirm all intended user journeys are covered: single query + trace, compare mode, Sarah-as-Analyst scenario, and eval metrics view. Document any gaps before declaring demo-ready.
-
-5. **(Low priority) Display quality fixes** — `naive_top_k` freshness bar shows 0.0 (misleading); `POLICY_META` fallback uses green badge for unknown policies. Both are cosmetic; address if time allows.
-
-### Blockers and Warnings
-
-- **Working tree has 2 uncommitted files** — commit before starting Prompt 7A.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
-
-### Suggested First Action
-
-Commit the 2 modified files (`src/main.py`, `tests/test_main.py`), then plan Prompt 7A scope: decide whether to expose the evaluator via a new API endpoint or as a static artifact, and whether the dashboard panel should show live or cached metrics.
-
----
-
-## Session — 2026-04-12 (Session 14 / Prompt 7A: Evaluator API + Dashboard)
-
-### Summary
-
-Exposed the evaluator as a structured HTTP endpoint (`GET /evals`) and added a third frontend mode ("Evals" dashboard) that consumes it. Hostile review reached `clean` verdict in two passes. No changes to `/query`, `/compare`, or any pipeline/stage logic.
-
-**What was done:**
-
-1. **Added `GET /evals` to `src/main.py`** — Strictly additive route. Imports `load_test_queries` and `run_evals` from `src/evaluator`. On first call: loads test queries from `evals/test_queries.json`, runs `run_evals(queries, k=5, top_k=8)`, stores result in module-level `_evals_cache`. Subsequent calls return the cached dict immediately (~1.6ms vs. ~5–10s cold). No changes to `/query` or `/compare`.
-
-2. **Added 6 new tests to `tests/test_main.py`** (11 → 17 tests):
-   - `test_evals_returns_200` — status + top-level keys
-   - `test_evals_has_aggregate_keys` — all 12 aggregate metric keys present
-   - `test_evals_has_eight_queries` — per-query list has exactly 8 entries
-   - `test_evals_no_permission_violations` — no successful query has violations (skips error records)
-   - `test_evals_per_query_has_required_keys` — added during hostile review Pass 1; asserts `{id, role, precision_at_5, recall, permission_violations}` in every non-error record (locks the dynamic `precision_at_{k}` key contract at per-query level)
-   - `test_evals_caching_returns_identical_results` — two calls return identical JSON
-
-3. **Added Evals dashboard to frontend** — Third mode "Evals" in the header toggle (Single | Compare | Evals):
-   - Mode switch hides the search section and shows `#evals-section`
-   - Auto-fetches `GET /evals` on first tab switch (lazy — not on page load)
-   - **Aggregate metrics grid** — 10 stat cards (Precision@5, Recall, Permission Violations, Avg Context Docs, Avg Total Tokens, Avg Freshness, Avg Blocked, Avg Stale, Avg Dropped, Avg Budget Util)
-   - **Per-query breakdown table** — 8 rows: Query ID | Role | P@5 | Recall | Docs | Tokens | Freshness | Blocked | Stale | Dropped | Budget | Violations
-   - Loading spinner while evals run; error state routes to existing `renderError()`
-   - All values read from structured `GET /evals` JSON — no CLI output parsing
-   - `escapeHTML()` applied to all string content from the API
-
-4. **Hostile review — two passes, `clean` verdict:**
-   - Pass 1 findings: M-1 (`test_evals_no_permission_violations` failed misleadingly on error records), M-2 (per-query key `precision_at_5` untested — only aggregate was tested), M-3 (evaluator re-reads corpus files independently — noted, not fixed), N-1 (duplicate `@media (max-width: 640px)` CSS block — noted), N-2 (CSS color vars injected into style attribute — safe, noted)
-   - Pass 1 fixes: M-1 resolved (added `if "error" in r: continue`); M-2 resolved (`test_evals_per_query_has_required_keys` added)
-   - Pass 2: no new findings above NIT. Verdict: `clean`
-
-**Key design decisions:**
-
-| Decision | Reason |
-|----------|--------|
-| Module-level `_evals_cache` | `run_evals()` is ~5–10s cold; cache makes endpoint usable from browser without timeout |
-| Route calls `load_test_queries()` + `run_evals()` directly | No duplication of evaluation logic — route is a thin dispatch, evaluator owns all metric computation |
-| Frontend lazy-fetches on first Evals tab switch | Avoids slow startup; user explicitly requests the metrics view |
-| `evalsLoaded` only set on success | Failed fetches retry on re-switch to Evals mode |
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `9568cf2` (Hostile review) — all Prompt 7A work is **uncommitted**
-- **Modified files (uncommitted):**
-  - `src/main.py` — `GET /evals` route + imports + `_evals_cache`
-  - `tests/test_main.py` — 6 new `/evals` tests
-  - `frontend/app.js` — Evals mode, `runEvals()`, `renderEvals()`, `fmtPct()`
-  - `frontend/index.html` — "Evals" mode button + `#evals-section`
-  - `frontend/styles.css` — Evals dashboard styles (metrics grid, table, loading spinner)
-- **Tests:** 148 passed, 14 skipped, 0 failed
-  - `tests/test_main.py` — 17 passed (6 query + 4 compare + 6 evals + 1 health)
-  - All other test files unchanged from Prompt 6
-- **Evaluator metrics** (unchanged):
-  - Avg Precision@5: **0.3000**
-  - Avg Recall: **1.0000**
-  - Permission violation rate: **0%**
-  - Avg context docs: 8.62 | Avg total tokens: 1078.0
-  - Avg freshness score: 7.68e-01
-  - Avg blocked: 3.38 | avg stale: 1.62 | avg dropped: 0.0 | avg budget util: 53%
-- **Hostile review verdict:** `clean` (Pass 2 confirmed no new findings)
-- **Browser visual verification:** **Not confirmed.** JS syntax verified (`node --check`), endpoint verified via `curl` (200, correct JSON shape, 1.6ms cached response). Playwright was not available locally. The Evals tab visual rendering requires manual browser check.
-
-### Remaining Tasks (ordered)
-
-1. **Commit this batch** — 5 modified files. Suggested message: "Prompt 7A: GET /evals endpoint + frontend Evals dashboard".
-
-2. **Browser visual verification** — Open `frontend/index.html` with server running (`uvicorn src.main:app --reload`) and click the "Evals" tab. Confirm: loading spinner appears, then 10 metric cards + 8-row table render, numbers display in IBM Plex Mono, switching back to Single/Compare modes works cleanly.
-
-3. **Prompt 7B — Display quality fixes (low priority):**
-   - `naive_top_k` freshness scores render as `0.0` in compare mode (freshness is skipped for that policy — a `N/A` display would remove the misleading signal)
-   - `POLICY_META` fallback in `app.js` defaults to green FULL-style badge for unknown policy names (cosmetic)
-   - Duplicate `@media (max-width: 640px)` CSS block (NITs from hostile review — merge into one)
-
-4. **Demo readiness check** — Confirm all user journeys work end-to-end: single query + trace, compare mode, Sarah-as-Analyst scenario, eval metrics view. Once browser-verified, the full pipeline story is demonstrable without CLI.
-
-5. **`apply_freshness()` and `filter_by_role()` dead code** — Still present in `freshness.py` and `policies.py`. Can be removed when convenient; no urgency.
-
-### Blockers and Warnings
-
-- **All Prompt 7A work is uncommitted** — 5 modified files need a commit before the next session begins.
-- **Browser verification pending** — Evals tab was not opened in a real browser. Functional correctness is verified via tests and curl; visual layout is unconfirmed.
-- **`run_evals()` re-reads corpus files** — Hostile review M-3 (noted, not fixed): `run_evals()` calls `load_roles()` and `open(metadata)` independently of the already-loaded `_roles`/`_metadata` in `main.py`. Not a correctness issue; noted for future cleanup.
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
-
-### Suggested First Action
-
-Commit the 5 uncommitted files, then open `frontend/index.html` in a browser with the server running and click the "Evals" tab to complete the visual verification that was not possible from the CLI.
-
----
-
-## Session — 2026-04-12 (Session 15 / Prompt 7B: Light Theme + Demo Polish)
-
-### Summary
-
-Light theme migration, VP/Partner scenario triggers, freshness N/A fix, POLICY_META fallback fix, duplicate @media cleanup, and complete README rewrite.
-
-**What was done:**
-
-1. **Light theme migration** (`frontend/styles.css` — full rewrite):
-   - `:root` rewritten to warm parchment palette: `--bg-page: #f5f1ea`, `--bg-card: #ffffff`, warm amber accent `#8b6914`, policy colors re-tuned for legibility on light backgrounds
-   - Shadow system added (`--shadow-card`, `--shadow-card-hover`, `--shadow-header`) — warm shadows replace dark-theme glow effects; applied to header, result cards, compare columns, compare cards, trace panels, mode toggle, and chips
-   - Compare column docs area uses `--bg-surface` tint to separate doc cards from white column background
-   - Evals table alternating row direction fixed: `rgba(255,255,255,0.015)` → `rgba(28,26,23,0.02)`
-   - Two duplicate `@media (max-width: 640px)` blocks merged; two `@media (max-width: 960px)` blocks merged (4 → 2 total)
-
-2. **Scenario discoverability** (`frontend/index.html`):
-   - Examples row redesigned into two labelled groups: "Single" (3 single-mode queries) and "Compare" (3 compare-mode scenarios)
-   - Added VP and Partner compare scenarios: "VP deal view ↔" and "Partner view ↔"
-   - Role-dot indicators on all example buttons (amber=analyst, teal=VP, green=partner)
-   - Scenario buttons styled with per-role color border coding
-   - Empty state updated to "Permission-Aware Context Gateway" with `.empty-hint` pointing to "Analyst wall ↔"
-   - Evals subtitle made more descriptive
-
-3. **Bug fixes** (`frontend/app.js`):
-   - `naive_top_k` freshness shows "N/A — skipped by policy" / "freshness N/A" instead of `0.00` in both single and compare card views (`skipFreshness: true` in POLICY_META, propagated to `singleCardHTML` and `buildCompareCardHTML`)
-   - POLICY_META fallback badge changed from `variant: "full"` (misleading green) to `variant: "unknown"` (neutral grey `.col-badge-unknown`)
-   - New CSS classes: `.col-badge-unknown`, `.col-header-unknown`, `.metric-na`, `.mini-na`, `.empty-hint`, `.examples-row`, `.ex-role-dot`, `.dot-{analyst,vp,partner}`, `.scenario-btn.dot-*-border`
-
-4. **README rewritten** — old stub with TODO list replaced with:
-   - Fastest-path demo table (Analyst wall, VP deal view, Partner view, Evals)
-   - Pipeline stage diagram
-   - Policy preset table with feature matrix
-   - Corpus access control table and stale pair documentation
-   - DecisionTrace field documentation
-   - All three API endpoints with curl examples
-   - Test / evaluator commands with current metrics
-   - Artifact regeneration instructions
-   - Full project structure
-
-5. **Verification**:
-   - 148 passed, 14 skipped, 0 failed
-   - Evaluator: precision@5=0.3000, recall=1.0000, violations=0%
-   - All three endpoints verified via curl: `/query` (analyst, blocked=7), `/compare` (all 3 policies), `/evals` (8 queries, 0 failed)
-   - JS syntax check: OK
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `0f9f548` (Task 7A)
-- **Working tree:** 5 modified files uncommitted:
-  - `frontend/app.js` — freshness N/A, fallback badge, VP/Partner scenario JS
-  - `frontend/index.html` — two-row scenarios, VP/Partner buttons, improved empty state
-  - `frontend/styles.css` — full light theme rewrite
-  - `README.md` — complete rewrite
-  - `docs/HANDOFF.md` — this entry
-- **Tests:** 148 passed, 14 skipped, 0 failed
-- **Evaluator:** precision@5=0.3000, recall=1.0000, violations=0%
-- **Hostile review:** `clean` (from Prompt 7A — no new review performed this session, changes are frontend/docs only)
-- **Frontend:** JS syntax verified. Browser visual verification not performed from CLI.
-
-### Remaining Tasks (ordered)
-
-1. **Commit this batch** — `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`, `README.md`, `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
-
-2. **Browser visual verification** — Open `frontend/index.html` with server running, confirm:
-   - Light theme renders correctly (cream background, white cards, warm amber accent)
-   - "Single" and "Compare" scenario rows both visible and labelled
-   - VP deal view ↔ and Partner view ↔ scenario buttons trigger compare mode with correct role
-   - Analyst wall ↔ shows 7 blocked in full/rbac, 0 in naive
-   - Naive column freshness shows "freshness N/A" instead of 0.00
-   - Evals tab renders 10 metric cards + 8-row table
-
-3. **Optional: Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are no longer called on the request path. Safe to delete when convenient.
-
-4. **Optional: Evaluator corpus re-read** — `run_evals()` reloads roles and metadata independently of `main.py`'s already-loaded copies. Not a bug; cosmetic cleanup.
-
-### Blockers and Warnings
-
-- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
-- **Google Fonts dependency:** Frontend loads Bricolage Grotesque and IBM Plex Mono from CDN; falls back to system fonts offline.
-
-### Suggested First Action
-
-Commit the batch, then open `frontend/index.html` in a browser with `python3 -m uvicorn src.main:app --reload` running. Click "Analyst wall ↔" to verify the permission wall compare scenario, then switch to the Evals tab.
-
----
-
-## Session — 2026-04-12 (Session 16 / Documentation Pass: Handoff + CLAUDE.md + Plan)
-
-### Summary
-
-Documentation-only pass after Prompt 7B code was committed as `df2c929 Task 7B almost`. No code changes. Updated CLAUDE.md, integration plan, and HANDOFF.md to reflect the completed Prompt 7B state.
-
-**What was done:**
-
-1. **CLAUDE.md** — two stale items fixed:
-   - `uvicorn src.main:app --reload` → `python3 -m uvicorn src.main:app --reload` (uvicorn not on PATH on this system)
-   - Frontend scenario reference updated: "Sarah as Analyst ↔" → correct three-scenario description with "Analyst wall ↔", "VP deal view ↔", "Partner view ↔"
-
-2. **Integration plan** — Prompt 7B Outcome section appended (light theme, VP/Partner scenarios, freshness N/A fix, README rewrite, verification results)
-
-3. **HANDOFF.md** — Session 15's commit list and file count corrected; this entry added
-
-### Current State
-
-- **Branch:** `main`
-- **Commits:** `df2c929` (Task 7B almost — contains Prompt 7B frontend polish + README rewrite)
-- **Working tree:** 3 modified files uncommitted (this documentation pass only):
-  - `CLAUDE.md` — uvicorn command + scenario reference
-  - `docs/HANDOFF.md` — this entry
-  - `docs/plans/2026-04-10-pipeline-integration-plan.md` — Prompt 7B outcome section
-- **Tests:** 148 passed, 14 skipped, 0 failed
-- **Evaluator:** precision@5=0.3000, recall=1.0000, violations=0%
-- **Hostile review:** `clean` (Prompt 7A — no new review; Prompt 7B was frontend/docs only)
-
-### Remaining Tasks (ordered)
-
-1. **Commit this documentation batch** — `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
-
-2. **Browser visual verification** — Open `frontend/index.html` with `python3 -m uvicorn src.main:app --reload` running. Confirm:
-   - Light theme renders (cream background, white cards, warm amber accent)
-   - "Single" and "Compare" scenario rows visible and labelled
-   - "Analyst wall ↔" shows 7 blocked in full/rbac, 0 in naive
-   - "VP deal view ↔" and "Partner view ↔" trigger compare mode with correct roles
-   - Naive column freshness shows "freshness N/A" not 0.00
-   - Evals tab renders 10 metric cards + 8-row per-query table
-
-3. **Optional: Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path
-
-### Blockers and Warnings
-
-None blocking. The only pending item is manual browser verification (cannot be done from CLI).
-
-### Suggested First Action
-
-Commit the 3 documentation files, then open `frontend/index.html` in a browser with the server running.
-
----
-
-## Session — 2026-04-12 (Session 17 / Browser Verification: Prompt 7B Demo-Ready)
-
-### Summary
-
-Browser verification pass using `webapp-testing` Playwright skill. **44 passed / 0 failed / 0 warnings.** Prompt 7B is complete and demo-ready. No code changes in this session.
-
-**What was verified:**
-
-- **Light theme:** body background confirmed `rgb(245, 241, 234)` — warm cream as intended
-- **Page load:** QueryTrace brand, 3 mode buttons, empty state with "Permission-Aware Context Gateway" title and "Analyst wall ↔" hint
-- **Scenario rows:** "SINGLE" and "COMPARE" rows both visible and labelled; all 3 scenario buttons present
-- **Single mode:** 5 analyst docs, summary bar, relevance bars, Decision Trace expand/collapse, 13 chips, budget bar
-- **Analyst wall ↔:** 7 `blocked in full` flags on NAIVE column; NAIVE blocked=0, FULL blocked=7; NAIVE freshness shows "N/A" (12 labels); 3 trace panels open by default
-- **VP deal view ↔:** 3 columns, FULL blocked=2, compare banner shows VP role
-- **Partner view ↔:** 3 columns, FULL blocked=0 (full access confirmed), partner role in banner
-- **Mode switching:** Compare → Single: results visible, policy selector restored; Single → Evals: search section hidden
-- **Evals tab:** 10 metric cards, Precision@5=0.3000, Recall=1.0000, Violations=0.0%, 8-row table, footer "Queries run: 8 · Failed: 0"
-- **naive_top_k freshness N/A:** 12 N/A labels confirmed in single mode
-
-### Current State
-
-- **Branch:** `main`
-- **Last commit:** `551972e` (Task 7B almost2 — CLAUDE.md + HANDOFF + plan docs)
-- **Working tree:** modified `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md` (this pass only)
-- **Tests:** 148 passed, 14 skipped, 0 failed
-- **Evaluator:** precision@5=0.3000, recall=1.0000, violations=0%
-- **Browser verification:** COMPLETE — 44/44 Playwright checks
-- **Hostile review:** `clean` (Prompt 7A; Prompt 7B was frontend/docs only)
-- **Demo status:** READY
-
-### Remaining Tasks (ordered)
-
-1. **Commit this documentation batch** — `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md`
-
-2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; safe to delete when convenient
-
-3. **(Optional) Evaluator corpus re-read** — `run_evals()` reloads roles/metadata independently of `main.py`'s loaded copies; cosmetic, no correctness impact
-
-### Blockers and Warnings
-
-None. Project is demo-ready.
-
-### Suggested First Action
-
-Commit the 2 documentation files. No further work is required before submission.
+## Sessions 1–17 — Consolidated Summary (2026-04-05 → 2026-04-12)
+
+### Build Timeline
+
+| Session | Date | What was done | Tests after |
+|---------|------|---------------|-------------|
+| 1 | 04-05 | Project bootstrap: repo scaffolding, 12-doc financial corpus (Atlas Capital / Meridian "Project Clearwater"), FAISS indexer + retriever | 0 |
+| 2 | 04-05 | Full pipeline (TDD): `policies.py`, `freshness.py`, `context_assembler.py`, wired `POST /query` | 24 |
+| 3 | 04-05 | Evaluation harness: `evaluator.py` + 8 corpus-grounded test queries | 40 |
+| 4 | 04-05 | Corpus-relative freshness (time-independent scores, 0.5–1.0 range), half_life_days 30→365 | 46 |
+| 5 | 04-06 | Commit & consolidation (no code changes) | 46 |
+| 6 | 04-06 | Frontend redesign: "Midnight Analysis Desk" dark theme, result cards with score/freshness bars, tags, example query buttons, loading/error states | 46 |
+| 7 | 04-10 | Pydantic contract layer: 13 typed models in `models.py`, 3 Protocol classes in `protocols.py` | 70 |
+| 8 | 04-11 | Pipeline orchestrator: `pipeline.py` with StageOk/StageErr, 3 policy presets (`naive_top_k`, `permission_aware`, `full_policy`), rewired `main.py` | 88 |
+| 9 | 04-11 | Typed stages in `src/stages/` (4 modules), `DecisionTrace` hardened (renamed fields, added `DroppedByBudget`, `ttft_proxy_ms`, `budget_utilization`) | 117 |
+| 10 | 04-11 | Hybrid retrieval: FAISS + BM25 via RRF, 3× over-retrieval to compensate permission attrition | 137 |
+| 11 | 04-12 | Evaluator wired to `run_pipeline()`, removed dead `token_budget` interface, trace-level metrics in evaluator output, legacy dict tests skipped (14) | 138 passed, 14 skipped |
+| 12 | 04-12 | Context Policy Lab frontend: Single/Compare modes, `POST /compare` endpoint, structured Decision Trace rendering, 51/51 Playwright checks | 141 passed, 14 skipped |
+| 13 | 04-12 | Hostile review clean verdict: empty-policies guard on `/compare`, strengthened compare tests | 142 passed, 14 skipped |
+| 14 | 04-12 | `GET /evals` endpoint (cached), Evals dashboard (3rd frontend mode): 10 metric cards + 8-row per-query table | 148 passed, 14 skipped |
+| 15 | 04-12 | Light theme migration (warm parchment palette), VP/Partner scenario buttons, freshness N/A fix, POLICY_META fallback fix, README rewrite | 148 passed, 14 skipped |
+| 16 | 04-12 | Documentation pass: CLAUDE.md + plan updates (no code) | 148 passed, 14 skipped |
+| 17 | 04-12 | Browser verification via Playwright: 44/44 checks, demo status READY | 148 passed, 14 skipped |
+
+### Key Design Decisions (still relevant)
+
+- **Corpus-relative freshness:** Age measured from newest doc in corpus (`2024-04-18`), not calendar date. Time-independent scores.
+- **StageOk/StageErr pattern:** Pipeline aborts on first failure. Each stage is a pure-compute function with typed inputs/outputs.
+- **3× over-retrieval:** `retrieve_k = policy.top_k * 3` compensates for permission attrition before budget packing.
+- **RRF K=60:** Standard constant for fusing FAISS and BM25 ranks. Full-corpus ranking (12 docs is cheap).
+- **Module-level `_evals_cache`:** `run_evals()` is ~5–10s cold; cache makes `/evals` usable from browser.
+- **`ScoredDocument` uses `extra="ignore"`:** Absorbs extra keys (`rank`, `file_name`, `type`) from retriever without breaking validation.
+- **14 legacy tests skipped:** `filter_by_role` (4), `apply_freshness` (5), `assemble()` (5) — all replaced by typed stages. Marked with `@_LEGACY_SKIP` or `pytestmark`.
+
+### Dead Code (noted, not blocking)
+
+- `apply_freshness()` in `freshness.py` — replaced by `stages/freshness_scorer.py`
+- `filter_by_role()` in `policies.py` — replaced by `stages/permission_filter.py`
+- `run_evals()` reloads roles/metadata independently of `main.py`'s copies — cosmetic, no correctness impact
+
+### Persistent Environment Notes
+
+- **Python 3.9.6 / LibreSSL 2.8.3:** `tf-keras` installed for `sentence-transformers` compatibility. Upgrading deps may break this.
+- **Google Fonts:** Bricolage Grotesque + IBM Plex Mono from CDN; falls back to system fonts offline.
 
 ---
 
@@ -1333,3 +141,1028 @@ None. Project is submission-ready.
 ### Suggested First Action
 
 Commit the 5 modified files. No further work is required before submission.
+
+---
+
+## Session — 2026-04-15 (Session 19 / **MUST-A — IDEA 2 + IDEA 1**)
+
+> **IDEA numbering convention:** Prompts labelled "IDEA N" track discrete feature/enrichment batches applied after the core build. Batches labelled "MUST-X" group multiple IDEAs into a single commit unit.
+
+### Summary
+
+**Batch label: MUST-A — IDEA 2 + IDEA 1**
+
+Two enrichment passes in one session: backend metadata plumbing (IDEA 2) followed by frontend policy-selector polish (IDEA 1), plus a targeted visual review/rescue pass on the policy-selection block.
+
+---
+
+#### IDEA 2 — Enrich DocumentChunk with Metadata
+
+Propagated `title`, `doc_type`, `date`, and `superseded_by` through the full data chain so the frontend `context[]` array receives those fields on every response. No business logic changed. No tests added or removed.
+
+**Files modified (5):**
+
+1. **`src/retriever.py`** — `_build_results()` now emits `"doc_type": p.get("type")` in addition to the existing `"type"` key. `ScoredDocument` uses `extra="ignore"` so `"type"` was always silently dropped; `doc_type` is the correctly-named key that the model picks up.
+
+2. **`src/models.py`** — Four model additions, all `Optional[str] = None`:
+   - `ScoredDocument`: added `doc_type`
+   - `FreshnessScoredDocument`: added `doc_type`
+   - `IncludedDocument`: added `title`, `doc_type`, `date`, `superseded_by`
+   - `DocumentChunk`: added `title`, `doc_type`, `date`, `superseded_by`
+
+3. **`src/stages/freshness_scorer.py`** — `FreshnessScoredDocument(...)` constructor now passes `doc_type=doc.doc_type`.
+
+4. **`src/stages/budget_packer.py`** — `IncludedDocument(...)` constructor now passes `title`, `doc_type`, `date`, `superseded_by`.
+
+5. **`src/main.py`** — Both `DocumentChunk(...)` constructors (in `query()` and `compare()`) now pass `title`, `doc_type`, `date`, `superseded_by` from `inc`.
+
+---
+
+#### IDEA 1 — Improve Policy Names + Policy Description Area
+
+Frontend-only visual changes to the policy selector. No backend changes.
+
+**Files modified (3):**
+
+1. **`frontend/app.js`** — `POLICY_META` labels updated:
+   - `naive_top_k`: `"NAIVE"` → `"No Filters"`, desc updated to full sentence
+   - `permission_aware`: `"RBAC"` → `"Permissions Only"`, desc updated
+   - `full_policy`: `"FULL"` → `"Full Pipeline"`, desc updated
+   - **Bug fix:** `permission_aware.skipFreshness` changed from `false` → `true` (backend skips freshness for this policy; was showing `0.00` bars instead of N/A)
+   - Added `updatePolicyDescription()` function with 80ms opacity fade transition
+   - Event listeners wired to all `[name="policy"]` radios; init call on page load
+
+2. **`frontend/index.html`** — `#single-policy-selector` restructured:
+   - Outer wrapper: new class `policy-selector-group` (flex-column container)
+   - Inner `.selector-group` div: holds label + chips horizontally
+   - `<p id="policy-description">` added below chips — shows `POLICY_META.desc` for selected policy
+   - `<div id="policy-warning" hidden>` added — amber banner with ⚠ icon, shown only when "No Filters" is selected
+   - Chip labels: `naive` → `No Filters`, `rbac` → `Permissions Only`, `full` → `Full Pipeline`
+
+3. **`frontend/styles.css`** — New rules added:
+   - `.policy-selector-group`: `flex-direction: column; align-self: flex-start` (prevents vertical misalignment against shorter Role group in `.controls-row`)
+   - `.policy-description`: mono, `0.61rem`, tertiary color, `opacity 80ms` transition
+   - `.policy-warning`: `rgba(251,191,36,0.13)` background, amber left border, compact padding
+   - `.policy-warning > span`: `flex-shrink: 0; line-height: 1` (emoji alignment fix)
+
+---
+
+#### Visual Review Pass (policy-selection block only)
+
+A targeted `/frontend-design` review of the policy selector hierarchy. Five polish fixes applied:
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | `.controls-row { align-items: center }` misaligned Role and Policy chips when Policy group grew taller | `align-self: flex-start` on `.policy-selector-group` |
+| 2 | ⚠ emoji floated high on some systems | `.policy-warning > span { flex-shrink: 0; line-height: 1 }` |
+| 3 | `padding-left: 0.1rem` on description (meaningless 1.6px) | Removed |
+| 4 | Warning background 10% opacity nearly invisible on parchment | Bumped to 13% |
+| 5 | `transition: opacity` declared in CSS but never fired in JS | Added 80ms fade in `updatePolicyDescription()` |
+
+---
+
+**Note:** `roadmap.md` was deleted before this session (shows `D` in git status). No further work items are carried forward from it.
+
+### Current State
+
+- **Branch:** `main`
+- **Last commit:** `78cdaf1` (WIP: MUST-A idea 1 and 2)
+- **Working tree:** Clean (all MUST-A changes committed)
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified this session)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
+- **Browser verification:** PENDING — IDEA 1 and IDEA 2 changes have not been visually verified in-browser. Last full verification was Session 18 (65/65 Playwright checks). The policy description area, warning banner, N/A freshness fix for `permission_aware`, and new chip labels are unverified.
+- **Hostile review:** Not performed this session (last verdict: `clean`, Session 18)
+- **Demo status:** READY (backend: no regressions; frontend: unverified but low-risk — all new fields are Optional, all label changes are display-only)
+
+### What MUST-A Unblocks
+
+- Frontend work that consumes `title`, `doc_type`, `date`, or `superseded_by` from `context[]` can proceed without additional backend changes.
+- The policy selector now has product-grade labels and descriptions; compare-mode column headers inherit these automatically via `POLICY_META`.
+- `permission_aware` freshness now correctly renders as N/A in both Single and Compare modes.
+
+### Remaining Tasks
+
+1. **Browser-verify MUST-A** — Confirm policy description area, warning banner, N/A freshness for `permission_aware`, and new chip labels render correctly in Single and Compare modes.
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Suggested First Action
+
+Browser-verify the MUST-A frontend changes before starting MUST-B1.
+
+---
+
+## Session — 2026-04-16 (Session 20 / **MUST-B1 — IDEA 3 + IDEA 7**)
+
+> **IDEA numbering convention:** Batches labelled "MUST-X" group multiple IDEAs into a single commit unit.
+
+### Summary
+
+**Batch label: MUST-B1 — IDEA 3 + IDEA 7**
+
+Three passes in one session: MUST-A browser verification, IDEA 3 (card redesign), and IDEA 7 (stale/superseded badges). All frontend-only — no backend, no test, no model changes.
+
+---
+
+#### MUST-A Browser Verification (completed this session)
+
+Confirmed all MUST-A changes correct via Playwright (20/20 checks):
+- Policy chips show "No Filters" / "Permissions Only" / "Full Pipeline" (old NAIVE/RBAC/FULL gone)
+- Policy description updates on radio switch; all three descriptions are distinct
+- Amber warning banner appears only for No Filters
+- Permissions Only freshness renders as "N/A — skipped by policy" (12 elements); no 0.00 bars
+- Full Pipeline query returns result cards; trace panel expands correctly
+- 0 JS console errors
+
+---
+
+#### IDEA 3 — Document Card Redesign + Excerpt Expand/Collapse
+
+Frontend-only. No backend or test changes.
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+**`singleCardHTML` changes:**
+- Card header now shows document `title` (fallback: `doc_id`) as main heading (`.card-title`) with rank on the right
+- New `.card-meta` line below title: `doc_id` badge (`.card-meta-badge`, light gray bg, mono font) · formatted doc type (e.g. "Public Filing") · formatted date (e.g. "Mar 2024")
+- Default excerpt shortened from 480 → 200 chars
+- Expand/collapse button ("Show more ▾" / "Hide ▴") toggles to full ~500-char indexer excerpt
+- **Security hardening:** raw content stored in `_cardExcerpts` Map keyed by `data-card-idx`; toggle uses `textContent`, not `innerHTML` from data attributes
+- **Date timezone fix:** `new Date(dateStr)` → manual `new Date(year, month-1, 1)` to avoid UTC offset shifting months (e.g. "2024-03-01" was rendering as "Feb 2024")
+
+**`buildCompareCardHTML` changes:**
+- Title heading (`.compare-card-title`, truncated to 60 chars) replaces bare doc_id
+- Same `.card-meta` line (badge + type + date) added below title
+- Snippet shortened from 160 → 120 chars
+- No expand button (columns are narrow)
+
+**New CSS:** `.card-title`, `.card-meta`, `.card-meta-badge`, `.compare-card-title`, `.card-content` (max-height transition: collapsed 4.8em → expanded 600px), `.card-content-text`, `.card-expand-btn`, `.compare-card-meta`
+
+**New JS helpers:** `formatDocType(raw)`, `formatDate(dateStr)`, `_cardExcerpts` Map, `wireExpandButtons(container)`
+
+---
+
+#### IDEA 7 — Stale/Superseded Badge
+
+Frontend-only. No backend or test changes.
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+**Detection:** Two-method with fallback:
+- **Primary (Option A):** `chunk.superseded_by != null` — available because IDEA 2 already propagates this field through the full chain
+- **Fallback (Option B):** cross-reference `chunk.doc_id` against `trace.demoted_as_stale` (built into a `staleMap` in `renderSingleResult()`)
+
+**Single mode badge (`.stale-badge`):** Amber-tinted box with ⚠ icon, "Superseded by **doc_XXX** — freshness penalized 0.5×". Inserted between `.card-meta` and `.card-content`. Penalty value pulled from `staleInfo.penalty_applied` (falls back to `0.5×`).
+
+**Compare mode badge (`.compare-stale-badge`):** Compact inline "⚠ Superseded" chip (option A only — `doc.superseded_by != null`). Inserted between `.card-meta` and content snippet.
+
+**New CSS:** `.stale-badge`, `.stale-icon`, `.stale-text`, `.stale-text strong`, `.compare-stale-badge`
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `719e03f` (MUST-A idea 1 and 2) — MUST-B1 changes are **uncommitted** (2 modified files)
+- **Working tree:** 2 modified files (uncommitted — this session's work):
+  - `frontend/app.js` — IDEA 3 + IDEA 7 changes
+  - `frontend/styles.css` — IDEA 3 + IDEA 7 styles
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified this session — `python3 -m pytest -q`)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged; no pipeline changes)
+- **Browser verification:** COMPLETE — 19/19 MUST-B1 Playwright checks passed (IDEA 3 × 8, IDEA 7 × 5, Compare × 4, Evals regression × 1, JS errors × 1). 0 JS console errors.
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY (all three modes functional; stale badges correct on both known stale pairs)
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md` frontend section** — updated Single mode and Compare mode descriptions to reflect card redesign (title, metadata line, excerpt expand/collapse) and stale badges. Previously described card rendering did not mention these fields.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — historical/archived; no update needed. All items have been complete since Session 16.
+
+### Remaining Tasks
+
+1. **Commit MUST-B1** — 2 modified files: `frontend/app.js`, `frontend/styles.css`
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. Backend is unchanged. All new frontend fields are `Optional` — no risk of null-pointer regressions.
+
+- **Branch mismatch note:** Working branch is `codex/must-a-idea1-2`, not `main`. MUST-A and MUST-B1 work lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 2 modified files (`frontend/app.js`, `frontend/styles.css`) as the MUST-B1 batch.
+
+---
+
+## Session — 2026-04-16 (Session 21 / **MUST-B2 — IDEA 5**)
+
+> **IDEA numbering convention:** Batches labelled "MUST-X" group multiple IDEAs into a single commit unit.
+
+### Summary
+
+**Batch label: MUST-B2 — IDEA 5**
+
+One enrichment pass: backend `BlockedDocument` metadata plumbing + frontend collapsible blocked-documents section in Single mode.
+
+---
+
+#### IDEA 5 — Blocked Documents Section in Single Mode
+
+**Backend (2 files modified):**
+
+1. **`src/models.py`** — `BlockedDocument` gained two optional fields:
+   - `title: Optional[str] = None`
+   - `doc_type: Optional[str] = None`
+
+2. **`src/stages/permission_filter.py`** — Both `BlockedDocument(...)` constructors (unknown-role path and insufficient-role path) now pass `title=doc.title, doc_type=doc.doc_type`.
+
+**Frontend (2 files modified):**
+
+3. **`frontend/app.js`** — Three additions:
+   - `buildBlockedSectionHTML(blocked, userRole)` — returns `<section class="blocked-section">` with a collapsible header ("🔒 N document(s) blocked by permissions ▾") and body with per-document `.blocked-card` entries showing title (fallback to `doc_id`), `doc_id` badge, doc type, and a human-readable reason (`"Requires X role — you are Y"` for `insufficient_role`; `"Unknown role requirement: X"` for `unknown_min_role`). Section omitted entirely when `blocked` is empty.
+   - `wireBlockedSectionToggle(container)` — toggles `.open` class on `.blocked-section` header click.
+   - `renderSingleResult()` updated: `blockedSectionHTML` computed from `trace?.blocked_by_permission || []` and inserted between `cardsHTML` and `traceHTML`.
+
+4. **`frontend/styles.css`** — New block `/* ─── Blocked Documents Section (single mode) ─── */`:
+   - `.blocked-section`, `.blocked-header` (amber left border `var(--trace-blocked)`, `var(--trace-blocked-bg)` background), `.blocked-header-icon`, `.blocked-caret` (rotates 180° when `.open`), `.blocked-body` (max-height 0 → 2000px transition), `.blocked-body-inner`, `.blocked-card`, `.blocked-card-title`, `.blocked-card-meta`, `.blocked-card-reason`.
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `719e03f` (MUST-A idea 1 and 2) — MUST-B1 and MUST-B2 changes are both **uncommitted** (4 modified files)
+- **Working tree:** 4 modified files (uncommitted — MUST-B1 + MUST-B2):
+  - `frontend/app.js` — IDEA 3 + IDEA 7 + IDEA 5 changes
+  - `frontend/styles.css` — IDEA 3 + IDEA 7 + IDEA 5 styles
+  - `src/models.py` — IDEA 5: `title`/`doc_type` added to `BlockedDocument`
+  - `src/stages/permission_filter.py` — IDEA 5: both constructors pass `title`/`doc_type`
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified after IDEA 5 backend changes)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged; no pipeline logic changed)
+- **Browser verification (IDEA 5):** COMPLETE — 4/4 Playwright checks passed:
+  - Analyst + ARR query → blocked section renders with "🔒 7 documents blocked by permissions ▾"
+  - Collapse/expand toggles correctly (closed by default → opens → closes again)
+  - First blocked card shows correct title and reason: "Requires vp role — you are analyst"
+  - Partner + same query → no blocked section rendered (correctly hidden)
+  - Trace panel still renders below blocked section; no regression
+  - 0 JS console errors
+- **JS syntax:** `node --check frontend/app.js` → OK
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md` frontend section** — Single mode description updated to include blocked-documents section; `BlockedDocument` contract model description updated to mention `title`/`doc_type` fields.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — historical/archived; no update needed. All items complete since Session 16.
+
+### Remaining Tasks
+
+1. **Commit MUST-B1 + MUST-B2** — 4 modified files: `frontend/app.js`, `frontend/styles.css`, `src/models.py`, `src/stages/permission_filter.py`
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable on the request path; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. All new backend fields are `Optional` — existing tests unaffected. Frontend section is conditionally rendered (no display when zero blocked).
+
+- **Branch mismatch note:** Working branch is `codex/must-a-idea1-2`, not `main`. MUST-A + MUST-B1 + MUST-B2 work lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 4 modified files as a combined MUST-B1 + MUST-B2 batch (or as two sequential commits if separate provenance is preferred).
+
+---
+
+## Session — 2026-04-16 (Session 22 / **MUST-B2 Verification + Documentation Pass**)
+
+### Summary
+
+Documentation and verification pass only. No code changes made. Confirmed MUST-B1 was committed as `6ac80a6` (correcting the Session 21 state which incorrectly described it as uncommitted). Ran `python3 -m pytest -q` and a thorough 7-criterion Playwright verification of the MUST-B2 blocked-documents section.
+
+---
+
+#### What was verified
+
+**Tests (`python3 -m pytest -q`):** 149 passed, 14 skipped, 0 failed.
+
+**Browser verification (7/7 Playwright checks — expanded from Session 21's 4/4):**
+
+| # | Criterion | Result |
+|---|-----------|--------|
+| 1 | Analyst + ARR query → blocked section appears (N > 0) | ✅ Header: "7 documents blocked by permissions" |
+| 2 | Section collapsed by default | ✅ Body height = 0 on load |
+| 3 | Click header → expands, blocked cards visible | ✅ 7 cards rendered |
+| 4 | Blocked card reason is human-readable | ✅ "Requires vp role — you are analyst" |
+| 5 | Click header again → collapses | ✅ Confirmed collapsed |
+| 6 | Partner + same query → NO blocked section | ✅ `blocked-section` count = 0 |
+| 7 | No JS console errors | ✅ 0 errors |
+
+**Additive-only checks (all confirmed):**
+- `buildBlockedSectionHTML` returns `""` when blocked list is empty — section is never rendered for partner or zero-blocked cases.
+- No document content, excerpts, or scores are exposed in the blocked section — only `doc_id`, `title`, `doc_type`, and the reason string.
+
+---
+
+#### Stale docs corrected this session
+
+- **`docs/HANDOFF.md` Session 21 "Current State"** — said last commit was `719e03f` and MUST-B1 was uncommitted. Corrected here: MUST-B1 was committed as `6ac80a6` before this session. MUST-B2 code remains uncommitted.
+- **`CLAUDE.md`** — already fully up to date (lines 94, 135 describe MUST-B2 correctly). No changes needed.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — historical/archived. All plan items complete since Session 16. No update needed.
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `6ac80a6` (MUST-B1) — MUST-B2 code changes are **uncommitted**
+- **Working tree — uncommitted code files (MUST-B2):**
+  - `frontend/app.js` — IDEA 5: `buildBlockedSectionHTML`, `wireBlockedSectionToggle`, `renderSingleResult` wiring
+  - `frontend/styles.css` — IDEA 5: `.blocked-section`, `.blocked-header`, `.blocked-body`, `.blocked-card` styles
+  - `src/models.py` — IDEA 5: `title`/`doc_type` added to `BlockedDocument`
+  - `src/stages/permission_filter.py` — IDEA 5: both `BlockedDocument` constructors pass `title`/`doc_type`
+- **Working tree — uncommitted doc files (this session):**
+  - `docs/HANDOFF.md` — this session entry
+  - `CLAUDE.md` — already correct; modified in a prior pass
+  - `docs/plans/2026-04-10-pipeline-integration-plan.md` — already correct; modified in a prior pass
+- **Tests:** 149 passed, 14 skipped, 0 failed (verified this session)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged; no pipeline logic changed)
+- **Browser verification:** COMPLETE — 7/7 checks (this session)
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Remaining Tasks
+
+1. **Commit MUST-B2** — 4 uncommitted code files: `frontend/app.js`, `frontend/styles.css`, `src/models.py`, `src/stages/permission_filter.py`
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None.
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`, not `main`. MUST-A + MUST-B1 + MUST-B2 work lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 4 MUST-B2 code files.
+
+---
+
+## Session — 2026-04-16 (Session 23 / **IDEAs Follow-up Closure — P2 + P3**)
+
+### Summary
+
+Documentation-only pass. Closed the two remaining follow-up items from `docs/plans/2026-04-16-ideas-execution-plan.md`. No code, test, or product changes.
+
+**P2 — Restore flow consolidation (resolved):**
+Added a 6-line `[ARCHIVED — 2026-04-16]` banner to the header of `docs/plans/2026-04-10-pipeline-integration-plan.md`. The banner explicitly states the file is not part of the default restore flow, kept on disk as audit record only, and documents the canonical restore sequence: `HANDOFF.md` → `CLAUDE.md` (extended: + `docs/plans/2026-04-16-ideas-execution-plan.md`).
+
+**P3 — Compare column-header label verification (resolved):**
+Ran an explicit Playwright assertion via the `webapp-testing` skill:
+- Loaded `frontend/index.html` (file://) with the uvicorn API server running on port 8000
+- Clicked the "Analyst wall ↔" scenario button (auto-switches to Compare mode, fires `POST /compare`)
+- Waited for `.col-badge` elements; asserted exactly 3 present with text in order
+
+```
+Found 3 .col-badge elements: ['No Filters', 'Permissions Only', 'Full Pipeline']
+PASS — Compare column headers match expected labels exactly.
+```
+
+This closes the lone `unclear` item from the MUST-A IDEA 1 consistency review. The code path was correct by construction (`buildCompareColumnHTML` reads `POLICY_META[policyName].label`), but the assertion was never itemized explicitly until now.
+
+**Execution plan updated:** Both P2 and P3 entries rewritten as resolved with evidence. Count line updated to `P0=0, P1=0, P2=0 (resolved), P3=0 (resolved). All follow-ups closed.`
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `6122d94` (MUST-B2) — all subsequent changes are doc-only and uncommitted
+- **Working tree — uncommitted doc files:**
+  - `docs/HANDOFF.md` — this session entry
+  - `docs/plans/2026-04-10-pipeline-integration-plan.md` — ARCHIVED banner added (P2)
+  - `docs/plans/2026-04-16-ideas-execution-plan.md` — new canonical plan file (untracked; replaces deleted summary)
+  - `docs/plans/2026-04-16-ideas-1-2-3-5-7-execution-summary.md` — deleted (unstaged; superseded by execution plan)
+- **Tests:** 149 passed, 14 skipped, 0 failed (last verified Session 22; no code touched this session)
+- **Evaluator:** precision@5=0.3000, recall=1.0000, permission_violation_rate=0% (unchanged)
+- **Browser verification:** P3 assertion PASS (this session)
+- **Demo status:** READY
+- **IDEAs follow-up thread:** FULLY CLOSED — `docs/plans/2026-04-16-ideas-execution-plan.md` is the canonical artifact; all P-items resolved
+
+### Remaining Tasks
+
+1. **Commit doc cleanup** — 4 files: `docs/HANDOFF.md`, `docs/plans/2026-04-10-pipeline-integration-plan.md` (modified), `docs/plans/2026-04-16-ideas-execution-plan.md` (new, untracked), `docs/plans/2026-04-16-ideas-1-2-3-5-7-execution-summary.md` (deleted)
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. The IDEAs follow-up thread has no open items. No code was touched.
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`, not `main`. All MUST-A/B1/B2 work plus doc cleanup lives here. Merge/PR decision is deferred.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the 4 uncommitted doc files as a single "doc cleanup" commit.
+
+---
+
+## Session — 2026-04-17 (Session 24 / **MUST-C — IDEA 4 + IDEA 6**)
+
+### Summary
+
+**Batch label: MUST-C — IDEA 4 + IDEA 6**
+
+Two frontend-only explainability passes. No backend, test, or model changes. All added UI is additive and conditionally rendered; existing chips, tables, and layouts untouched.
+
+---
+
+#### IDEA 4 — Natural-language Decision Trace summary + metric tooltips
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+- **`buildTraceSummary(trace, userRole, compact)`** helper added above `buildTracePanelHTML`. Returns an HTML string composed of up to four sentences — included / blocked / stale / dropped — with conditional rules (blocked and stale omitted when counts are zero; dropped omitted in compact mode when zero). Grammatical guards for `included === 0` and singular/plural nouns. `<strong>` used for emphasis on counts, roles, and doc IDs. All interpolated values pass through `escapeHTML`.
+- **`buildTracePanelHTML(trace, startOpen, userRole)`** signature extended with `userRole`. Inserts `<div class="trace-summary">` as the first child of `.trace-body`. Adds `trace-summary-compact` class when `startOpen === true` (Compare mode). The compact variant collapses the stale clause to a one-line count and drops the zero-dropped sentence.
+- **Four tooltips** added via `title=` attributes: `.budget-label` (Budget), and three spans in `.trace-numbers` (avg score, avg freshness, ttft). Prompt typos corrected: `"gng" → "generating"`, `"rey" → "recency"`.
+- **Call sites threaded:** `renderSingleResult` passes `role`; `buildCompareColumnHTML` signature extended with `userRole` and forwards it; `renderCompare` passes `data.role` into each column.
+- **CSS:** new `.trace-summary` (accent left border, `bg-surface`, readable `text-primary`) + `.trace-summary-compact` (tighter padding/size for Compare columns) + `.trace-summary strong`.
+
+Compact-mode rule choice: instead of stripping the budget-% clause, the compact variant drops the zero-dropped sentence and collapses per-doc stale details to a count. This preserves the informative "N tokens, M% of budget" clause in all modes while visibly shortening the paragraph on small columns.
+
+---
+
+#### IDEA 6 — Evals narrative banner + per-card hints + query-text column
+
+**Files modified (2):** `frontend/app.js`, `frontend/styles.css`
+
+- **`buildEvalsNarrative(agg)`** helper added below `renderEvals`. Returns `<div class="evals-narrative">` with three sentences: (1) permission-violations line (congratulatory or warning form); (2) recall line (100% form or fallback for less-than-perfect recall); (3) budget-utilization tier line (`< 0.60 → efficient`, `[0.60, 0.80] → moderate`, `> 0.80 → heavy`). Guarded on `queries_run > 0` — returns empty string otherwise.
+- **`METRIC_HINTS`** added inline as a `hint` field on each card entry in `renderEvals`. Each `.metric-card` now renders three spans: label / value / hint. Typos from prompt fixed.
+- **Query cell redesign:** the per-query table's first cell now contains `<span class="evals-qid">${q.id}</span><span class="evals-qtext" title="${full}">${truncated}</span>`, with truncation at 50 chars + `…`. Existing 12-column layout preserved; `.evals-query-cell` allows wrapping (overrides the global `white-space: nowrap` on `td`). Full query text surfaced via `title=` tooltip.
+- **CSS:** new `.evals-narrative` (parchment card with accent left border + shadow), `.metric-card-hint` (small tertiary text as third flex child; no grid disruption), `.evals-query-cell` / `.evals-qid` (accent pill) / `.evals-qtext` (display-font, secondary color).
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `2d58d05` (MUST-B2 DOCS) — MUST-C changes are **uncommitted** (2 modified files + 1 new plan doc)
+- **Working tree:**
+  - `frontend/app.js` (modified) — IDEA 4 + IDEA 6
+  - `frontend/styles.css` (modified) — IDEA 4 + IDEA 6 styles
+  - `docs/plans/2026-04-17-must-c-ideas-4-6-plan.md` (new, untracked) — the approved batch plan
+- **Tests:** 149 passed, 14 skipped, 0 failed (fresh run this session)
+- **Evaluator:** fresh `python3 -m src.evaluator` run this session matches baseline — **precision@5=0.3000, recall=1.0000, permission_violation_rate=0%**, queries run 8/8, avg budget util 53%, avg freshness 0.768. No pipeline changed.
+- **Browser verification:** COMPLETE — **15/15 Playwright checks passed** (IDEA 4 × 8 incl. separate analyst/partner blocked-clause checks; IDEA 6 × 7). 0 JS console errors across Single, Compare, and Evals modes.
+- **JS syntax:** `node --check frontend/app.js` → OK.
+- **Hostile review:** not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md` frontend section** — Single, Compare, and Evals mode descriptions amended to mention the trace narrative paragraph + tooltips (Single/Compare) and the narrative banner + card hints + query text column (Evals).
+- **`docs/plans/2026-04-16-ideas-execution-plan.md`** — not modified. MUST-C is a separate batch with its own canonical plan; the 2026-04-16 plan remains the canonical MUST-A/B1/B2 artifact.
+- **`docs/plans/2026-04-10-pipeline-integration-plan.md`** — ARCHIVED; not touched.
+
+### Remaining Tasks
+
+1. **Commit MUST-C** — 3 files: `frontend/app.js`, `frontend/styles.css`, `docs/plans/2026-04-17-must-c-ideas-4-6-plan.md`, plus `docs/HANDOFF.md` + `CLAUDE.md` for this session's doc updates.
+2. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` are unreachable; 14 tests already skipped. Safe to delete; no urgency.
+3. **(Optional) Evaluator corpus re-read** — `run_evals()` loads roles/metadata independently of `main.py`'s copies. Cosmetic; no correctness impact.
+
+### Blockers and Warnings
+
+None. All additions are conditional (narrative guarded on `queries_run > 0`; summary emits only non-empty clauses). `userRole` threading has default-undefined fallback; missing role degrades gracefully (the blocked clause uses generic phrasing).
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`. MUST-A + MUST-B1 + MUST-B2 + MUST-C all live here.
+- **Python 3.9 / LibreSSL:** System is 3.9.6 with LibreSSL 2.8.3. `tf-keras` installed for `sentence-transformers` compatibility.
+
+### Suggested First Action
+
+Commit the MUST-C batch (2 frontend files + new plan doc + this HANDOFF update + CLAUDE.md update).
+
+---
+
+## Session — 2026-04-17 (Session 25 / **MUST-D — IDEA 8 · PDF Ingestion + Admin Panel**)
+
+### Summary
+
+**Batch label: MUST-D — IDEA 8**
+
+First backend-expanding batch since MUST-A. Adds a runtime PDF ingestion path (new `POST /ingest` endpoint, new `src/ingest.py`, new frontend Admin mode) plus two new runtime dependencies. Writes to `corpus/documents/`, `corpus/metadata.json`, and `artifacts/*` at request time. 23 new tests.
+
+---
+
+#### Backend (6 files)
+
+1. **`requirements.txt`** — added `pdfplumber` and `python-multipart`.
+
+2. **`src/ingest.py` (new, ~210 lines)** — orchestrator `ingest_document(pdf_bytes, title, date, min_role, doc_type, sensitivity, tags, superseded_by=None, metadata_path=None, corpus_dir=None)` plus helpers `extract_text_from_pdf`, `generate_next_doc_id`, `sanitize_filename`, `_validate_inputs`, `_unique_filename`. Module-level `threading.Lock` (`_INGEST_LOCK`) wraps doc_id generation + `.txt` write + metadata append + `indexer.build_and_save()` call. Enum sets mirror existing corpus values: `VALID_MIN_ROLES={analyst,vp,partner}`, `VALID_DOC_TYPES={10 values}`, `VALID_SENSITIVITY={low,medium,high,confidential}`. `IngestError(ValueError)` carries a `status_code` attribute for clean FastAPI mapping. `MAX_PDF_BYTES=10*1024*1024`, `MIN_EXTRACTED_CHARS=50`. `metadata_path` / `corpus_dir` default to `None` with runtime fallback to module-level constants — enables monkeypatching in tests.
+
+3. **`src/retriever.py`** — new `invalidate_caches()` resets only the `_bm25` singleton (FAISS is re-read from disk per request, embeddings model is corpus-independent).
+
+4. **`src/models.py`** — new `IngestResponse(BaseModel)` with `extra="forbid"`: `status`, `doc_id`, `title`, `file_name`, `type`, `date`, `min_role`, `sensitivity`, `tags`, `total_documents`.
+
+5. **`src/main.py`** — new `POST /ingest` handler. Maps `UploadFile` + 6 `Form(...)` fields → `ingest_document()`. Catches `IngestError` → `HTTPException(e.status_code)`. Rejects non-PDF content-types with 415 before calling ingest. On success, mutates `_metadata["documents"]` in place (so `run_pipeline` closures see the update), clears `_evals_cache`, and calls `retriever.invalidate_caches()`.
+
+6. **`tests/test_ingest.py` (new, 23 tests)** — `sanitize_filename` (basic/nonword/path-traversal/empty/length-cap), `generate_next_doc_id` (advance/empty/malformed), `extract_text_from_pdf` (empty/unreadable), `ingest_document` validation (oversize 413, bad-date, bad-role, bad-doc_type, bad-sensitivity, empty-title), happy path (tmp_path + monkeypatched `indexer.build_and_save` + monkeypatched `extract_text_from_pdf`), duplicate-filename suffix. Five endpoint tests via `TestClient`: 415/400/400/422 error paths plus happy-path with patched `ingest_document` + `invalidate_caches` verifying response shape and that `_evals_cache is None` after the call.
+
+---
+
+#### Frontend (3 files)
+
+7. **`frontend/index.html`** — fourth `<button data-mode="admin">Admin</button>` in the mode-toggle; new `<section id="admin-section" hidden>` with file / title / date / min_role select (3 values) / doc_type select (10 values) / sensitivity select (4 values) / tags inputs, submit button with spinner, status div, and demo-only advisory note.
+
+8. **`frontend/app.js`** — `adminSection` DOM ref; `switchMode` branch for `isAdmin` (hides search, results, admin when appropriate); `setAdminStatus` / `clearAdminStatus` / `uploadDocument(event)` helpers. `uploadDocument` POSTs `FormData` to `${API_BASE}/ingest`, disables the submit button with `.loading` during the call, then renders success/error via `escapeHTML`-hardened status messages.
+
+9. **`frontend/styles.css`** — `.admin-section`, `.admin-form`, `.admin-row` (grid), `.admin-field`, `.admin-btn` with spinner, `.admin-status-loading/success/error` colored left borders, `.admin-note`, responsive `@media (max-width: 640px)` fallback.
+
+---
+
+### Verification
+
+**Tests:** 172 passed, 14 skipped, 0 failed (`python3 -m pytest -q`). 23 new tests vs. 149 baseline.
+
+**Server smoke:** `python3 -m uvicorn src.main:app --port 8000` → `/docs` responds 200. Clean startup, no regressions.
+
+**curl end-to-end:**
+
+| Case | Request | Response |
+|------|---------|----------|
+| 415 — non-PDF | `text/plain` upload | `415 {"detail":"Expected a PDF upload; got content-type 'text/plain'."}` |
+| 400 — bad role | `min_role=god` | `400 {"detail":"min_role must be one of ['analyst', 'partner', 'vp']."}` |
+| 400 — bad date | `date=05/01/2024` | `400 {"detail":"date must be in YYYY-MM-DD format."}` |
+| 422 — unreadable PDF | `%PDF-` only | `422 {"detail":"Unreadable PDF: No /Root object! - Is this really a PDF?"}` |
+| 413 — oversize | 10 MB + 100 bytes | `413 {"detail":"PDF exceeds 10 MB size limit."}` |
+| 200 — happy path | real reportlab PDF | `200 {"status":"ok","doc_id":"doc_013","file_name":"verification_smoke_doc.txt","total_documents":13,...}` |
+
+**Search-after-ingest:** `POST /query {"query":"LIMINAL_ECHO_SENTINEL_7742","role":"analyst","top_k":5}` → `doc_013` ranked #1 in context. Cache invalidation + reindex confirmed working end-to-end.
+
+**Playwright Admin flow (via `webapp-testing` skill):** Loaded frontend via `file://` with uvicorn on :8000 for the API. Clicked Admin tab → filled all fields → `set_input_files('/tmp/real.pdf')` → clicked Upload. Status area reached `admin-status-success` class with text: `"Indexed doc_014 — Playwright Admin Flow Doc. Corpus now contains 14 documents. It is searchable in Single and Compare modes."`. PASS.
+
+**Rollback:** Corpus restored to pre-test state (12 docs, 12 `.txt` files, `artifacts/*` restored from snapshots).
+
+**Addendum 2026-04-22 (UI-A — demo data cleanup).** A follow-up audit found the rollback above was not actually applied to the working tree: `corpus/documents/agenda.txt` + a `doc_013` `Agenda` metadata entry had leaked into the committed corpus from a separate verification-smoke ingest, leaving the corpus at 13 docs and polluting partner-role Compare results. UI-A removed `agenda.txt`, deleted the `doc_013` entry from `corpus/metadata.json`, rebuilt all three `artifacts/*` files (FAISS index + `index_documents.json` + `bm25_corpus.json`, now 12 rows each), and re-ran the evaluator + pytest baseline. Corpus is back to the intended 12-doc Meridian / Atlas Capital narrative. Evaluator aggregates post-cleanup: `P@5=0.3000, Recall=1.0000, perm_viol=0%, avg_blocked=3.38, avg_stale=1.62, avg_budget_util=53%`. `pytest: 172 passed / 14 skipped / 0 failed`.
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `3da04cd` (MUST-D docs follow-up) on top of `a6d1daa` (MUST-D: IDEA 8 — PDF ingestion + Admin panel)
+- **Working tree:** clean. All 12 MUST-D files (9 code + 3 doc) landed in `a6d1daa`; `3da04cd` is a docs-only follow-up commit. No modified, staged, or untracked files remain at handoff time.
+- **Files in the MUST-D commit (`a6d1daa`, 12 files, +1323 / −11):**
+  - Code: `requirements.txt`, `src/ingest.py` (new), `src/retriever.py`, `src/models.py`, `src/main.py`, `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`, `tests/test_ingest.py` (new)
+  - Docs: `docs/HANDOFF.md`, `CLAUDE.md`, `docs/plans/2026-04-17-must-d-idea-8-plan.md` (new)
+- **Tests:** 172 passed, 14 skipped, 0 failed (this session)
+- **Evaluator:** unchanged on the original 12-doc corpus (no pipeline logic changed)
+- **Browser verification:** COMPLETE — Admin flow end-to-end PASS; prior MUST-C Playwright coverage unchanged
+- **Hostile review:** Not performed this session (last clean verdict: Session 18)
+- **Demo status:** READY
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md`** — added `POST /ingest` endpoint section, Admin mode bullet under Frontend, `IngestResponse` in Contract models key types, dependency note under Environment note. `Three modes controlled by a header toggle:` → `Four modes controlled by a header toggle:`.
+- **`docs/plans/2026-04-17-must-d-idea-8-plan.md`** — kept as the canonical MUST-D artifact; no content rewrite needed (plan matches execution).
+- **`docs/plans/2026-04-16-ideas-execution-plan.md`** — unchanged. Different batch scope.
+- **`docs/plans/2026-04-17-must-c-ideas-4-6-plan.md`** — unchanged. Different batch.
+
+### Remaining Tasks
+
+No MUST-D work remains. The batch is fully implemented, verified, and committed (`a6d1daa` + `3da04cd`). All long-standing optional follow-ups from prior sessions are unchanged and still optional:
+
+1. **(Optional) Remove dead code** — `apply_freshness()` in `freshness.py` and `filter_by_role()` in `policies.py` remain unreachable; 14 tests skipped. Safe to delete; no urgency.
+2. **(Optional) Evaluator corpus re-read** — unchanged from prior sessions; cosmetic.
+3. **(Optional) Deploy posture** — if hosting the demo, note the ephemeral-fs limitation: uploads via `/ingest` will not survive container restarts on most hosts.
+4. **(Optional) Hostile review** — last clean verdict was Session 18; MUST-A/B/C/D have not been rereviewed. No known issues.
+
+### Blockers and Warnings
+
+None. All validation boundaries covered by tests. The only persistent-state mutation (`metadata.json` + `artifacts/*`) is serialized by `_INGEST_LOCK` and restorable from git.
+
+- **Branch note:** Working branch is `codex/must-a-idea1-2`. MUST-A + MUST-B1 + MUST-B2 + MUST-C + MUST-D all live here.
+- **Python 3.9 / LibreSSL:** unchanged; `pdfplumber` installs cleanly on this stack.
+- **Ephemeral hosting:** uploads via `/ingest` write to repo-relative paths; on ephemeral container filesystems they will vanish on restart. Documented in the Admin panel and in CLAUDE.md.
+
+### Suggested First Action
+
+None strictly required — MUST-D is complete and committed. If the next session needs direction, choose from the optional follow-ups above, or start a new IDEA / MUST-X batch.
+
+---
+
+## Session — 2026-04-17 (Session 26 / **SHOULD-A — IDEA 9 + IDEA 10**)
+
+### Summary
+
+**Batch label: SHOULD-A — IDEA 9 + IDEA 10**
+
+Frontend-only onboarding pass. Two additive changes: a live role description under the role selector (IDEA 9), and a guided onboarding scenario grid replacing the passive empty state (IDEA 10). No backend, test, or model files touched. Reuses the existing `.example-btn` click handler and mirrors the MUST-A `updatePolicyDescription` pattern — no parallel state.
+
+---
+
+#### IDEA 9 — Role description
+
+**Files modified (3):** `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`
+
+- **`index.html`** — wrapped the role selector in a new `<div class="role-selector-group">` (mirroring `.policy-selector-group`) and added `<p class="role-description" id="role-description"></p>` below `.role-options`.
+- **`app.js`** — added `ROLE_DESCRIPTIONS` constant (analyst / vp / partner copy exactly per prompt, with the typo "internamos" corrected to "internal memos"); added `updateRoleDescription(role)` using the same 80ms opacity fade as `updatePolicyDescription`; wired `change` listeners on all role radios; initialized on page load with the default checked role. In the existing `.example-btn` handler, called `updateRoleDescription(role)` right after `roleRadio.checked = true` — programmatic checked sets don't fire `change`, so scenarios/example clicks would otherwise leave the description stale.
+- **`styles.css`** — added `.role-selector-group` (flex-column, `align-self: flex-start`) and `.role-description` (mono, 0.61rem, tertiary, `max-width: 500px`, 80ms opacity transition).
+
+#### IDEA 10 — Guided empty state
+
+**Files modified (2):** `frontend/index.html`, `frontend/styles.css` (no new JS)
+
+- **`index.html`** — replaced the `#empty-state` interior. Dropped the decorative hexagon SVG. New headline "How different policies change context assembly", an expanded subtitle, a `.onboard-grid` of three `<button class="example-btn onboard-card">` scenarios ("Permission Wall"/analyst, "Stale Detection"/VP, "Full Access"/partner), and a closing hint "Or type your own query above and choose a role to explore." Each card has role-color `.onboard-dot`, `.onboard-card-subtitle` tier label, `.onboard-card-title`, and `.onboard-hint`. Reused existing `.dot-analyst` / `.dot-vp` / `.dot-partner` color vars.
+- **`app.js`** — no changes. The pre-existing `document.querySelectorAll(".example-btn").forEach(...)` at app.js:138 picks up the onboard cards at page load because they share the class. One query-trigger path, no fork.
+- **`styles.css`** — added `.onboard-grid` (3-col grid, responsive 1-col ≤720px), `.onboard-card` (overrides `.example-btn`'s inline-flex row layout with column layout, card shadow, hover lift), `.onboard-dot`, `.onboard-card-head`, `.onboard-card-title`, `.onboard-card-subtitle`, `.onboard-hint`.
+
+---
+
+### Verification
+
+**Tests:** 172 passed, 14 skipped, 0 failed (unchanged — no backend files touched).
+
+**JS syntax:** `node --check frontend/app.js` clean.
+
+**Diff stat:** `frontend/app.js` +34 lines, `frontend/index.html` +62/−25, `frontend/styles.css` +110. Three files; no backend.
+
+**Playwright (via `webapp-testing` skill) — 15/15 passed, 0 console errors:**
+
+| # | Assertion | Evidence |
+|---|-----------|----------|
+| 1 | role-description on load shows analyst copy | text starts "Entry-level deal team…" (len 158) |
+| 2 | VP radio click → "Vice President" | text begins "Vice President. Extended access…" |
+| 3 | Partner radio click → Partner copy | text begins "Partner-level. Full corpus access…" |
+| 4 | `.example-btn` (partner) updates role-description | after-click mentions "Partner"; stale "analyst" absent |
+| 5 | "internamos" typo absent from rendered HTML | substring not found |
+| 6 | Evals mode hides search-section + role-description | `search_hidden=True`, `role_desc_visible=False` |
+| 7 | Admin mode hides role-description | `role_desc_visible=False` |
+| 8 | `#empty-state` has exactly 3 `.onboard-card` | count=3 |
+| 9 | onboard cards have valid `data-query`/`role`/`mode` | roles=['analyst','vp','partner'], all `mode=compare` |
+| 10 | Analyst onboard card → 3-col compare + ≥7 `.flag-blocked` in NAIVE | `compare_active=True`, `cols=3`, `naive_flag_blocked=7` |
+| 11 | VP onboard card → VP banner + ≥1 `.compare-stale-badge` in FULL | banner "policy comparison — vp role"; `stale_badges=2` |
+| 12 | Partner onboard card → FULL column shows `0 BLOCKED` | regex `0\s*\n\s*BLOCKED` matched |
+| 13 | 0 JS console errors across all interactions | errors=[] |
+| 14 | Compare column headers exact | ['No Filters','Permissions Only','Full Pipeline'] (MUST-A P3 regression clean) |
+| 15 | Evals `.evals-narrative` ≥3 sentences | n=3, first "Zero permission violations across 8 test queries…" (MUST-C regression clean) |
+
+---
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `e1e3513` (MUST-D docs). SHOULD-A code + docs committed in this session.
+- **Working tree:** clean after commit.
+- **Tests:** 172 passed, 14 skipped, 0 failed.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** COMPLETE — 15/15 Playwright checks, 0 JS console errors.
+- **Hostile review:** not performed (last clean verdict: Session 18).
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Empty-state destroyed on first query.** `document.getElementById("empty-state")?.remove()` (app.js:setLoadingSingle) is pre-existing behavior — now the removed surface is the onboarding grid. Not newly broken by this batch; call out in case a reviewer flags it. Cards live for a session until the first query runs.
+
+### Stale Docs Updated This Session
+
+- **`CLAUDE.md`** — Single mode description amended to describe the onboard-card grid (3-col → 1-col responsive), the role description paragraph, and the first-query removal behavior.
+- **`docs/plans/2026-04-17-should-a-ideas-9-10-plan.md`** — canonical SHOULD-A plan (committed this session).
+
+### Remaining Tasks
+
+No SHOULD-A work remains. Long-standing optional follow-ups from prior sessions unchanged:
+
+1. **(Optional) Remove dead code** — `apply_freshness()` and `filter_by_role()`.
+2. **(Optional) Evaluator corpus re-read** — cosmetic.
+3. **(Optional) Ephemeral-fs caveat** for MUST-D uploads — already documented.
+4. **(Optional) Hostile review** — last clean verdict Session 18; MUST-A/B/C/D + SHOULD-A not rereviewed.
+
+### Suggested First Action
+
+None strictly required — SHOULD-A is complete and committed. If continuing, start the next IDEA / SHOULD-X batch.
+
+---
+
+## Session — 2026-04-17 (Session 27 / **NICE-B — IDEA 11 · Render-style Read-Only Deploy**)
+
+### Summary
+
+Packaging pass. Makes the repo deployable as a single Render web service: FastAPI JSON API + the static `frontend/` served at `/app/`. No business-logic changes. One env flag (`ALLOW_INGEST`) gates the write path; the frontend hides the Admin tab when the server reports it off. All edits are additive or defensive; `tests/test_ingest.py` stays green because the gate defaults to enabled.
+
+### What was done
+
+1. **`src/main.py`**
+   - Imported `StaticFiles`. Added `_FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")` (CWD-independent resolution, mirroring `_ROLES_PATH`).
+   - Added `_ingest_enabled()` helper: reads `os.getenv("ALLOW_INGEST", "true")` per-request, disabled only when the value is `"false"` or `"0"` (case-insensitive).
+   - Extended `GET /health` to return `{"status": "ok", "ingest_enabled": <bool>}`.
+   - `POST /ingest` now fails fast with `HTTPException(403, "Ingest is disabled on this deployment.")` before reading the request body when ingest is off.
+   - Mounted `app.mount("/app", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")` at the bottom of the module — after all JSON routes so nothing is shadowed.
+2. **`frontend/app.js`**
+   - Replaced hardcoded `API_BASE` with a hostname-aware expression: `localhost` / `127.0.0.1` / empty → `http://localhost:8000`; anything else → `""` (same-origin).
+   - Added a non-fatal `/health` probe on page load. When `ingest_enabled === false`, hides the Admin mode button (`.mode-btn[data-mode="admin"]`) and `#admin-section`. Probe failures silently leave Admin visible (keeps `file://` dev working when the server is off).
+3. **`Procfile`** (new) — `web: uvicorn src.main:app --host 0.0.0.0 --port $PORT`. Consumable by Render's Start Command and by Railway's buildpack.
+4. **`CLAUDE.md`** — new **Deploy (read-only, Render-first)** section covering build/start commands, env vars, `/app/` URL, `/health` capability probe, `API_BASE` matrix, ephemeral-fs caveat, and local quickstart.
+5. **`docs/plans/2026-04-17-nice-b-idea-11-plan.md`** — canonical NICE-B plan (added this session).
+
+Not done (explicitly out of scope per plan, P2/P3): no `.python-version` pin, no root redirect to `/app/`, no host-specific config (`render.yaml`, `railway.toml`, `fly.toml`).
+
+### Files affected
+
+- `src/main.py` (static mount, `/health` shape, `/ingest` gate, `_FRONTEND_DIR`, `_ingest_enabled()`)
+- `frontend/app.js` (API_BASE resolver + /health capability probe)
+- `Procfile` (new)
+- `CLAUDE.md` (deploy section)
+- `docs/HANDOFF.md` (this entry)
+- `docs/plans/2026-04-17-nice-b-idea-11-plan.md` (new)
+
+### Verification evidence
+
+- **Preflight**: `git ls-files artifacts/` confirms three artifacts tracked; `git ls-files | grep -Ei '\\.env|\\.pem|\\.key|credentials|secret'` → empty.
+- **JS**: `node --check frontend/app.js` → OK.
+- **Tests**: `python3 -m pytest -q` → **172 passed, 14 skipped, 0 failed** (unchanged from baseline).
+- **Uvicorn smoke (ingest enabled)**:
+  - `GET /health` → `{"status":"ok","ingest_enabled":true}`
+  - `GET /app/` → 200, `text/html; charset=utf-8`
+  - `GET /app/app.js` → 200, `text/javascript; charset=utf-8`
+  - `GET /app/styles.css` → 200, `text/css; charset=utf-8`
+  - `POST /query` → 200 with expected `doc_id`s for "ARR growth" / analyst
+- **Uvicorn smoke (`ALLOW_INGEST=false`)**:
+  - `GET /health` → `{"status":"ok","ingest_enabled":false}`
+  - `POST /ingest` → `403 {"detail":"Ingest is disabled on this deployment."}`
+  - `POST /query` → 200 (unaffected)
+- **Procfile smoke**: `PORT=8000 sh -c "$(grep '^web:' Procfile | sed 's/^web: //')"` → server up, `/health` returns 200.
+
+### Current State (end of Session 27 / handoff)
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit:** `0315c59` (SHOULD-A). **NICE-B is still uncommitted** — no commit SHA yet.
+- **Working tree (uncommitted NICE-B batch):**
+  - Modified: `src/main.py`, `frontend/app.js`, `CLAUDE.md`, `docs/HANDOFF.md`
+  - New: `Procfile`, `docs/plans/2026-04-17-nice-b-idea-11-plan.md`
+- **Tests:** 172 / 14 / 0 (verified this session, ingest gate default-enabled).
+- **Smoke checks:** all green this session — uvicorn default (`/health`, `/app/`, `/app/app.js`, `/app/styles.css`, `/query`), uvicorn with `ALLOW_INGEST=false` (`/health.ingest_enabled=false`, `/ingest` → 403, `/query` → 200), Procfile boot via `PORT=8000 sh -c "$(grep '^web:' Procfile | sed 's/^web: //')"`.
+- **JS:** `node --check frontend/app.js` → OK.
+- **Browser / Playwright verification:** NOT run this session. The `/app/` static-serving path + the `/health` capability probe (Admin tab hidden when `ingest_enabled=false`) are covered only by curl smokes, not by a full Playwright sweep. Carry forward as the first verification step after commit/deploy.
+- **Review verdict:** No hostile review run this session (last clean verdict: Session 18; MUST-A/B/C/D/SHOULD-A/NICE-B not re-reviewed).
+- **Demo status:** READY. Local URL: `http://localhost:8000/app/`. Production URL once deployed: `https://<render-host>/app/`.
+
+### Render quick-reference
+
+- **Start command:** `uvicorn src.main:app --host 0.0.0.0 --port $PORT`
+- **Build command:** `pip install -r requirements.txt`
+- **Env vars:** `ALLOW_INGEST=false` (required for read-only); `PORT` is auto-provided.
+- **Deployed route:** `https://<render-host>/app/` (trailing slash required).
+- **Caveat:** `/app` without trailing slash 307-redirects; ephemeral filesystem means Admin uploads would not survive redeploys even if enabled.
+
+### Remaining / next steps
+
+1. **Commit NICE-B** — 4 modified + 2 new files listed above. Suggested message mirrors prior batches, e.g. `NICE-B: IDEA 11 — Render-style read-only deploy (/app mount, Procfile, ALLOW_INGEST gate)`.
+2. **Playwright sweep at `http://localhost:8000/app/`** — scenarios + Admin-hidden probe with `ALLOW_INGEST=false`. Intentionally deferred from this session.
+3. **Deploy to Render** — create web service, set Start/Build commands and `ALLOW_INGEST=false`, verify `https://<host>/app/` reaches the demo.
+4. **(Optional, P2 from NICE-B plan)** `.python-version` pin + root (`/`) → `/app/` redirect. Defer unless Render build or UX requires.
+5. **Long-standing optional follow-ups (carried forward, unchanged):** remove dead `apply_freshness()` / `filter_by_role()`; cosmetic evaluator corpus re-read; hostile review refresh on MUST-A..NICE-B.
+
+### Doc status at end of Session 27
+
+- `docs/HANDOFF.md` — current (this update).
+- `CLAUDE.md` — current (Deploy section added this session under NICE-B).
+- `docs/plans/2026-04-17-nice-b-idea-11-plan.md` — current (Execution outcome section present; scope line clarified to Render-first).
+- `docs/plans/2026-04-17-should-a-ideas-9-10-plan.md` — updated this session with an Execution outcome section (previously still read as preflight).
+- `docs/plans/2026-04-17-must-d-idea-8-plan.md`, `docs/plans/2026-04-17-must-c-ideas-4-6-plan.md`, `docs/plans/2026-04-16-ideas-execution-plan.md` — unchanged, still accurate.
+- `docs/plans/2026-04-10-pipeline-integration-plan.md` — unchanged, ARCHIVED banner from 2026-04-16 still holds.
+- `roadmap.md` — does not exist in this repo; not referenced anywhere in the plan sequence.
+
+---
+
+## Session — 2026-04-18 (Session 28 / **NICE-A — IDEA 12 + IDEA 13**)
+
+### Summary
+
+Frontend-only polish pass. IDEA 12 adds an `.export-btn` (`⤓ Export JSON`) in Single mode (`.summary-bar`) and Compare mode (`#compare-banner`) that downloads the verbatim `/query` and `/compare` responses as pretty-printed JSON via Blob + `URL.createObjectURL` with a paired revoke. IDEA 13 adds subtle motion: mode-switch fade, result-card + metric-card hover lifts, spinner opacity pulse, and a smooth `max-height` transition on the Decision Trace panel (replacing the old `display: none↔block` toggle). All new motion respects `@media (prefers-reduced-motion: reduce)`. Reuses the existing `--dur: 180ms` / `--ease` tokens.
+
+### Files changed
+
+- `frontend/app.js` — `downloadJSON(data, filename)` helper, Single export button + handler in `renderSingleResult()`, Compare export button append-with-dedupe in `renderCompare()`, `playModeEnter()` + `switchMode()` integration for `.mode-enter` fade-in.
+- `frontend/styles.css` — `.export-btn` rules; `.result-card` entrance switched to `@keyframes result-card-in` (translateY 8→0) with hover translateY(-1px); `.trace-body` migrated to max-height + padding transition; `.metric-card` hover translateY(-2px) + shadow; `.btn-spinner` opacity pulse `@keyframes btn-spinner-pulse`; `.mode-enter` + `@keyframes mode-fade`; `@media (prefers-reduced-motion: reduce)` safety net.
+- `docs/plans/2026-04-18-nice-a-ideas-12-13-plan.md` (new) — preflight plan committed at the start of this session.
+- `CLAUDE.md` — appended NICE-A paragraph under Frontend (export behavior + motion polish + reduced-motion).
+- `docs/HANDOFF.md` — this entry.
+
+No backend files, no test files, no deps, no HTML changes. `tests/` untouched.
+
+### Verification
+
+**Baseline + post-edit pytest:** 172 passed, 14 skipped, 0 failed (both runs this session).
+
+**JS syntax:** `node --check frontend/app.js` → OK. **CSS brace balance:** 363 open / 363 close.
+
+**Server freshness check:** `curl -s http://localhost:8000/app/app.js | grep -c downloadJSON` → `3` (helper + 2 call sites; static mount reads from disk per request, no reload needed).
+
+**Playwright sweep (via `webapp-testing` skill) at http://localhost:8000/app/ — 35/35 PASS, 0 JS console errors:**
+
+| Area | Checks |
+|---|---|
+| Navigate | `/app/` loads with network-idle |
+| Single mode | result-card rendered (5 cards for ARR/analyst/full); `.summary-bar` visible; `#export-single` visible with icon + label; download triggers filename `querytrace_analyst_full_policy.json`; payload has `context`, `decision_trace`, `total_tokens` |
+| Trace panel | toggle exists; click adds `.open`; `.trace-body` computed `max-height: 4000px` when open; second click removes `.open` (smooth transition observed) |
+| Result-card hover | computed transform `matrix(1, 0, 0, 1, 0, -1)` on hover |
+| Compare mode | 3 compare columns; `#compare-banner` visible; `#export-compare` visible; exactly 1 `.export-btn` in banner; download filename `querytrace_compare_analyst.json`; payload has `results` (3 policies) + `role`; re-run with VP and Partner scenarios → still exactly 1 export button per render; banner strong text matches new role |
+| Evals | 10 `.metric-card`; hover computed transform `matrix(1, 0, 0, 1, 0, -2)` |
+| Mode fade | MutationObserver captures `.mode-enter` class add/remove across 3 mode swaps (≥2 events per swap) |
+| Blob cleanup | After 10 exports in a row: 10 `createObjectURL` calls, 10 `revokeObjectURL` calls, 0 live URLs left (instrumented at `add_init_script` level before any page JS ran) |
+| Console errors | 0 across entire session |
+| `prefers-reduced-motion: reduce` | In a fresh context with `reduced_motion="reduce"`, `.mode-enter` computed `animation-name === "none"`; mode switching still works; 0 JS errors |
+
+Saved download artifacts at `/tmp/nicea_downloads/` for both filenames.
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `d72e5da` (NICE-B). NICE-A commit added in this session.
+- **Tests:** 172 / 14 / 0.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** COMPLETE — 35/35 Playwright assertions, 0 JS console errors, Blob URL pairing verified by instrumentation.
+- **Hostile review:** not performed this session (last clean verdict: Session 18).
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Trace panel `max-height: 4000px` cap.** Current traces observed well under this (a few hundred px); if a reviewer constructs a pathological query with hundreds of blocked docs the body could clip. Acceptable for the demo corpus.
+- **Compare-col entrance animation still uses the shared `card-in` keyframe** (`to`-only) with `forwards` — unchanged from before this batch. Only `.result-card` and `.metric-card` were migrated off `forwards`/`both` to let the new hover transforms take effect.
+
+### Remaining Tasks
+
+No NICE-A work remains. Long-standing optional follow-ups unchanged:
+
+1. **(Optional) Remove dead code** — `apply_freshness()` / `filter_by_role()`.
+2. **(Optional) Evaluator corpus re-read** — cosmetic.
+3. **(Optional) Ephemeral-fs caveat** for MUST-D uploads — already documented.
+4. **(Optional, P2 from NICE-B plan)** `.python-version` pin + `/` → `/app/` redirect.
+5. **(Optional) Hostile review refresh** on MUST-A..NICE-A.
+
+### Doc status at end of Session 28
+
+- `docs/HANDOFF.md` — current (this entry).
+- `CLAUDE.md` — current (NICE-A paragraph appended under Frontend).
+- `docs/plans/2026-04-18-nice-a-ideas-12-13-plan.md` — preflight plan from this session; Execution outcome section can be added as a follow-up if desired (not required — this HANDOFF entry carries the evidence).
+- All other plan docs — unchanged and still accurate.
+
+---
+
+## Session — 2026-04-23 (Session 30 / **UI-B — Single state coherence**)
+
+### Summary
+
+Frontend-only UX fix. Before this batch, changing the role or policy radio in Single mode updated the controls + descriptive copy but left the previously rendered result on screen, so the `.summary-bar` role/policy chips contradicted the radio selection. Single example buttons also inherited whatever policy radio was checked, making the demo non-deterministic.
+
+UI-B implements two coordinated changes:
+
+1. **Mark-stale banner + require Run** (not auto-rerun, not clear-on-change). When either radio diverges from the `(role, policy)` pair tied to the rendered result, a `#stale-results-banner` (`role="status"` / `aria-live="polite"` / `aria-atomic="true"`) is prepended to `#results-section` reading "Controls changed — press **Run** to refresh these results.", and the section gets a `results-stale` class that fades the summary bar / result cards / blocked section / trace panel to 60% opacity. Cleared on Run, on Single preset click, on mode switch out of Single, and whenever radios match the last-rendered pair. On mode switch into Single, `evaluateSingleStale()` re-runs so round trips (Single → Compare → Single) with a diverged role radio surface the banner on return. All banner logic is gated on the presence of `.summary-bar` in `#results-section` — empty state, skeleton, error, and "no results" views never trigger it.
+2. **Deterministic Single example buttons.** The shared `.example-btn` handler now branches on `data-mode`: for `data-mode="single"` it forces `policy=full_policy`, toggles the matching radio, and calls `updatePolicyDescription("full_policy")` so the `#policy-warning` clears if the user previously had "No Filters" selected. Manual form submit still honors the user-selected policy radio; Compare shortcuts and onboard cards (`data-mode="compare"`) are untouched (UI-C scope).
+
+### Files changed
+
+- `frontend/app.js` — module state `_lastRenderedRole` / `_lastRenderedPolicy`; helpers `buildStaleBannerHTML()` / `clearSingleStale()` / `evaluateSingleStale()`; role and policy radio `change` listeners now call `evaluateSingleStale()` after the description update; `.example-btn` click handler forces `full_policy` and syncs the radio for `data-mode="single"` presets and calls `clearSingleStale()` before dispatch; `setLoadingSingle(true)` drops the `results-stale` class before injecting the skeleton; `renderSingleResult` records `_lastRenderedRole/Policy` on successful non-empty render; `switchMode` tracks `leavingSingle` / `enteringSingle` and calls `clearSingleStale` / `evaluateSingleStale` accordingly at the end.
+- `frontend/styles.css` — new `.stale-results-banner` block (flex row, icon + text, `--accent-subtle` bg, 3px `--accent` left-border, `--radius-md`, `--font-display` text with `--font-mono` bold "Run"); `@keyframes stale-banner-in` (opacity + translateY(-2px) → 0); `#results-section.results-stale` descendant rules (`opacity: 0.6; transition: opacity var(--dur) var(--ease)`); reduced-motion block extended to disable the banner animation and the opacity transition on dim descendants.
+- `CLAUDE.md` — Frontend Single-mode paragraph appended with the deterministic-preset + stale-banner behavior.
+- `demo.md` — Section 3 Single bullet gains a "Coherencia de estado (UI-B)" line; Demo D "Cómo llegar" note clarifies that the ARR growth preset forces Full Pipeline.
+- `summaryUserExp.md` — Section 4.1 Single mode gains a "Coherencia de controles y resultados (UI-B)" paragraph.
+- `docs/plans/2026-04-23-ui-b-single-state-coherence-plan.md` (new) — preflight plan saved at the start of this session.
+- `docs/HANDOFF.md` — this entry.
+
+No HTML, backend, test, or dep changes. `tests/` untouched.
+
+### Verification
+
+**Baseline + post-edit pytest (via `.venv/bin/python`):** 172 passed, 14 skipped, 0 failed (both runs this session).
+
+Note: system `python3` runs against a misconfigured global install (`torch.library has no attribute 'register_fake'`), which yields 49 unrelated failures. The project venv is authoritative; out of scope for this batch.
+
+**Playwright sweep at `http://127.0.0.1:8000/app/` — 34/34 PASS, 0 console errors** (script at `/tmp/ui_b_verify.py`, run via `.venv/bin/python`):
+
+| AC | Check | Result |
+|---|---|---|
+| AC8 | Empty state + role change → no banner | PASS |
+| AC5 | Single preset with `naive_top_k` pre-selected: policy radio snaps to `full_policy`, `#policy-warning` hidden, summary-bar reads "Full Pipeline" / "analyst" | PASS (5 sub-checks) |
+| AC6 | No banner after Single preset click | PASS |
+| AC1 | Role change with rendered result → banner visible, `.results-stale` class set, summary-bar role chip still shows the old role | PASS (3 sub-checks) |
+| AC10 | Banner has `role="status"`, `aria-live="polite"`, `aria-atomic="true"` | PASS (3 sub-checks) |
+| AC3 | Revert role to match last-rendered → banner gone | PASS |
+| AC2 | Policy change → banner visible, `.results-stale` set, summary-bar policy chip still shows old policy | PASS (3 sub-checks) |
+| AC4 | Run clears banner; summary-bar policy chip updates to the newly-selected policy | PASS (2 sub-checks) |
+| AC7a | Mode switch out of Single while banner visible → banner + class cleared on leave | PASS (2 sub-checks) |
+| AC7b | Return to Single with diverged controls → banner re-inserted on entry; Run clears it; summary-bar role chip updated | PASS (3 sub-checks) |
+| Regress | Compare: 3 columns + `#export-compare` present | PASS (2 sub-checks) |
+| Regress | Evals: 10 metric cards | PASS |
+| Regress | Admin tab visible (ingest enabled) | PASS |
+| Admin→Single | Prior rendered result still on screen; banner correctly re-inserted when controls diverged (role had been changed to `analyst` by a prior Compare preset) | PASS (2 sub-checks) |
+| Admin→Single | After reverting role to match last-rendered, banner cleared; round-trip through Evals → Single with matching controls keeps it clear | PASS (2 sub-checks) |
+
+No backend endpoints were touched. `GET /health` → `{"status":"ok","ingest_enabled":true}` (Admin tab hide logic via `ingest_enabled` probe untouched).
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `eec9dfd` (Batch UI-A).
+- **Tests:** 172 / 14 / 0 under `.venv/bin/python`.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** COMPLETE — 34/34 Playwright assertions, 0 console errors.
+- **Hostile review:** not performed this session.
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Compare-mode staleness asymmetry.** Changing the role radio while in Compare mode does not dim the Compare columns. Out of scope for UI-B (Compare is UI-C territory). Noted for follow-up.
+- **Banner inserted into a hidden `#results-section`** while the user is in Compare mode and changes the role radio. Harmless — the section is `hidden` — and materializes correctly on return to Single via the `enteringSingle` re-evaluation.
+
+### Doc status at end of Session 30
+
+- `docs/HANDOFF.md` — current (this entry).
+- `CLAUDE.md` — Frontend Single-mode paragraph updated.
+- `demo.md` — Section 3 Single bullet + Demo D row updated.
+- `summaryUserExp.md` — Section 4.1 updated with the UI-B coherence paragraph.
+- `docs/plans/2026-04-23-ui-b-single-state-coherence-plan.md` — preflight plan; Execution outcome can be appended later if desired (this HANDOFF entry carries the evidence).
+- All other plan docs — unchanged and still accurate.
+
+---
+
+## Session — 2026-04-23 (Session 31 / **UI-C — Scenario clarity, navigation, and Compare onboarding**)
+
+### Summary
+
+Frontend-only UX cleanup. Addressed four issues surfaced by the UI-B review and the scenario audit:
+
+1. **Silent mode teleport.** Onboard-cards in the Single empty state carried `data-mode="compare"`, so clicking them switched mode without any affordance. Fixed by splitting each card into a non-interactive `<div>` wrapper with a dual-action row: `Run in Single` (primary, `data-mode="single"`, `full_policy` preset) and `Open in Compare →` (secondary, `data-mode="compare"`). Mode transitions are now always explicit.
+2. **Scenario duplication.** The three base stories (Permission Wall / Financial model access / Stale Detection) were repeated across 9 UI entry points. Deduped to 6: 3 empty-state cards + 2 Single row buttons (`Diligence risks`, `IC recommendation` — distinct queries) + 1 Compare row button (`Stale detection →`). Removed: `ARR growth` (Single row), `Analyst wall ↔` and `VP deal view ↔` (Compare row).
+3. **Compare had no empty state.** Entering Compare without a prior query showed an empty banner + blank grid. Added `#compare-empty-state` (first child of `#compare-section`) with three preview cards mirroring Single's layout — single-click whole-card affordance (`button.onboard-card.onboard-card-compact`), qualitative hints ("Naive surfaces 12 · RBAC + Full block 7"). `.compare-banner` starts `hidden`; `setLoadingCompare(true)` removes the empty state, reveals the banner, and injects the skeleton.
+4. **"Partner view" was narratively weak.** Partner has full corpus access, so the three-column contrast collapsed at "0 blocked everywhere". Renamed and reframed as "Stale Detection" (card title) and `Stale detection →` (shortcut). **Query and role unchanged** (`"What is the investment committee recommendation and LP update for the Meridian acquisition?"` + `role=partner`). The narrative now focuses on the 2 superseded documents (doc_002, doc_007) that the full pipeline demotes 0.5×. Confirmed at runtime: `POST /compare` with this payload returns `demoted_as_stale: ['doc_007', 'doc_002']` in `full_policy`.
+
+Minor interpretive call: Card 2 (VP) renamed from "Stale Detection" → "VP Deal View" (later → "Financial model access" in UI-D3) to resolve the naming collision introduced by the partner-card rename. Query unchanged. Flagged in the preflight plan.
+
+### Files changed
+
+- `frontend/index.html` — restructured three Single empty-state `.onboard-card` entries into `<div>` wrappers with `.onboard-actions` rows containing `.onboard-primary` + `.onboard-secondary` buttons; renamed cards to Permission Wall / Financial model access / Stale Detection with updated hints; dedup shortcut rows (removed `ARR growth`, `Analyst wall ↔`, `VP deal view ↔`; renamed `Partner view ↔` → `Stale detection →`); added `#compare-empty-state` block inside `#compare-section` with three compact preview cards; added `hidden` attribute to `#compare-banner`.
+- `frontend/app.js` — `setLoadingCompare(true)` now removes `#compare-empty-state` and reveals the banner (`compareBanner.hidden = false`). No other JS changes; existing `.example-btn` click handler covers both new `.onboard-primary` and `.onboard-secondary` buttons via `data-mode` dispatch with zero branching.
+- `frontend/styles.css` — moved `cursor: pointer` and hover-lift off `.onboard-card` base to `button.onboard-card` (scoped to Compare variant only); added `div.onboard-card { cursor: default; }`; added `.onboard-actions` (flex row, 0.5rem gap), `.onboard-primary` (filled accent button), `.onboard-secondary` (outlined ghost button with `→`), `.onboard-card-compact` (tighter padding for Compare variant), `.compare-empty-state` (top/bottom padding). Existing reduced-motion block unchanged (already covers `.onboard-card`).
+- `CLAUDE.md` — Single-mode paragraph rewritten to document the dual-action structure; Compare-mode paragraph appended with `#compare-empty-state` behavior; scenario-list paragraph rewritten to document the dedup + entry-point count.
+- `demo.md` — Section 2 empty-state + shortcut-row descriptions rewritten; Demo A/B "Cómo llegar" rows point at `Open in Compare →`; Demo C renamed "Partner view" → "Stale detection" with updated narrative; Demo D "Cómo llegar" updated (ARR growth preset removed); Section 5 guión updated; checklist updated.
+- `summaryUserExp.md` — §4.2 Compare scenarios block rewritten; §6.1 item 6 updated with new scenario names; §7.1 item 7 updated with the UI-C empty state description.
+- `docs/plans/2026-04-23-ui-c-scenarios-and-compare-clarity-plan.md` (new) — preflight plan saved at the start of this session.
+- `docs/HANDOFF.md` — this entry.
+
+No HTML template changes outside the onboarding + compare sections. No backend, test, evaluator, or dep changes. `src/` untouched.
+
+### Verification
+
+**Baseline and post-edit pytest (via `.venv/bin/python`):** 172 passed, 14 skipped, 0 failed (both runs this session). System `python3` still produces the out-of-scope 49-failure phantom baseline — do not use it.
+
+**Backend runtime smoke (via `.venv/bin/python -m uvicorn`):**
+
+- `GET /health` (default) → `{"status":"ok","ingest_enabled":true}` · `GET /health` with `ALLOW_INGEST=false` → `{"status":"ok","ingest_enabled":false}`. Admin-hide probe (`probeIngestCapability()`) untouched; logic verified unchanged.
+- `POST /query` — analyst + ARR + `full_policy` → `included=5, blocked=7, tokens=571` (UI-B baseline preserved).
+- `POST /compare` — partner + IC + LP query (Stale detection shortcut payload) → `full_policy` column reports `inc=12 blk=0 stl=2 drp=0` with `demoted_as_stale: ['doc_007', 'doc_002']`. Both superseded docs surfaced in context and correctly demoted. Verification step 5 satisfied.
+- `GET /evals` — returns the full aggregate block (`avg_precision_at_5=0.3`, `avg_recall=1.0`, `permission_violation_rate=0.0`).
+
+**Static DOM / copy audit:**
+
+- Onboard DOM confirmed via `curl /app/`: three `<div class="onboard-card">` containers, six `.example-btn` buttons (3 `.onboard-primary` + 3 `.onboard-secondary`), titles read Permission Wall / Financial model access / Stale Detection, subtitles Analyst / VP / Partner.
+- Compare empty state confirmed: three `button.onboard-card.onboard-card-compact` entries, titles match the three base stories, subtitles include the role + query-hint.
+- Shortcut-row dedup confirmed: Single row reads `Diligence risks`, `IC recommendation` (no `ARR growth`); Compare row reads `Stale detection →` only (no `Analyst wall ↔`, no `VP deal view ↔`).
+
+**Grep consistency checks:**
+
+- `grep -rn "Partner view" demo.md summaryUserExp.md CLAUDE.md README.md` → references only survive as history notes ("antes: Partner view", "antigua \"Partner view\""). No live UI strings.
+- `grep -rn "auto-switch\|teleport" docs/ CLAUDE.md` → only the HANDOFF / plan entries describing the UI-C fix; no stale "auto-switch" descriptions in CLAUDE.md/demo.md.
+
+**Scope-budget check:** `git diff --name-only` shows only `frontend/index.html`, `frontend/app.js`, `frontend/styles.css` plus docs (CLAUDE.md, demo.md, summaryUserExp.md, docs/HANDOFF.md, docs/plans/2026-04-23-ui-c-*.md). Budget respected — 3 frontend files.
+
+**Post-Claude corroboration (Codex):** Playwright smoke passed against a same-origin local server: Single onboard card body does not run or switch modes; `Run in Single` stays in Single with `full_policy`; `Open in Compare →` and Compare preview cards run `/compare`; stale-detection payload returns exactly doc_002 + doc_007 in `decision_trace.demoted_as_stale`; UI-B stale banner still appears after a role divergence; Evals loads; Admin renders by default. Separate `ALLOW_INGEST=false` browser smoke passed: `/health` returns `ingest_enabled:false` and the Admin tab/section are hidden. Docs were also patched to remove stale live instructions that still referenced the removed `ARR growth` button.
+
+### Current State
+
+- **Branch:** `codex/must-a-idea1-2`
+- **Last commit before this session:** `063afa3` (Batch UI-B — Single mode state coherence).
+- **Tests:** 172 / 14 / 0 under `.venv/bin/python`.
+- **Evaluator:** unchanged (no pipeline touched).
+- **Browser verification:** backend endpoints + static DOM verified during execution; post-run Codex Playwright corroboration also passed for the critical UI-C flows and `ALLOW_INGEST=false` Admin hide path.
+- **Demo status:** READY.
+
+### Known non-blocking behavior
+
+- **Compare row orphan chrome.** The Compare shortcut row now contains a single button (`Stale detection →`). The row label + lone button is coherent but visually sparser than before. Not a regression; noted for future cleanup if another Compare shortcut is ever re-added.
+- **Empty states are one-shot.** Both `#empty-state` (Single) and `#compare-empty-state` (Compare) are removed on first query and do not restore for the session. Consistent with UI-A/UI-B behavior.
+- **Compare-mode staleness asymmetry** (UI-B note, still open): changing radios in Compare mode does not dim columns. Out of scope for UI-C.
+
+### Doc status at end of Session 31
+
+- `docs/HANDOFF.md` — current (this entry).
+- `CLAUDE.md` — Frontend Single + Compare paragraphs + scenario list updated.
+- `demo.md` — Sections 2, 4 (A/B/C/D), 5, and 9 updated.
+- `summaryUserExp.md` — §4.2, §6.1, §7.1 updated.
+- `docs/plans/2026-04-23-ui-c-scenarios-and-compare-clarity-plan.md` — preflight plan for this batch.
+- All other plan docs — unchanged and still accurate.

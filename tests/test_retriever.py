@@ -6,6 +6,9 @@ to semantic-only retrieval, and that the retriever interface remains
 compatible with RetrieverProtocol.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 from src.retriever import retrieve, semantic_retrieve, _rrf_fuse, _normalize_scores
 from src.protocols import RetrieverProtocol
@@ -66,7 +69,10 @@ class TestResultShape:
 
     def test_top_k_clamped_to_corpus_size(self):
         results = retrieve("anything", top_k=999)
-        assert len(results) == 12  # corpus has 12 docs
+        metadata_path = Path(__file__).resolve().parents[1] / "corpus" / "metadata.json"
+        with open(metadata_path) as f:
+            corpus_size = len(json.load(f)["documents"])
+        assert len(results) == corpus_size
 
 
 # ---------------------------------------------------------------------------

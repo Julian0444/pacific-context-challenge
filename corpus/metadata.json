@@ -3,145 +3,231 @@
     {
       "id": "doc_001",
       "file_name": "meridian_10k_fy2023.txt",
-      "title": "Meridian Technologies — Form 10-K FY2023",
+      "title": "Meridian Technologies \u2014 Form 10-K FY2023",
       "type": "public_filing",
       "date": "2024-03-01",
       "min_role": "analyst",
       "sensitivity": "low",
       "superseded_by": null,
-      "tags": ["meridian", "public", "financials", "annual_report", "fy2023", "arr", "nrr"],
+      "tags": [
+        "meridian",
+        "public",
+        "financials",
+        "annual_report",
+        "fy2023",
+        "arr",
+        "nrr"
+      ],
       "short_summary": "Meridian FY2023 annual filing. ARR $38.1M (+34% YoY), gross margin 71%, NRR 118%, zero debt. Discloses top-3 customer concentration at ~58% of ARR as a primary risk factor."
     },
     {
       "id": "doc_002",
       "file_name": "meridian_research_note_q3_2023.txt",
-      "title": "Summit Financial Research — Meridian Coverage Initiation (Q3 2023)",
+      "title": "Summit Financial Research \u2014 Meridian Coverage Initiation (Q3 2023)",
       "type": "research_note",
       "date": "2023-09-20",
       "min_role": "analyst",
       "sensitivity": "low",
       "superseded_by": "doc_003",
-      "tags": ["meridian", "public", "research", "valuation", "q3_2023", "stale"],
+      "tags": [
+        "meridian",
+        "public",
+        "research",
+        "valuation",
+        "q3_2023",
+        "stale"
+      ],
       "short_summary": "STALE. Initial BUY coverage. Projects 35% ARR growth and $480M EV. Underestimates customer concentration (~45% cited vs actual 58%). Superseded by Q4 2023 update."
     },
     {
       "id": "doc_003",
       "file_name": "meridian_research_note_q4_2023_update.txt",
-      "title": "Summit Financial Research — Meridian Estimate Revision (Q4 2023)",
+      "title": "Summit Financial Research \u2014 Meridian Estimate Revision (Q4 2023)",
       "type": "research_note",
       "date": "2024-01-15",
       "min_role": "analyst",
       "sensitivity": "low",
       "superseded_by": null,
-      "tags": ["meridian", "public", "research", "valuation", "q4_2023", "revision"],
+      "tags": [
+        "meridian",
+        "public",
+        "research",
+        "valuation",
+        "q4_2023",
+        "revision"
+      ],
       "short_summary": "Updated estimates. ARR growth cut from 35% to 22%. Concentration revised to 58-62% in top 3. EV target lowered to $340M. Maintains BUY. Supersedes September 2023 note."
     },
     {
       "id": "doc_004",
       "file_name": "meridian_series_c_press_release.txt",
-      "title": "Meridian Technologies — Series C Press Release",
+      "title": "Meridian Technologies \u2014 Series C Press Release",
       "type": "press_release",
       "date": "2023-06-15",
       "min_role": "analyst",
       "sensitivity": "low",
       "superseded_by": null,
-      "tags": ["meridian", "public", "funding", "series_c", "press_release"],
+      "tags": [
+        "meridian",
+        "public",
+        "funding",
+        "series_c",
+        "press_release"
+      ],
       "short_summary": "Meridian closes $45M Series C led by Parkview Growth Equity. ARR $27.1M, NRR 114%, 39 enterprise clients at close. Total funding $72M."
     },
     {
       "id": "doc_005",
       "file_name": "atlas_fintech_sector_overview_2024.txt",
-      "title": "Atlas Capital — Fintech Infrastructure Sector Overview (Feb 2024)",
+      "title": "Atlas Capital \u2014 Fintech Infrastructure Sector Overview (Feb 2024)",
       "type": "sector_overview",
       "date": "2024-02-20",
       "min_role": "analyst",
       "sensitivity": "medium",
       "superseded_by": null,
-      "tags": ["atlas", "internal", "fintech", "sector", "ma_strategy", "meridian"],
+      "tags": [
+        "atlas",
+        "internal",
+        "fintech",
+        "sector",
+        "ma_strategy",
+        "meridian"
+      ],
       "short_summary": "Atlas internal sector overview. Identifies Meridian as primary acquisition target. Describes ideal profile: $30-60M ARR, >20% growth, NRR >110%. Names two alternative targets."
     },
     {
       "id": "doc_006",
       "file_name": "atlas_meridian_dd_memo.txt",
-      "title": "Atlas Capital — Project Clearwater Initial DD Memo",
+      "title": "Atlas Capital \u2014 Project Clearwater Initial DD Memo",
       "type": "deal_memo",
       "date": "2024-03-15",
       "min_role": "vp",
       "sensitivity": "high",
       "superseded_by": null,
-      "tags": ["atlas", "internal", "meridian", "due_diligence", "project_clearwater", "risks"],
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "due_diligence",
+        "project_clearwater",
+        "risks"
+      ],
       "short_summary": "Phase 1 DD findings. Recommends advancing to Phase 2. Key risks: customer concentration, H2 2023 sales slowdown, unexplained CTO departure in January 2024."
     },
     {
       "id": "doc_007",
       "file_name": "atlas_meridian_financial_model_v1.txt",
-      "title": "Atlas Capital — Project Clearwater Financial Model v1.0",
+      "title": "Atlas Capital \u2014 Project Clearwater Financial Model v1.0",
       "type": "financial_model",
       "date": "2024-03-25",
       "min_role": "vp",
       "sensitivity": "high",
       "superseded_by": "doc_008",
-      "tags": ["atlas", "internal", "meridian", "valuation", "financial_model", "stale"],
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "valuation",
+        "financial_model",
+        "stale"
+      ],
       "short_summary": "STALE. Initial model: entry EV $480M, 35% growth, 28% IRR, 2.9x MOIC. No concentration stress test. Superseded by v2.0 which cuts EV to $340M on revised growth assumptions."
     },
     {
       "id": "doc_008",
       "file_name": "atlas_meridian_financial_model_v2.txt",
-      "title": "Atlas Capital — Project Clearwater Financial Model v2.0",
+      "title": "Atlas Capital \u2014 Project Clearwater Financial Model v2.0",
       "type": "financial_model",
       "date": "2024-04-10",
       "min_role": "vp",
       "sensitivity": "high",
       "superseded_by": null,
-      "tags": ["atlas", "internal", "meridian", "valuation", "financial_model", "revised"],
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "valuation",
+        "financial_model",
+        "revised"
+      ],
       "short_summary": "Current model. Entry EV $340M (8.9x ARR), 22% growth, 24% IRR, 2.4x MOIC. Adds customer churn stress case. Supersedes v1.0."
     },
     {
       "id": "doc_009",
       "file_name": "atlas_meridian_integration_email.txt",
-      "title": "Atlas Capital — Internal Email: Clearwater Integration Risks",
+      "title": "Atlas Capital \u2014 Internal Email: Clearwater Integration Risks",
       "type": "internal_email",
       "date": "2024-04-12",
       "min_role": "vp",
       "sensitivity": "high",
       "superseded_by": null,
-      "tags": ["atlas", "internal", "meridian", "integration", "cto", "customer_risk", "cash"],
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "integration",
+        "cto",
+        "customer_risk",
+        "cash"
+      ],
       "short_summary": "Email flagging CTO departure context, 18-month integration timeline, August 2024 Customer 3 renewal risk, and $4.1M deferred revenue adjustment to reported cash balance."
     },
     {
       "id": "doc_010",
       "file_name": "atlas_ic_memo_meridian_acquisition.txt",
-      "title": "Atlas Capital — IC Memo: Acquisition of Meridian Technologies",
+      "title": "Atlas Capital \u2014 IC Memo: Acquisition of Meridian Technologies",
       "type": "board_memo",
       "date": "2024-04-18",
       "min_role": "partner",
       "sensitivity": "confidential",
       "superseded_by": null,
-      "tags": ["atlas", "internal", "meridian", "ic_memo", "board", "deal_terms", "project_clearwater"],
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "ic_memo",
+        "board",
+        "deal_terms",
+        "project_clearwater"
+      ],
       "short_summary": "Investment Committee memo recommending approval of Meridian acquisition at $340M EV (8.9x ARR). Covers investment rationale, risks, mitigations, and proposed deal structure."
     },
     {
       "id": "doc_011",
       "file_name": "atlas_lp_quarterly_update_q1_2024.txt",
-      "title": "Atlas Capital — LP Quarterly Update Q1 2024",
+      "title": "Atlas Capital \u2014 LP Quarterly Update Q1 2024",
       "type": "lp_update",
       "date": "2024-04-15",
       "min_role": "partner",
       "sensitivity": "confidential",
       "superseded_by": null,
-      "tags": ["atlas", "internal", "lp", "fund_iv", "pipeline", "project_clearwater"],
+      "tags": [
+        "atlas",
+        "internal",
+        "lp",
+        "fund_iv",
+        "pipeline",
+        "project_clearwater"
+      ],
       "short_summary": "Q1 2024 LP letter. References Project Clearwater in pipeline without naming the target. Notes one exit (Brightpath, 2.8x MOIC) and market valuation commentary."
     },
     {
       "id": "doc_012",
       "file_name": "atlas_meridian_customer_concentration.txt",
-      "title": "Atlas Capital — Project Clearwater Customer Concentration Analysis",
+      "title": "Atlas Capital \u2014 Project Clearwater Customer Concentration Analysis",
       "type": "internal_analysis",
       "date": "2024-04-08",
       "min_role": "vp",
       "sensitivity": "high",
       "superseded_by": null,
-      "tags": ["atlas", "internal", "meridian", "customer_risk", "concentration", "renewal"],
+      "tags": [
+        "atlas",
+        "internal",
+        "meridian",
+        "customer_risk",
+        "concentration",
+        "renewal"
+      ],
       "short_summary": "Detailed ARR breakdown by customer. Top 3 = 58.5% of ARR ($22.3M). Notes concentration increased from Q3 2023 estimates. Flags August 2024 Customer 3 renewal as a pre-close risk."
     }
   ]

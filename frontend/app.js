@@ -1,26 +1,33 @@
 // app.js — QueryTrace Context Policy Lab
 
-const API_BASE = "http://localhost:8000";
+// API_BASE picks absolute localhost for file:// and local dev, empty (same-origin)
+// elsewhere. When the page is served from /app/ on the deployed host, fetches
+// resolve against the page origin (e.g. https://host/query) — no CORS required.
+const API_BASE = (() => {
+  const h = window.location.hostname;
+  if (h === "localhost" || h === "127.0.0.1" || h === "") return "http://localhost:8000";
+  return "";
+})();
 const DEFAULT_TOP_K = 8;
 
 // ── Policy metadata (label, description, CSS variant) ──
 
 const POLICY_META = {
   naive_top_k: {
-    label: "NAIVE",
-    desc: "raw retrieval · no filters",
+    label: "No Filters",
+    desc: "Raw retrieval — no permissions, no freshness, no budget. Dangerous baseline.",
     variant: "naive",
     skipFreshness: true,
   },
   permission_aware: {
-    label: "RBAC",
-    desc: "role-based access control · budget enforced",
+    label: "Permissions Only",
+    desc: "Role-based access control + token budget. No freshness scoring.",
     variant: "rbac",
-    skipFreshness: false,
+    skipFreshness: true,
   },
   full_policy: {
-    label: "FULL",
-    desc: "rbac · freshness · budget",
+    label: "Full Pipeline",
+    desc: "Permissions + freshness + token budget. Production-grade.",
     variant: "full",
     skipFreshness: false,
   },
@@ -28,6 +35,71 @@ const POLICY_META = {
 
 // Canonical display order for compare columns
 const COMPARE_ORDER = ["naive_top_k", "permission_aware", "full_policy"];
+
+// ── Role descriptions (shown under the role selector) ──
+
+const ROLE_DESCRIPTIONS = {
+  analyst:
+    "Entry-level deal team. Access limited to public filings, research notes, and press releases. Cannot view internal memos, financial models, or board materials.",
+  vp:
+    "Vice President. Extended access — includes internal deal memos, financial models, and communications. Cannot view IC memos or LP updates.",
+  partner:
+    "Partner-level. Full corpus access — all documents visible, including board materials and LP communications.",
+};
+
+// Raw excerpt storage for expand/collapse — keyed by card index, avoids data-attr innerHTML
+const _cardExcerpts = new Map();
+
+// ── Stale-state tracking (UI-B) ─────────────────────────────────────────────
+// Records the (role, policy) used for the currently rendered Single result.
+// When either radio diverges from these values, a stale banner is shown above
+// the cards until the user presses Run. Cleared on: render success, mode
+// switch out of single, and Single preset-button clicks.
+let _lastRenderedRole = null;
+let _lastRenderedPolicy = null;
+
+function buildStaleBannerHTML() {
+  return `
+    <div id="stale-results-banner"
+         class="stale-results-banner"
+         role="status"
+         aria-live="polite"
+         aria-atomic="true">
+      <span class="stale-banner-icon" aria-hidden="true">↻</span>
+      <span class="stale-banner-text">Controls changed — press <strong>Run</strong> to refresh these results.</span>
+    </div>`;
+}
+
+function clearSingleStale() {
+  const banner = document.getElementById("stale-results-banner");
+  if (banner) banner.remove();
+  resultsSection.classList.remove("results-stale");
+}
+
+function evaluateSingleStale() {
+  // Gate: only relevant when a trusted Single result is on screen. Presence of
+  // .summary-bar is authoritative — excludes #empty-state, skeleton, no-results,
+  // and error states.
+  const hasResult = resultsSection.querySelector(".summary-bar") !== null;
+  if (!hasResult) {
+    clearSingleStale();
+    return;
+  }
+  const currentRole =
+    document.querySelector('input[name="role"]:checked')?.value || null;
+  const currentPolicy =
+    document.querySelector('input[name="policy"]:checked')?.value || null;
+  const matches =
+    currentRole === _lastRenderedRole && currentPolicy === _lastRenderedPolicy;
+  if (matches) {
+    clearSingleStale();
+    return;
+  }
+  if (!document.getElementById("stale-results-banner")) {
+    resultsSection.insertAdjacentHTML("afterbegin", buildStaleBannerHTML());
+  }
+  resultsSection.classList.add("results-stale");
+}
 
 // ── DOM references ──
 
@@ -42,10 +114,11 @@ const mainEl = document.getElementById("main");
 const singlePolicySelector = document.getElementById("single-policy-selector");
 const evalsSection = document.getElementById("evals-section");
 const evalsContent = document.getElementById("evals-content");
+const adminSection = document.getElementById("admin-section");
 
 // ── Mode state ──
 
-let currentMode = "single"; // "single" | "compare" | "evals"
+let currentMode = "single"; // "single" | "compare" | "evals" | "admin"
 let evalsLoaded = false;
 
 // ── Mode toggle ──
@@ -58,6 +131,8 @@ document.querySelectorAll(".mode-btn").forEach((btn) => {
 
 function switchMode(mode) {
   if (mode === currentMode) return;
+  const leavingSingle = currentMode === "single" && mode !== "single";
+  const enteringSingle = currentMode !== "single" && mode === "single";
   currentMode = mode;
 
   document.querySelectorAll(".mode-btn").forEach((b) => {
@@ -68,21 +143,121 @@ function switchMode(mode) {
 
   const isCompare = mode === "compare";
   const isEvals = mode === "evals";
+  const isAdmin = mode === "admin";
 
-  singlePolicySelector.hidden = isCompare || isEvals;
-  resultsSection.hidden = isCompare || isEvals;
+  singlePolicySelector.hidden = isCompare || isEvals || isAdmin;
+  resultsSection.hidden = isCompare || isEvals || isAdmin;
   compareSection.hidden = !isCompare;
   evalsSection.hidden = !isEvals;
+  if (adminSection) adminSection.hidden = !isAdmin;
   mainEl.classList.toggle("compare-mode", isCompare);
 
-  // Hide query form in evals mode — it's not relevant
-  document.querySelector(".search-section").hidden = isEvals;
+  // Hide query form in evals and admin modes — not relevant
+  document.querySelector(".search-section").hidden = isEvals || isAdmin;
+
+  // Fade-in the incoming section (CSS animation via .mode-enter).
+  const entering = isCompare
+    ? compareSection
+    : isEvals
+    ? evalsSection
+    : isAdmin
+    ? adminSection
+    : resultsSection;
+  if (entering) playModeEnter(entering);
 
   // Auto-fetch evals on first switch
   if (isEvals && !evalsLoaded) {
     runEvals();
   }
+
+  // Stale banner bookkeeping (UI-B). Leaving Single removes any visible banner
+  // (the rendered content is preserved for when the user returns). Entering
+  // Single re-evaluates staleness against the last-rendered (role, policy) so
+  // a round trip with a diverged role radio still surfaces the banner.
+  if (leavingSingle) clearSingleStale();
+  if (enteringSingle) evaluateSingleStale();
 }
+
+function playModeEnter(el) {
+  if (!el) return;
+  el.classList.remove("mode-enter");
+  // Force reflow so re-adding the class restarts the animation.
+  void el.offsetWidth;
+  el.classList.add("mode-enter");
+  const onEnd = () => {
+    el.classList.remove("mode-enter");
+    el.removeEventListener("animationend", onEnd);
+  };
+  el.addEventListener("animationend", onEnd);
+}
+
+// ── Policy description + warning ──
+
+function updatePolicyDescription(policy) {
+  const descEl = document.getElementById("policy-description");
+  const warningEl = document.getElementById("policy-warning");
+  if (!descEl || !warningEl) return;
+  const meta = POLICY_META[policy] || {};
+  descEl.style.opacity = "0";
+  setTimeout(() => {
+    descEl.textContent = meta.desc || "";
+    descEl.style.opacity = "1";
+  }, 80);
+  warningEl.hidden = policy !== "naive_top_k";
+}
+
+document.querySelectorAll('input[name="policy"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    updatePolicyDescription(radio.value);
+    evaluateSingleStale();
+  });
+});
+
+// Initialize with the default checked policy
+updatePolicyDescription(
+  document.querySelector('input[name="policy"]:checked')?.value || "full_policy"
+);
+
+// ── Role description (shown under the role selector) ──
+
+function updateRoleDescription(role) {
+  const descEl = document.getElementById("role-description");
+  if (!descEl) return;
+  descEl.style.opacity = "0";
+  setTimeout(() => {
+    descEl.textContent = ROLE_DESCRIPTIONS[role] || "";
+    descEl.style.opacity = "1";
+  }, 80);
+}
+
+document.querySelectorAll('input[name="role"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    updateRoleDescription(radio.value);
+    evaluateSingleStale();
+  });
+});
+
+// Initialize with the default checked role
+updateRoleDescription(
+  document.querySelector('input[name="role"]:checked')?.value || "analyst"
+);
+
+// ── Capability probe — hide Admin tab when the server has ingest disabled ──
+
+(async function probeIngestCapability() {
+  try {
+    const res = await fetch(`${API_BASE}/health`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.ingest_enabled === false) {
+      const adminBtn = document.querySelector('.mode-btn[data-mode="admin"]');
+      if (adminBtn) adminBtn.hidden = true;
+      if (adminSection) adminSection.hidden = true;
+    }
+  } catch (_err) {
+    // Non-fatal: if the probe fails (offline, old server), leave Admin visible.
+  }
+})();
 
 // ── Form submission ──
 
@@ -117,6 +292,20 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
       `input[name="role"][value="${role}"]`
     );
     if (roleRadio) roleRadio.checked = true;
+    // Programmatic checked assignment does not fire "change" — sync description manually
+    updateRoleDescription(role);
+
+    // Single presets are deterministic: force full_policy and sync the radio +
+    // description so controls stay coherent with the rendered result (UI-B).
+    if (targetMode === "single") {
+      const policyRadio = document.querySelector(
+        'input[name="policy"][value="full_policy"]'
+      );
+      if (policyRadio) policyRadio.checked = true;
+      updatePolicyDescription("full_policy");
+    }
+
+    clearSingleStale();
 
     if (targetMode && targetMode !== currentMode) {
       switchMode(targetMode);
@@ -125,10 +314,7 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
     if (currentMode === "compare") {
       runCompare(query, role);
     } else {
-      const policy =
-        document.querySelector('input[name="policy"]:checked')?.value ||
-        "full_policy";
-      runSingleQuery(query, role, policy);
+      runSingleQuery(query, role, "full_policy");
     }
   });
 });
@@ -196,6 +382,9 @@ function setLoadingSingle(on) {
   submitBtn.classList.toggle("loading", on);
   if (on) {
     document.getElementById("empty-state")?.remove();
+    // Drop the stale-results modifier before the skeleton renders so it
+    // doesn't inherit the 60% opacity applied to stale cards (UI-B).
+    resultsSection.classList.remove("results-stale");
     resultsSection.innerHTML = skeletonSingleHTML();
   }
 }
@@ -204,6 +393,10 @@ function setLoadingCompare(on) {
   submitBtn.disabled = on;
   submitBtn.classList.toggle("loading", on);
   if (on) {
+    // UI-C: drop the Compare onboarding empty state once a comparison starts.
+    document.getElementById("compare-empty-state")?.remove();
+    const compareBanner = document.getElementById("compare-banner");
+    if (compareBanner) compareBanner.hidden = false;
     compareGrid.innerHTML = skeletonCompareHTML();
     compareBannerText.innerHTML = "Running comparison…";
   }
@@ -289,25 +482,52 @@ function renderSingleResult(data, role, policy) {
           <span class="stat-label">stale</span>
         </div>
       ` : ""}
+      <button class="export-btn" id="export-single" type="button" aria-label="Export result as JSON" title="Download full /query response as JSON">
+        <span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Export JSON</span>
+      </button>
     </div>`;
 
+  // Build stale lookup keyed by doc_id — used as fallback when chunk.superseded_by is absent
+  const staleMap = new Map(
+    (trace?.demoted_as_stale || []).map((s) => [s.doc_id, s])
+  );
+
   const cardsHTML = data.context
-    .map((chunk, i) => singleCardHTML(chunk, i, policy))
+    .map((chunk, i) => singleCardHTML(chunk, i, policy, staleMap))
     .join("");
 
+  const blockedSectionHTML = buildBlockedSectionHTML(
+    trace?.blocked_by_permission || [],
+    role
+  );
+
   const traceHTML = trace
-    ? buildTracePanelHTML(trace, false)
+    ? buildTracePanelHTML(trace, false, role)
     : "";
 
-  resultsSection.innerHTML = summaryHTML + cardsHTML + traceHTML;
+  resultsSection.innerHTML = summaryHTML + cardsHTML + blockedSectionHTML + traceHTML;
 
-  // Wire trace toggles
+  // Wire trace toggles, expand buttons, and blocked-section toggle
   wireTraceToggles(resultsSection);
+  wireExpandButtons(resultsSection);
+  wireBlockedSectionToggle(resultsSection);
+
+  const exportBtn = resultsSection.querySelector("#export-single");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      downloadJSON(data, `querytrace_${role}_${policy}.json`);
+    });
+  }
+
+  // Record the (role, policy) pair tied to the rendered result so subsequent
+  // radio changes can be detected as stale (UI-B).
+  _lastRenderedRole = role;
+  _lastRenderedPolicy = policy;
 }
 
 // ── Render: single result card ──
 
-function singleCardHTML(chunk, index, policy) {
+function singleCardHTML(chunk, index, policy, staleMap = new Map()) {
   const score = chunk.score ?? 0;
   const freshness = chunk.freshness_score ?? 0;
   const scorePct = Math.round(score * 100);
@@ -325,7 +545,33 @@ function singleCardHTML(chunk, index, policy) {
     .map((t) => `<span class="tag">${escapeHTML(t)}</span>`)
     .join("");
 
-  const contentPreview = escapeHTML(chunk.content || "").slice(0, 480);
+  const title = chunk.title || chunk.doc_id;
+  const docTypeLabel = formatDocType(chunk.doc_type);
+  const dateLabel = formatDate(chunk.date);
+  const metaParts = [
+    `<span class="card-meta-badge">${escapeHTML(chunk.doc_id)}</span>`,
+    docTypeLabel ? escapeHTML(docTypeLabel) : null,
+    dateLabel ? escapeHTML(dateLabel) : null,
+  ].filter(Boolean).join(" · ");
+
+  // Staleness detection: prefer chunk.superseded_by (IDEA 2), fall back to trace staleMap
+  const staleInfo = staleMap.get(chunk.doc_id);
+  const supersededBy = chunk.superseded_by || staleInfo?.superseded_by || null;
+  const isSuperseded = supersededBy != null;
+  const penaltyLabel = staleInfo?.penalty_applied != null
+    ? `${staleInfo.penalty_applied}×`
+    : "0.5×";
+
+  const staleHTML = isSuperseded ? `
+    <div class="stale-badge">
+      <span class="stale-icon">⚠</span>
+      <span class="stale-text">Superseded by <strong>${escapeHTML(supersededBy)}</strong> — freshness penalized ${escapeHTML(penaltyLabel)}</span>
+    </div>` : "";
+
+  const rawShort = (chunk.content || "").slice(0, 200);
+  const rawFull = chunk.content || "";
+  const hasMore = rawFull.length > 200;
+  _cardExcerpts.set(index, { short: rawShort, full: rawFull });
 
   const freshnessMetricHTML = skipFreshness
     ? `<div class="metric">
@@ -343,12 +589,17 @@ function singleCardHTML(chunk, index, policy) {
        </div>`;
 
   return `
-    <article class="result-card" style="--card-accent: ${accentColor}; animation-delay: ${index * 50}ms">
+    <article class="result-card" data-card-idx="${index}" style="--card-accent: ${accentColor}; animation-delay: ${index * 50}ms">
       <div class="card-header">
-        <span class="card-doc-id">${escapeHTML(chunk.doc_id)}</span>
+        <span class="card-title">${escapeHTML(title)}</span>
         <span class="card-rank">#${index + 1}</span>
       </div>
-      <p class="card-content">${contentPreview}</p>
+      <div class="card-meta">${metaParts}</div>
+      ${staleHTML}
+      <div class="card-content">
+        <p class="card-content-text">${escapeHTML(rawShort)}</p>
+      </div>
+      ${hasMore ? `<button class="card-expand-btn" type="button">Show more ▾</button>` : ""}
       <div class="card-metrics">
         <div class="metric">
           <div class="metric-label">Relevance</div>
@@ -380,17 +631,37 @@ function renderCompare(data) {
 
   compareGrid.innerHTML = columns
     .map((policyName, colIdx) =>
-      buildCompareColumnHTML(policyName, data.results[policyName], { blockedInFull }, colIdx)
+      buildCompareColumnHTML(policyName, data.results[policyName], { blockedInFull }, colIdx, data.role)
     )
     .join("");
 
   // Wire all trace toggles in the compare grid
   wireTraceToggles(compareGrid);
+
+  // Append (or replace) the Export JSON button in the compare banner.
+  const compareBanner = document.getElementById("compare-banner");
+  if (compareBanner) {
+    compareBanner
+      .querySelectorAll(".export-btn")
+      .forEach((b) => b.remove());
+    const btn = document.createElement("button");
+    btn.className = "export-btn";
+    btn.id = "export-compare";
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Export comparison as JSON");
+    btn.title = "Download full /compare response as JSON";
+    btn.innerHTML =
+      '<span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Export JSON</span>';
+    btn.addEventListener("click", () => {
+      downloadJSON(data, `querytrace_compare_${data.role}.json`);
+    });
+    compareBanner.appendChild(btn);
+  }
 }
 
 // ── Build compare column HTML ──
 
-function buildCompareColumnHTML(policyName, result, highlights, colIdx) {
+function buildCompareColumnHTML(policyName, result, highlights, colIdx, userRole) {
   const meta = POLICY_META[policyName] || {
     label: policyName.toUpperCase(),
     desc: "",
@@ -449,7 +720,7 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx) {
 
   // Trace panel — starts open in compare mode so the comparison is immediately visible
   const traceHTML = trace
-    ? `<div class="col-trace">${buildTracePanelHTML(trace, true)}</div>`
+    ? `<div class="col-trace">${buildTracePanelHTML(trace, true, userRole)}</div>`
     : "";
 
   return `
@@ -487,7 +758,20 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
     ? `<span class="doc-flag flag-blocked" title="Blocked in full_policy for this role">blocked in full</span>`
     : "";
 
-  const contentSnippet = escapeHTML((doc.content || "").slice(0, 160));
+  const compareStaleHTML = doc.superseded_by
+    ? `<span class="compare-stale-badge" title="Superseded by ${escapeHTML(doc.superseded_by)}">⚠ Superseded</span>`
+    : "";
+
+  const compareTitle = (doc.title || doc.doc_id).slice(0, 60);
+  const docTypeLabel = formatDocType(doc.doc_type);
+  const dateLabel = formatDate(doc.date);
+  const compareMetaParts = [
+    `<span class="card-meta-badge">${escapeHTML(doc.doc_id)}</span>`,
+    docTypeLabel ? escapeHTML(docTypeLabel) : null,
+    dateLabel ? escapeHTML(dateLabel) : null,
+  ].filter(Boolean).join(" · ");
+
+  const contentSnippet = escapeHTML((doc.content || "").slice(0, 120));
 
   const freshnessHTML = skipFreshness
     ? `<div class="mini-metric"><span class="mini-na">freshness N/A</span></div>`
@@ -501,9 +785,11 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
   return `
     <article class="compare-card" style="--card-accent: ${accentColor}; animation-delay: ${index * 35}ms">
       <div class="compare-card-header">
-        <span class="compare-card-id">${escapeHTML(doc.doc_id)}</span>
+        <span class="compare-card-title">${escapeHTML(compareTitle)}</span>
         ${flagHTML}
       </div>
+      <div class="card-meta compare-card-meta">${compareMetaParts}</div>
+      ${compareStaleHTML}
       <p class="compare-card-content">${contentSnippet}</p>
       <div class="compare-card-scores">
         <div class="mini-metric">
@@ -515,6 +801,60 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
         ${freshnessHTML}
       </div>
     </article>`;
+}
+
+// ── Render: blocked documents section (single mode) ──
+
+function buildBlockedSectionHTML(blocked, userRole) {
+  if (!blocked || blocked.length === 0) return "";
+
+  const count = blocked.length;
+  const headerLabel = `${count} document${count === 1 ? "" : "s"} blocked by permissions`;
+
+  const cardsHTML = blocked
+    .map((b) => {
+      const title = b.title || b.doc_id;
+      const typeLabel = formatDocType(b.doc_type);
+      const reason = b.reason === "unknown_min_role"
+        ? `Unknown role requirement: <strong>${escapeHTML(b.required_role)}</strong>`
+        : `Requires <strong>${escapeHTML(b.required_role)}</strong> role — you are <strong>${escapeHTML(userRole || b.user_role)}</strong>`;
+
+      const metaParts = [
+        `<span class="card-meta-badge">${escapeHTML(b.doc_id)}</span>`,
+        typeLabel ? escapeHTML(typeLabel) : null,
+      ].filter(Boolean).join(" · ");
+
+      return `
+        <div class="blocked-card">
+          <div class="blocked-card-title">${escapeHTML(title)}</div>
+          <div class="card-meta blocked-card-meta">${metaParts}</div>
+          <div class="blocked-card-reason">${reason}</div>
+        </div>`;
+    })
+    .join("");
+
+  return `
+    <section class="blocked-section" aria-label="Documents blocked by permissions">
+      <button class="blocked-header" type="button" aria-expanded="false">
+        <span class="blocked-header-icon" aria-hidden="true">🔒</span>
+        <span class="blocked-header-label">${escapeHTML(headerLabel)}</span>
+        <span class="blocked-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="blocked-body">
+        <div class="blocked-body-inner">${cardsHTML}</div>
+      </div>
+    </section>`;
+}
+
+function wireBlockedSectionToggle(container) {
+  container.querySelectorAll(".blocked-section").forEach((section) => {
+    const btn = section.querySelector(".blocked-header");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const isOpen = section.classList.toggle("open");
+      btn.setAttribute("aria-expanded", isOpen);
+    });
+  });
 }
 
 // ── Evals dashboard ──
@@ -548,16 +888,16 @@ function renderEvals(data) {
   const queries = data.per_query;
 
   const cards = [
-    { label: "Precision@5", value: (agg.avg_precision_at_5 ?? 0).toFixed(4), color: "var(--accent)" },
-    { label: "Recall", value: (agg.avg_recall ?? 0).toFixed(4), color: "var(--score-high)" },
-    { label: "Permission Violations", value: fmtPct(agg.permission_violation_rate ?? 0), color: agg.permission_violation_rate > 0 ? "var(--trace-blocked)" : "var(--score-high)" },
-    { label: "Avg Context Docs", value: (agg.avg_context_docs ?? 0).toFixed(1), color: "var(--text-secondary)" },
-    { label: "Avg Total Tokens", value: (agg.avg_total_tokens ?? 0).toFixed(0), color: "var(--text-secondary)" },
-    { label: "Avg Freshness", value: (agg.avg_freshness_score ?? 0).toFixed(4), color: "var(--fresh-high)" },
-    { label: "Avg Blocked", value: (agg.avg_blocked_count ?? 0).toFixed(1), color: "var(--trace-blocked)" },
-    { label: "Avg Stale", value: (agg.avg_stale_count ?? 0).toFixed(1), color: "var(--trace-stale)" },
-    { label: "Avg Dropped", value: (agg.avg_dropped_count ?? 0).toFixed(1), color: "var(--trace-dropped)" },
-    { label: "Avg Budget Util", value: fmtPct(agg.avg_budget_utilization ?? 0), color: "var(--accent)" },
+    { label: "Precision@5", value: (agg.avg_precision_at_5 ?? 0).toFixed(4), color: "var(--accent)", hint: "Accuracy of the top 5 results" },
+    { label: "Recall", value: (agg.avg_recall ?? 0).toFixed(4), color: "var(--score-high)", hint: "Coverage of expected documents" },
+    { label: "Permission Violations", value: fmtPct(agg.permission_violation_rate ?? 0), color: agg.permission_violation_rate > 0 ? "var(--trace-blocked)" : "var(--score-high)", hint: "Restricted docs leaked to context" },
+    { label: "Avg Context Docs", value: (agg.avg_context_docs ?? 0).toFixed(1), color: "var(--text-secondary)", hint: "Documents per assembled context" },
+    { label: "Avg Total Tokens", value: (agg.avg_total_tokens ?? 0).toFixed(0), color: "var(--text-secondary)", hint: "Token consumption per query" },
+    { label: "Avg Freshness", value: (agg.avg_freshness_score ?? 0).toFixed(4), color: "var(--fresh-high)", hint: "Document recency (1 = newest)" },
+    { label: "Avg Blocked", value: (agg.avg_blocked_count ?? 0).toFixed(1), color: "var(--trace-blocked)", hint: "Docs excluded per query by RBAC" },
+    { label: "Avg Stale", value: (agg.avg_stale_count ?? 0).toFixed(1), color: "var(--trace-stale)", hint: "Superseded docs flagged per query" },
+    { label: "Avg Dropped", value: (agg.avg_dropped_count ?? 0).toFixed(1), color: "var(--trace-dropped)", hint: "Docs cut by token budget" },
+    { label: "Avg Budget Util", value: fmtPct(agg.avg_budget_utilization ?? 0), color: "var(--accent)", hint: "Token budget utilization" },
   ];
 
   const cardsHTML = cards
@@ -566,9 +906,12 @@ function renderEvals(data) {
       <div class="metric-card" style="animation-delay: ${i * 40}ms">
         <span class="metric-card-label">${escapeHTML(c.label)}</span>
         <span class="metric-card-value" style="color: ${c.color}">${escapeHTML(c.value)}</span>
+        <span class="metric-card-hint">${escapeHTML(c.hint)}</span>
       </div>`
     )
     .join("");
+
+  const narrativeHTML = buildEvalsNarrative(agg);
 
   const headerRow = `
     <tr>
@@ -592,9 +935,14 @@ function renderEvals(data) {
         return `<tr class="evals-row-error"><td>${escapeHTML(q.id)}</td><td colspan="11" class="evals-error-cell">${escapeHTML(q.error)}</td></tr>`;
       }
       const hasViolation = q.permission_violations && q.permission_violations.length > 0;
+      const qText = q.query || "";
+      const qTextTrunc = qText.length > 50 ? qText.slice(0, 50) + "…" : qText;
       return `
         <tr class="${hasViolation ? "evals-row-violation" : ""}">
-          <td class="evals-id-cell">${escapeHTML(q.id)}</td>
+          <td class="evals-query-cell">
+            <span class="evals-qid">${escapeHTML(q.id)}</span>
+            <span class="evals-qtext" title="${escapeHTML(qText)}">${escapeHTML(qTextTrunc)}</span>
+          </td>
           <td><span class="evals-role-chip">${escapeHTML(q.role)}</span></td>
           <td class="mono-cell">${(q.precision_at_5 ?? 0).toFixed(2)}</td>
           <td class="mono-cell">${(q.recall ?? 0).toFixed(2)}</td>
@@ -611,6 +959,7 @@ function renderEvals(data) {
     .join("");
 
   evalsContent.innerHTML = `
+    ${narrativeHTML}
     <div class="metrics-grid">${cardsHTML}</div>
     <div class="evals-table-wrap">
       <table class="evals-table">
@@ -621,15 +970,133 @@ function renderEvals(data) {
     <p class="evals-footer">Queries run: ${agg.queries_run ?? 0} · Failed: ${agg.queries_failed ?? 0}</p>`;
 }
 
+// ── Narrative banner for Evals (IDEA 6) ──
+
+function buildEvalsNarrative(agg) {
+  const queriesRun = agg.queries_run ?? 0;
+  if (queriesRun === 0) return "";
+
+  const sentences = [];
+  const violationRate = agg.permission_violation_rate ?? 0;
+  const recall = agg.avg_recall ?? 0;
+  const budgetUtil = agg.avg_budget_utilization ?? 0;
+
+  // Sentence 1 — permission violations
+  if (violationRate === 0) {
+    sentences.push(
+      `Zero permission violations across <strong>${queriesRun}</strong> test ${queriesRun === 1 ? "query" : "queries"} — the context layer never leaked restricted documents.`
+    );
+  } else {
+    sentences.push(
+      `<strong>Warning:</strong> ${fmtPct(violationRate)} of queries had permission violations across <strong>${queriesRun}</strong> test ${queriesRun === 1 ? "query" : "queries"}.`
+    );
+  }
+
+  // Sentence 2 — recall
+  if (recall === 1.0) {
+    sentences.push("<strong>100% recall</strong> — every expected document was found.");
+  } else {
+    sentences.push(
+      `Recall: <strong>${recall.toFixed(2)}</strong> — some expected documents were missed.`
+    );
+  }
+
+  // Sentence 3 — budget utilization tier
+  let tier;
+  if (budgetUtil < 0.60) tier = "efficient";
+  else if (budgetUtil <= 0.80) tier = "moderate";
+  else tier = "heavy";
+  sentences.push(
+    `Average budget utilization: <strong>${fmtPct(budgetUtil)}</strong>, meaning the system assembles <strong>${tier}</strong> context packs.`
+  );
+
+  return `<div class="evals-narrative">${sentences.join(" ")}</div>`;
+}
+
 function fmtPct(v) {
   return (v * 100).toFixed(1) + "%";
 }
 
+// ── Build natural-language Decision Trace summary (IDEA 4) ──
+
+function buildTraceSummary(trace, userRole, compact) {
+  const m = trace.metrics || {};
+  const included = m.included_count ?? (trace.included || []).length;
+  const tokens = m.total_tokens ?? 0;
+  const budgetPct = Math.round((m.budget_utilization ?? 0) * 100);
+  const blockedCount = m.blocked_count ?? 0;
+  const droppedCount = m.dropped_count ?? 0;
+  const staleList = trace.demoted_as_stale || [];
+  const blockedList = trace.blocked_by_permission || [];
+
+  const sentences = [];
+
+  // a) INCLUDED — always emitted; grammatical guard for zero
+  if (included === 0) {
+    sentences.push(`No documents made it into context (0 tokens, ${budgetPct}% of budget).`);
+  } else {
+    const noun = included === 1 ? "document was" : "documents were";
+    sentences.push(
+      `<strong>${included}</strong> ${noun} included in context (${tokens} tokens, ${budgetPct}% of budget).`
+    );
+  }
+
+  // b) BLOCKED — only when blocked_count > 0
+  if (blockedCount > 0) {
+    const uniqueRoles = Array.from(
+      new Set(blockedList.map((b) => b.required_role).filter(Boolean))
+    );
+    const rolesLabel = uniqueRoles.length > 0
+      ? uniqueRoles.map((r) => `<strong>${escapeHTML(r)}</strong>`).join(" and ")
+      : "higher";
+    const roleClause = userRole
+      ? `your role (<strong>${escapeHTML(userRole)}</strong>) cannot access ${rolesLabel}-level materials`
+      : `your role cannot access ${rolesLabel}-level materials`;
+    const noun = blockedCount === 1 ? "document was" : "documents were";
+    sentences.push(`<strong>${blockedCount}</strong> ${noun} blocked — ${roleClause}.`);
+  }
+
+  // c) STALE — only when demoted_as_stale is non-empty
+  if (staleList.length > 0) {
+    if (compact) {
+      // Compare mode: one compact sentence, no per-doc details
+      const noun = staleList.length === 1 ? "document was" : "documents were";
+      sentences.push(`<strong>${staleList.length}</strong> ${noun} demoted as superseded.`);
+    } else {
+      // Single mode: detail the first (up to 2) with penalty
+      const toList = staleList.slice(0, 2);
+      toList.forEach((s) => {
+        const penalty = s.penalty_applied != null ? `${s.penalty_applied}×` : "0.5×";
+        sentences.push(
+          `<strong>${escapeHTML(s.doc_id)}</strong> was demoted (superseded by <strong>${escapeHTML(s.superseded_by)}</strong>, freshness penalized by ${escapeHTML(penalty)}).`
+        );
+      });
+      if (staleList.length > toList.length) {
+        const rest = staleList.length - toList.length;
+        sentences.push(`${rest} additional stale document${rest === 1 ? "" : "s"} listed below.`);
+      }
+    }
+  }
+
+  // d) DROPPED — always emitted (positive or negative), unless compact+zero
+  if (droppedCount > 0) {
+    const noun = droppedCount === 1 ? "document" : "documents";
+    sentences.push(
+      `<strong>${droppedCount}</strong> ${noun} passed all filters but ${droppedCount === 1 ? "was" : "were"} dropped because ${droppedCount === 1 ? "it" : "they"} exceeded the token budget.`
+    );
+  } else if (!compact) {
+    sentences.push("No documents were dropped by budget.");
+  }
+
+  return sentences.join(" ");
+}
+
 // ── Build Decision Trace panel HTML ──
 
-function buildTracePanelHTML(trace, startOpen) {
+function buildTracePanelHTML(trace, startOpen, userRole) {
   const m = trace.metrics || {};
   const budgetPct = Math.min(100, Math.round((m.budget_utilization ?? 0) * 100));
+  const summaryHTML = buildTraceSummary(trace, userRole, startOpen === true);
 
   const includedChips = (trace.included || [])
     .map(
@@ -672,6 +1139,7 @@ function buildTracePanelHTML(trace, startOpen) {
         <span class="trace-caret" aria-hidden="true">▾</span>
       </button>
       <div class="trace-body">
+        <div class="trace-summary${startOpen ? " trace-summary-compact" : ""}">${summaryHTML}</div>
         <div class="trace-row">
           <div class="trace-section">
             <span class="trace-section-label trace-label-included">✓ Included</span>
@@ -694,16 +1162,16 @@ function buildTracePanelHTML(trace, startOpen) {
         </div>
         <div class="trace-metrics-strip">
           <div class="budget-row">
-            <span class="budget-label">Budget</span>
+            <span class="budget-label" title="Percentage of the 2048-token budget used by assembled context">Budget</span>
             <div class="budget-bar-wrap">
               <div class="budget-bar-fill" style="width: ${budgetPct}%"></div>
             </div>
             <span class="budget-pct">${budgetPct}%</span>
           </div>
           <div class="trace-numbers">
-            <span>avg score <strong>${(m.avg_score ?? 0).toFixed(2)}</strong></span>
-            <span>avg freshness <strong>${(m.avg_freshness_score ?? 0).toFixed(2)}</strong></span>
-            <span>ttft <strong>${Math.round(trace.ttft_proxy_ms ?? 0)}ms</strong></span>
+            <span title="Average relevance score of included documents (0–1)">avg score <strong>${(m.avg_score ?? 0).toFixed(2)}</strong></span>
+            <span title="Average freshness score — 1.0 = newest document in corpus">avg freshness <strong>${(m.avg_freshness_score ?? 0).toFixed(2)}</strong></span>
+            <span title="Time-to-First-Token proxy — estimated latency before an LLM starts generating">ttft <strong>${Math.round(trace.ttft_proxy_ms ?? 0)}ms</strong></span>
           </div>
         </div>
       </div>
@@ -711,6 +1179,21 @@ function buildTracePanelHTML(trace, startOpen) {
 }
 
 // ── Wire trace toggle expand/collapse ──
+
+function wireExpandButtons(container) {
+  container.querySelectorAll(".card-expand-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const card = btn.closest(".result-card");
+      const idx = parseInt(card.dataset.cardIdx, 10);
+      const excerpts = _cardExcerpts.get(idx);
+      const contentEl = card.querySelector(".card-content");
+      const textEl = contentEl.querySelector(".card-content-text");
+      const expanded = contentEl.classList.toggle("expanded");
+      textEl.textContent = expanded ? excerpts.full : excerpts.short;
+      btn.textContent = expanded ? "Hide ▴" : "Show more ▾";
+    });
+  });
+}
 
 function wireTraceToggles(container) {
   container.querySelectorAll(".trace-toggle").forEach((btn) => {
@@ -743,8 +1226,110 @@ function renderError(err, container) {
 
 // ── Utility ──
 
+function formatDocType(raw) {
+  return (raw || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  const [year, month] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
 function escapeHTML(str) {
   const el = document.createElement("span");
   el.textContent = String(str ?? "");
   return el.innerHTML;
+}
+
+// ── Export: download the complete API response payload as JSON ──
+// Uses Blob + createObjectURL; revokes the object URL after the click to
+// avoid leaking Blob references for the lifetime of the document.
+function downloadJSON(data, filename) {
+  try {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  } catch (err) {
+    console.error("Export failed:", err);
+  }
+}
+
+// ── Admin / ingest ──
+
+const adminForm = document.getElementById("admin-form");
+const adminSubmit = document.getElementById("admin-submit");
+const adminStatus = document.getElementById("admin-status");
+const adminFileInput = document.getElementById("admin-file");
+
+function setAdminStatus(kind, message) {
+  if (!adminStatus) return;
+  adminStatus.hidden = false;
+  adminStatus.className = `admin-status admin-status-${kind}`;
+  adminStatus.innerHTML = message;
+}
+
+function clearAdminStatus() {
+  if (!adminStatus) return;
+  adminStatus.hidden = true;
+  adminStatus.className = "admin-status";
+  adminStatus.textContent = "";
+}
+
+async function uploadDocument(event) {
+  event.preventDefault();
+  if (!adminForm || !adminSubmit) return;
+
+  const file = adminFileInput?.files?.[0];
+  if (!file) {
+    setAdminStatus("error", "Please pick a PDF file.");
+    return;
+  }
+
+  const fd = new FormData(adminForm);
+  adminSubmit.disabled = true;
+  adminSubmit.classList.add("loading");
+  setAdminStatus(
+    "loading",
+    "Uploading and rebuilding the index… this usually takes 5&ndash;15 seconds."
+  );
+
+  try {
+    const res = await fetch(`${API_BASE}/ingest`, { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const detail = data?.detail || `HTTP ${res.status}`;
+      setAdminStatus("error", `Upload failed: ${escapeHTML(detail)}`);
+      return;
+    }
+
+    setAdminStatus(
+      "success",
+      `Indexed <strong>${escapeHTML(data.doc_id)}</strong> — ${escapeHTML(
+        data.title
+      )}. Corpus now contains ${data.total_documents} documents. It is searchable in Single and Compare modes.`
+    );
+    adminForm.reset();
+  } catch (err) {
+    setAdminStatus(
+      "error",
+      `Network error: ${escapeHTML(err?.message || String(err))}`
+    );
+  } finally {
+    adminSubmit.disabled = false;
+    adminSubmit.classList.remove("loading");
+  }
+}
+
+if (adminForm) {
+  adminForm.addEventListener("submit", uploadDocument);
 }

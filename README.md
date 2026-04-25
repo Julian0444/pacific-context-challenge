@@ -27,9 +27,9 @@ The **Compare** tab shows all three policies side by side:
 
 | Scenario | How to trigger | What it demonstrates |
 |---|---|---|
-| **Analyst wall** | Compare tab → click "Analyst wall ↔" | Analyst is blocked from 7 VP/partner docs that naive retrieval surfaces. Full policy shows 7 blocked, naive shows 0. |
-| **VP deal view** | Compare tab → click "VP deal view ↔" | VP sees deal memos and financial models blocked from analyst. Stale doc_007 (financial model v1) is demoted by full policy. |
-| **Partner view** | Compare tab → click "Partner view ↔" | Partner has full corpus access. No permission blocks in any policy. Freshness scoring still surfaces stale pair. |
+| **Permission Wall** | Single empty state → card "Permission Wall" → `Open in Compare →` | Analyst is blocked from 7 VP/partner docs that naive retrieval surfaces. Full policy shows 7 blocked, naive shows 0. |
+| **Financial model access** | Single empty state → card "Financial model access" → `Open in Compare →` | VP sees deal memos and financial models blocked from analyst. Stale doc_007 (financial model v1) is demoted by full policy. |
+| **Stale Detection** (renamed from "Partner view") | Compare row shortcut `Stale detection →`, or Single empty state → card "Stale Detection" → `Open in Compare →` | Partner has full corpus access. No permission blocks in any policy. Full pipeline demotes 2 superseded docs 0.5× (doc_002, doc_007). |
 | **Evals dashboard** | Click "Evals" tab | Live pipeline metrics: precision@5, recall, permission violation rate, trace counts across 8 test queries. |
 
 ---
@@ -119,7 +119,7 @@ curl http://localhost:8000/health
 ## Running tests and evaluator
 
 ```bash
-# Full test suite (148 passed, 14 skipped — skipped are deprecated legacy tests)
+# Full test suite (172 passed, 14 skipped — skipped are deprecated legacy tests)
 python3 -m pytest tests/ -v
 
 # Evaluator — runs 8 corpus-grounded queries through the production pipeline
@@ -177,7 +177,7 @@ frontend/
   index.html        # Static UI — open directly in browser
   app.js            # Single / Compare / Evals modes
   styles.css
-tests/              # 148 passing, 14 skipped
+tests/              # 172 passing, 14 skipped
   test_pipeline.py  test_stages.py  test_retriever.py
   test_models.py    test_evaluator.py  test_main.py  ...
 ```

@@ -21,9 +21,10 @@ Reference:
 """
 
 import re
+from typing import TYPE_CHECKING, Any
+
 import numpy as np
 from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
 
 from src.indexer import (
     MODEL_NAME,
@@ -32,6 +33,9 @@ from src.indexer import (
     tokenize_for_bm25,
 )
 
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+
 # RRF constant — higher k dampens rank differences.
 RRF_K = 60
 
@@ -39,13 +43,15 @@ RRF_K = 60
 # Lazy-loaded singletons (expensive objects loaded once per process)
 # ---------------------------------------------------------------------------
 
-_model = None
+_model: Any = None
 _bm25 = None
 
 
-def _get_model() -> SentenceTransformer:
+def _get_model() -> "SentenceTransformer":
     global _model
     if _model is None:
+        from sentence_transformers import SentenceTransformer
+
         _model = SentenceTransformer(MODEL_NAME)
     return _model
 
@@ -56,6 +62,17 @@ def _get_bm25() -> BM25Okapi:
         corpus = load_bm25_corpus()
         _bm25 = BM25Okapi(corpus)
     return _bm25
+
+
+def invalidate_caches() -> None:
+    """Reset in-process singletons that depend on the persisted corpus.
+
+    Call after the corpus is rebuilt (see src.ingest). Resets only `_bm25`;
+    FAISS is re-read from disk on every retrieve() call, and the embeddings
+    model is corpus-independent and can be kept cached.
+    """
+    global _bm25
+    _bm25 = None
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +164,7 @@ def _build_results(
             "file_name": p["file_name"],
             "score": float(score),
             "type": p["type"],
+            "doc_type": p.get("type"),
             "date": p["date"],
             "min_role": p["min_role"],
             "sensitivity": p["sensitivity"],

@@ -52,6 +52,8 @@ def filter_permissions(
                     reason="unknown_min_role",
                     required_role=doc.min_role,
                     user_role=user_ctx.role,
+                    title=doc.title,
+                    doc_type=doc.doc_type,
                 )
             )
             continue
@@ -67,6 +69,8 @@ def filter_permissions(
                     reason="insufficient_role",
                     required_role=doc.min_role,
                     user_role=user_ctx.role,
+                    title=doc.title,
+                    doc_type=doc.doc_type,
                 )
             )
 

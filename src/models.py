@@ -74,6 +74,7 @@ class ScoredDocument(BaseModel):
     title: Optional[str] = None
     short_summary: Optional[str] = None
     sensitivity: Optional[str] = None
+    doc_type: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +95,7 @@ class FreshnessScoredDocument(BaseModel):
     title: Optional[str] = None
     short_summary: Optional[str] = None
     sensitivity: Optional[str] = None
+    doc_type: Optional[str] = None
     freshness_score: float
     is_stale: bool = False
 
@@ -110,6 +112,8 @@ class BlockedDocument(BaseModel):
     reason: str = "insufficient_role"
     required_role: str
     user_role: str
+    title: Optional[str] = None
+    doc_type: Optional[str] = None
 
 
 class StaleDocument(BaseModel):
@@ -132,6 +136,10 @@ class IncludedDocument(BaseModel):
     freshness_score: float
     tags: List[str] = Field(default_factory=list)
     token_count: int
+    title: Optional[str] = None
+    doc_type: Optional[str] = None
+    date: Optional[str] = None
+    superseded_by: Optional[str] = None
 
 
 class DroppedByBudget(BaseModel):
@@ -217,6 +225,10 @@ class DocumentChunk(BaseModel):
     score: float
     freshness_score: Optional[float] = None
     tags: List[str] = Field(default_factory=list)
+    title: Optional[str] = None
+    doc_type: Optional[str] = None
+    date: Optional[str] = None
+    superseded_by: Optional[str] = None
 
 
 class QueryResponse(BaseModel):
@@ -256,3 +268,19 @@ class CompareResponse(BaseModel):
     query: str
     role: str
     results: Dict[str, QueryResponse]
+
+
+class IngestResponse(BaseModel):
+    """POST /ingest response — confirms the new corpus entry."""
+    model_config = ConfigDict(extra="forbid")
+
+    status: str = "ok"
+    doc_id: str
+    title: str
+    file_name: str
+    type: str
+    date: str
+    min_role: str
+    sensitivity: str
+    tags: List[str]
+    total_documents: int
