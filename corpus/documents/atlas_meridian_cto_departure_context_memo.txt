@@ -1,0 +1,20 @@
+VP AND ABOVE — CTO departure context memo: engineering retention risk and product-continuity assessment for Project Clearwater.
+April 4, 2024 | CONFIDENTIAL — VP AND ABOVE
+
+PREPARED BY: Sarah Chen, Associate
+
+SUMMARY
+
+This memo provides context on Rohan Mehta's January 2024 departure as Meridian CTO. Management described the departure as voluntary and unrelated to commercial performance, but customer references indicate Mehta was the original architect of the ClearFlow reconciliation engine and remained closely involved in the platform migration now scheduled through Q3 2024.
+
+ENGINEERING CONTINUITY
+
+Meridian promoted VP Engineering Priya Raman as interim technical lead. Reference checks were positive on Raman's execution discipline, but two senior engineers noted that architecture decisions were still escalated to Mehta through informal channels in December 2023. The diligence team should assume moderate execution risk until the migration is complete.
+
+RETENTION RISK
+
+The top five engineers represent concentrated product knowledge across exception handling, bank-core connectors, and audit-log infrastructure. We recommend a $1.8M retention pool over 18 months, with accelerated vesting tied to migration milestones.
+
+DEAL IMPLICATION
+
+The CTO departure is manageable, but it should be flagged in the IC memo as an integration risk. It also supports delaying synergy realization assumptions to 18 months and requiring a technical operating plan before close.

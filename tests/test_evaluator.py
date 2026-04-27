@@ -164,7 +164,7 @@ def test_run_evals_budget_utilization_bounded(eval_results):
 def test_run_evals_precision_floor(eval_results):
     """Precision@5 must not silently collapse below a minimum threshold.
 
-    Current production baseline is 0.30 (all role-visible docs packed into
+    Current production baseline is 0.3333 (all role-visible docs packed into
     context; small expected sets dilute precision).  Floor is set at 0.20 to
     absorb minor ranking variance without false alarms while still catching
     a genuine retrieval failure.

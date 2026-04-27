@@ -10,6 +10,8 @@ Working tree also had uncommitted drift (`corpus/documents/agenda.txt` untracked
 
 **Update 2026-04-22 (UI-A):** the corpus contamination has been removed. `agenda.txt` / `doc_013` is gone, artifacts rebuilt to 12 vectors, and the test was already updated to read `corpus_size` dynamically from `metadata.json`. Current `pytest` status: `172 passed, 14 skipped, 0 failed`. CR-1 below is historical.
 
+**Update 2026-04-25 (UI-E):** the demo corpus was intentionally expanded to 16 authored documents (`doc_013`–`doc_016` now legal diligence, IC draft, public valuation article, and CTO memo). Artifacts were rebuilt to 16 vectors and the evaluator now runs 12 corpus-grounded queries. UI-A's `agenda.txt` contamination remains resolved; new `doc_013` is authored corpus content, not the old Agenda probe.
+
 ---
 
 ## 1. Backend execution summary
@@ -50,7 +52,7 @@ Inside `run_pipeline` (`src/pipeline.py:149-195`):
 | `src/retriever.py` | Hybrid retrieval. `retrieve()` (default), `semantic_retrieve()` (comparison). Lazy singletons `_model`, `_bm25`; `invalidate_caches()` resets `_bm25`. | Reads FAISS + `index_documents.json` + `bm25_corpus.json` on every `retrieve()` call. FAISS not cached in-process. |
 | `src/indexer.py` | Full rebuild: load docs, embed with MiniLM-L6-v2, write `querytrace.index` + `index_documents.json` + `bm25_corpus.json`. `tokenize_for_bm25()` used by both indexer and retriever. | Writes three artifacts to `artifacts/`. |
 | `src/ingest.py` | PDF → text → metadata append → reindex. `_INGEST_LOCK` threading.Lock, validation, filename sanitiser, doc_id generator. | Writes `corpus/documents/<file>.txt`, mutates `corpus/metadata.json`, invokes `indexer.build_and_save()`. |
-| `src/evaluator.py` | 8-query harness, precision@k + recall + permission_violation_rate. Uses `run_pipeline()` so metrics reflect the assembled context. | Reads `evals/test_queries.json`. |
+| `src/evaluator.py` | 12-query harness, precision@k + recall + permission_violation_rate. Uses `run_pipeline()` so metrics reflect the assembled context. | Reads `evals/test_queries.json`. |
 | `src/stages/*.py` | Four pure-compute stages. No I/O, no globals. Each returns a named dataclass result. | — |
 | `src/protocols.py` | `RetrieverProtocol`, `RoleStoreProtocol`, `MetadataStoreProtocol` for DI. | — |
 | `src/freshness.py` | Pure helpers. `compute_freshness()` used by freshness stage. `apply_freshness()` is dead. | — |
@@ -143,7 +145,7 @@ Inside `run_pipeline` (`src/pipeline.py:149-195`):
 - Fix: delete or mark with deprecation.
 
 **MI-2 — Non-uniform tie-breaking between FAISS and BM25 rankings**
-- `src/retriever.py:107` uses `np.argsort(-scores, kind="stable")`, FAISS returns by descending score. For corpora with ties (unlikely in a 13-doc corpus), the fusion can favour one retriever's tie-breaking rule. Fine for prod, worth noting.
+- `src/retriever.py:107` uses `np.argsort(-scores, kind="stable")`, FAISS returns by descending score. For corpora with ties (unlikely in this small corpus), the fusion can favour one retriever's tie-breaking rule. Fine for prod, worth noting.
 
 **MI-3 — `_normalize_scores` collapses all-equal fused scores to all-1.0**
 - `src/retriever.py:140-141`. A caller comparing top-1 against top-N can't distinguish "one clearly-best doc" from "no signal at all." Unlikely in practice but worth a comment.
@@ -153,7 +155,7 @@ Inside `run_pipeline` (`src/pipeline.py:149-195`):
 - Fix: add `model_config = ConfigDict(extra="forbid")`.
 
 **MI-5 — `score_freshness` rebuilds `meta_by_id` and `reference_date` on every call**
-- `src/stages/freshness_scorer.py:46-48`. For 12 docs this is fine (µs), but the pipeline recomputes these per request even though `_metadata` is loaded once at startup and mutated only by ingest. A lazy cache keyed by metadata revision would be slightly cleaner — not a performance issue today.
+- `src/stages/freshness_scorer.py:46-48`. For the small demo corpus this is fine (µs), but the pipeline recomputes these per request even though `_metadata` is loaded once at startup and mutated only by ingest. A lazy cache keyed by metadata revision would be slightly cleaner — not a performance issue today.
 
 **MI-6 — `/evals` never retries a failed load**
 - `src/main.py:167-174`. If `run_evals` raises (metadata corrupted, queries missing), exception propagates, `_evals_cache` stays None, and the next call re-raises. The cache is write-through-on-success only. Not a bug, but means a transient failure during eval warmup keeps the endpoint broken until the exception stops.

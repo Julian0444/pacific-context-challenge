@@ -8,19 +8,22 @@ QueryTrace es una herramienta de laboratorio que simula como un sistema de busqu
 
 **No es un chatbot.** No responde preguntas. No genera texto con IA. Lo que hace es mostrar *que documentos elegiria el sistema* para armar el paquete de contexto que un LLM usaria como fuente de verdad, y *por que eligio esos y no otros*.
 
-El escenario simulado es el siguiente: una firma de capital privado llamada **Atlas Capital Partners** esta evaluando la adquisicion de una empresa fintech llamada **Meridian Technologies** (proyecto interno: "Project Clearwater"). El corpus de documentos contiene 12 archivos reales que cualquier firma de inversiones tendria en un deal asi:
+El escenario simulado es el siguiente: una firma de capital privado llamada **Atlas Capital Partners** esta evaluando la adquisicion de una empresa fintech llamada **Meridian Technologies** (proyecto interno: "Project Clearwater"). El corpus de documentos contiene 16 archivos realistas que cualquier firma de inversiones tendria en un deal asi:
 
 | Tipo de documento | Ejemplo | Quien puede verlo |
 |---|---|---|
 | Filings publicos (10-K) | Reporte anual de Meridian FY2023 | Todos (Analyst, VP, Partner) |
 | Notas de research | Cobertura de Summit Financial Research | Todos |
 | Press releases | Comunicado de la Serie C de Meridian | Todos |
+| Noticias publicas | Articulo de prensa con rumor de valuacion | Todos |
 | Overview de sector | Vision interna de Atlas sobre fintech | Todos |
 | Memos de due diligence | Hallazgos de Phase 1 de Atlas | Solo VP y Partner |
 | Modelos financieros | Modelo v1.0 y v2.0 del deal | Solo VP y Partner |
 | Emails internos | Riesgos de integracion | Solo VP y Partner |
+| Memos internos de CTO | Contexto de salida del CTO y riesgo de retencion | Solo VP y Partner |
 | Analisis de concentracion de clientes | ARR breakdown por cliente | Solo VP y Partner |
 | Memo del Investment Committee | Recomendacion formal del IC | Solo Partner |
+| Memo legal | Riesgo regulatorio y revenue recognition | Solo Partner |
 | Update para LPs | Carta trimestral a inversores | Solo Partner |
 
 El punto central es: **no todos los usuarios deberian ver todos los documentos**. Un analista junior no tiene por que ver el memo del Investment Committee. Un VP no tiene por que ver la carta a los LPs. El sistema tiene que respetar eso.
@@ -32,18 +35,18 @@ El punto central es: **no todos los usuarios deberian ver todos los documentos**
 Cuando abris QueryTrace, lo primero que elegis es **tu rol**. Hay tres:
 
 ### Analyst (Rango 1 - el mas bajo)
-- Puede ver: filings publicos, research notes, press releases, y el sector overview.
-- **No puede ver**: memos internos, modelos financieros, emails, analisis de clientes, memo del IC, ni updates para LPs.
-- Es el rol mas restrictivo. De los 12 documentos, solo tiene acceso a **5**.
+- Puede ver: filings publicos, research notes, press releases, el sector overview y noticias publicas.
+- **No puede ver**: memos internos, modelos financieros, emails, analisis de clientes, memo legal, memo del IC, ni updates para LPs.
+- Es el rol mas restrictivo. De los 16 documentos, solo tiene acceso a **6**.
 
 ### VP (Rango 2 - intermedio)
-- Puede ver todo lo del analyst **mas**: memos de due diligence, modelos financieros, emails internos, y analisis de concentracion.
-- **No puede ver**: memo del IC ni updates para LPs (esos son solo para partners).
-- De los 12 documentos, tiene acceso a **10**.
+- Puede ver todo lo del analyst **mas**: memos de due diligence, modelos financieros, emails internos, memo de CTO, y analisis de concentracion.
+- **No puede ver**: memo del IC, memo legal ni updates para LPs (esos son solo para partners).
+- De los 16 documentos, tiene acceso a **12**.
 
 ### Partner (Rango 3 - acceso total)
-- Ve absolutamente todo. Los 12 documentos.
-- Es el unico que puede ver el memo del Investment Committee y la carta a los LPs.
+- Ve absolutamente todo. Los 16 documentos.
+- Es el unico que puede ver el memo del Investment Committee, el memo legal y la carta a los LPs.
 
 **Lo que ves en la UI:** En la barra de controles hay tres botones (Analyst, VP, Partner). Al seleccionar uno, le estas diciendo al sistema "simulemos que soy esta persona" y todas las busquedas que hagas respetaran los permisos de ese rol.
 
@@ -157,15 +160,15 @@ Si cambias el rol o la politica despues de haber ejecutado una consulta, los con
 
 Los tres escenarios base (Permission Wall / Financial model access / Stale Detection) viven como **tarjetas en el empty state de Single**. Cada tarjeta tiene dos botones: `Run in Single` (corre en Single con full_policy, **no** cambia de modo) y `Open in Compare →` (salta explicitamente a Compare). UI-C elimino el "teleport silencioso" del onboarding anterior.
 
-La fila de shortcuts "Compare" quedo reducida a **un solo boton**: `Stale detection →` (antes "Partner view ↔"). La query y el rol (partner, IC + LP update) no cambiaron; la narrativa se reenfoca en los 2 documentos demotados como stale (doc_002 y doc_007) por el full pipeline, en vez de enfatizar "partner no tiene bloqueos". Los shortcuts "Analyst wall ↔" y "VP deal view ↔" fueron removidos por duplicar las tarjetas de onboarding.
+La fila de shortcuts "Compare" quedo reducida a **un solo boton**: `Stale detection →` (antes "Partner view ↔"). La query y el rol (partner, IC + LP update) no cambiaron; la narrativa se reenfoca en los 3 documentos demotados como stale (doc_002, doc_007 y doc_014) por el full pipeline, en vez de enfatizar "partner no tiene bloqueos". Los shortcuts "Analyst wall ↔" y "VP deal view ↔" fueron removidos por duplicar las tarjetas de onboarding.
 
 La fila "Single" conserva `Diligence risks` (VP) y `IC recommendation` (partner) — queries distintas de las del onboarding, sin cambio de modo.
 
 **Las tres historias base:**
 
-1. **Permission Wall** (analyst, ARR query): naive devuelve 12 docs, RBAC+Full bloquean 7. El caso mas dramatico de "mira lo que pasa sin permisos".
-2. **Financial model access** (VP, financial model query): el VP accede a los modelos, 2 docs bloqueados (partner-only), y en Full el modelo v1 queda demotado como stale.
-3. **Stale Detection** (partner, IC + LP query): acceso total (0 bloqueos en los tres policies), pero Full pipeline demote 2 docs superseded (doc_002, doc_007) — demuestra que frescura y permisos son ortogonales.
+1. **Permission Wall** (analyst, ARR query): naive devuelve 16 docs, RBAC+Full bloquean 10. El caso mas dramatico de "mira lo que pasa sin permisos".
+2. **Financial model access** (VP, financial model query): el VP accede a los modelos, 4 docs bloqueados (partner-only), y en Full el modelo v1 queda demotado como stale.
+3. **Stale Detection** (partner, IC + LP query): acceso total (0 bloqueos en los tres policies), pero Full pipeline demote 3 docs superseded (doc_002, doc_007, doc_014) — demuestra que frescura y permisos son ortogonales.
 
 **Compare tambien tiene empty state (UI-C):** si el usuario entra a Compare sin haber corrido nada, ve tres tarjetas de preview que reflejan las mismas tres historias, con hints cuantitativos resumidos. Un click corre `/compare` y las tarjetas desaparecen para dar paso al banner + las tres columnas.
 
@@ -179,10 +182,10 @@ La fila "Single" conserva `Diligence risks` (VP) y `IC recommendation` (partner)
 
 ### 4.3 Modo Evals - "Dashboard de evaluacion"
 
-**Que ves:** Un dashboard con 10 tarjetas de metricas agregadas y una tabla con 8 filas (una por query de test).
+**Que ves:** Un dashboard con 10 tarjetas de metricas agregadas y una tabla con 12 filas (una por query de test).
 
 **Que hace:**
-1. Al hacer clic en la pestaña "Evals", el sistema ejecuta automaticamente 8 consultas predefinidas a traves del pipeline completo (full_policy).
+1. Al hacer clic en la pestaña "Evals", el sistema ejecuta automaticamente 12 consultas predefinidas a traves del pipeline completo (full_policy).
 2. Calcula metricas de calidad de retrieval y seguridad.
 3. Muestra los resultados.
 
@@ -190,7 +193,7 @@ La fila "Single" conserva `Diligence risks` (VP) y `IC recommendation` (partner)
 
 | Metrica | Que significa para el usuario |
 |---|---|
-| **Precision@5** | De los primeros 5 documentos que el sistema devuelve, que porcentaje son realmente los correctos. 0.30 = 30% de acierto en el top 5. |
+| **Precision@5** | De los primeros 5 documentos que el sistema devuelve, que porcentaje son realmente los correctos. 0.3333 = ~33% de acierto en el top 5. |
 | **Recall** | De todos los documentos que deberian aparecer, que porcentaje efectivamente aparecio. 1.0000 = nunca se perdio un documento esperado. |
 | **Permission Violations** | Porcentaje de queries donde un documento restringido aparecio en el contexto final. 0.0% = perfecto, nunca hubo una filtracion de permisos. |
 | **Avg Context Docs** | Promedio de documentos incluidos por consulta. |
@@ -199,11 +202,11 @@ La fila "Single" conserva `Diligence risks` (VP) y `IC recommendation` (partner)
 | **Avg Blocked** | Promedio de documentos bloqueados por permisos por consulta. |
 | **Avg Stale** | Promedio de documentos marcados como obsoletos por consulta. |
 | **Avg Dropped** | Promedio de documentos descartados por presupuesto por consulta. |
-| **Avg Budget Util** | Promedio de utilizacion del presupuesto de tokens (52.6% = se usa poco mas de la mitad del presupuesto disponible). |
+| **Avg Budget Util** | Promedio de utilizacion del presupuesto de tokens (71% = se usa alrededor de dos tercios del presupuesto disponible). |
 
-**La tabla por query (8 filas):**
+**La tabla por query (12 filas):**
 Cada fila es una consulta de test diferente. Las columnas son:
-- **Query**: ID de la consulta (q001-q008)
+- **Query**: ID de la consulta (q001-q012)
 - **Role**: El rol usado para esa consulta
 - **P@5**: Precision en el top 5 para esa consulta especifica
 - **Recall**: Recall para esa consulta
@@ -219,7 +222,7 @@ Cada fila es una consulta de test diferente. Las columnas son:
 **Para que le sirve al usuario:**
 - Es la prueba cuantitativa de que el sistema funciona. No es una demo subjetiva, son numeros.
 - El dato mas importante para el usuario de negocio es que **Permission Violations = 0.0%** y **Recall = 1.0000**. Eso significa: "nunca filtramos un documento restringido" y "nunca nos perdemos un documento relevante".
-- La Precision@5 de 0.30 es baja, pero hay que entender por que: el sistema devuelve mas documentos de los estrictamente "esperados" porque incluye contexto adicional relevante. No es necesariamente un problema, sino una consecuencia de que el corpus es chico y muchos documentos son parcialmente relevantes para varias queries.
+- La Precision@5 de 0.3333 puede parecer baja, pero hay que entender por que: el sistema devuelve mas documentos de los estrictamente "esperados" porque incluye contexto adicional relevante. No es necesariamente un problema, sino una consecuencia de que el corpus es chico y muchos documentos son parcialmente relevantes para varias queries.
 
 ---
 
@@ -241,15 +244,15 @@ No devuelve una "respuesta" a tu pregunta. Devuelve una **lista de documentos ra
 
 ### Sobre que busca
 
-Busca sobre los **12 documentos del corpus**. Estos son documentos simulados pero realistas de un caso de M&A (fusiones y adquisiciones) en fintech. La busqueda se realiza sobre el texto completo de cada documento (el campo `excerpt` que contiene el texto entero del archivo).
+Busca sobre los **16 documentos del corpus**. Estos son documentos simulados pero realistas de un caso de M&A (fusiones y adquisiciones) en fintech. La busqueda se realiza sobre el texto completo de cada documento, mientras la UI muestra un `excerpt` de aproximadamente 500 caracteres.
 
 ### Limitaciones del buscador
 
 1. **No busca dentro de los documentos con precision quirurgica.** No es un buscador de texto plano tipo Ctrl+F. Si buscas "4.1M deferred revenue adjustment" probablemente encuentre el email interno que menciona eso (doc_009), pero lo devuelve como un resultado *completo* del documento, no te resalta la linea exacta donde aparece.
 
-2. **El corpus es fijo y pequeño (12 documentos).** No se pueden agregar documentos desde la interfaz. Para cambiar el corpus hay que editar los archivos en la carpeta `corpus/documents/`, actualizar `metadata.json`, y reconstruir el indice con `python3 -m src.indexer`.
+2. **El corpus base es pequeño (16 documentos).** Se puede extender por codigo editando `corpus/documents/`, actualizando `metadata.json`, y reconstruyendo el indice con `python3 -m src.indexer`; el modo Upload permite pruebas de ingestion en entornos donde este habilitado.
 
-3. **Los scores de relevancia son relativos, no absolutos.** Un score de 0.20 no significa "poco relevante en general", sino "menos relevante que los otros documentos *dentro de este corpus* para esta query". En un corpus de 12 documentos, incluso los menos relevantes pueden tener scores decentes.
+3. **Los scores de relevancia son relativos, no absolutos.** Un score de 0.20 no significa "poco relevante en general", sino "menos relevante que los otros documentos *dentro de este corpus* para esta query". En un corpus de 16 documentos, incluso los menos relevantes pueden tener scores decentes.
 
 4. **No hay filtrado por texto exacto de tags o tipo de documento.** El usuario no puede filtrar por "solo research notes" o "solo documentos con tag 'arr'". Todo pasa por la busqueda en lenguaje natural.
 
@@ -318,7 +321,7 @@ Busca sobre los **12 documentos del corpus**. Estos son documentos simulados per
 
 9. **Modo Evals**: Es una herramienta de benchmarking. Demuestra con numeros que el pipeline funciona. Util para ingenieros, QA, y documentacion tecnica.
 
-10. **Metricas detalladas (budget utilization, TTFT proxy, avg score, avg freshness)**: Son datos internos del pipeline. Un usuario de negocio no necesita saber que la "budget utilization" es 52.6% ni que el TTFT proxy es 8ms. Pero un ingeniero si.
+10. **Metricas detalladas (budget utilization, TTFT proxy, avg score, avg freshness)**: Son datos internos del pipeline. Un usuario de negocio no necesita saber que la "budget utilization" es 71% ni que el TTFT proxy es 8ms. Pero un ingeniero si.
 
 11. **Precision@5 y Recall**: Son metricas estandar de information retrieval. Tienen significado tecnico preciso. Un usuario no tecnico probablemente no las entienda sin contexto.
 
@@ -331,29 +334,29 @@ Busca sobre los **12 documentos del corpus**. Estos son documentos simulados per
 Se ve la consulta "What is Meridian's ARR growth rate and net revenue retention?" ejecutada con rol Analyst y politica FULL.
 
 **Lo que esta bien:**
-- La summary bar muestra claramente: 5 docs, 571 tokens, analyst role, FULL policy, 7 blocked, 1 stale.
-- Los 7 bloqueados tienen sentido: son los 7 documentos que un analyst no puede ver (doc_006 a doc_012 menos los publicos).
+- La summary bar muestra claramente: 6 docs, 675 tokens, analyst role, FULL policy, 10 blocked, 1 stale.
+- Los 10 bloqueados tienen sentido: son los documentos VP/partner que un analyst no puede ver (doc_006 a doc_014 y doc_016, excluyendo el public news doc_015).
 - El 1 stale es doc_002 (la research note vieja de Q3 2023 que fue reemplazada por doc_003).
 - doc_001 (el 10-K con datos de ARR) aparece primero con relevancia 1.00 y freshness 0.91 - correcto, es el documento mas relevante.
-- doc_003 (la research note actualizada) aparece segundo con relevancia 0.54 - correcto, es la revision de estimaciones.
+- doc_003 (la research note actualizada) aparece dentro del contexto visible - correcto, es la revision de estimaciones.
 
 **Lo que puede confundir:**
-- El usuario ve "7 blocked" pero no sabe cuales son a menos que abra el Decision Trace.
+- El usuario ve "10 blocked" pero no sabe cuales son a menos que abra el Decision Trace.
 - Los tags (meridian, public, financials, etc.) son informativos pero no hay forma de hacer clic en ellos para filtrar.
 - El extracto del contenido esta cortado a 480 caracteres sin indicacion visual de que hay mas.
 
 ### Captura 2: Modo Evals
 
-Se ven las 10 tarjetas de metricas y la tabla de 8 queries.
+Se ven las 10 tarjetas de metricas y la tabla de 12 queries.
 
 **Lo que esta bien:**
 - Permission Violations en 0.0% esta resaltado en verde - transmite inmediatamente que los permisos son seguros.
-- La tabla muestra patron claro: las queries de analyst (q001-q003) tienen 7 blocked, las de VP (q004-q005, q007) tienen 2 blocked, las de partner (q006, q008) tienen 0 blocked. Esto es consistente con la jerarquia de roles.
+- La tabla muestra patron claro: las queries de analyst (q001-q003) tienen 10 blocked, las de VP tienen 4 blocked, y las de partner tienen 0 blocked. Esto es consistente con la jerarquia de roles.
 - Todas las queries tienen recall 1.00 y violations "none".
 
 **Lo que puede confundir:**
-- Precision@5 de 0.30 puede parecer baja y alarmar a alguien que no entiende el contexto. En un corpus de 12 docs con queries amplias, es esperable.
-- "Avg Context Docs = 8.6" y "Avg Budget Util = 52.6%" no dicen mucho al usuario de negocio.
+- Precision@5 de 0.3333 puede parecer baja y alarmar a alguien que no entiende el contexto. En un corpus de 16 docs con queries amplias, es esperable.
+- "Avg Context Docs = 11.8" y "Avg Budget Util = 71%" no dicen mucho al usuario de negocio.
 - Los colores de las tarjetas (rojo para blocked, amarillo para stale) son informativos pero sin explicacion de que es "bueno" o "malo".
 
 ### Captura 3: Modo Compare (Analyst, ARR query)
@@ -361,10 +364,10 @@ Se ven las 10 tarjetas de metricas y la tabla de 8 queries.
 Se ven las tres columnas NAIVE, RBAC, FULL con los Decision Traces expandidos.
 
 **Lo que esta bien:**
-- La diferencia visual es impactante: NAIVE tiene 0 blocked, RBAC tiene 2 blocked, FULL tiene 2 blocked + 2 stale. Se ve inmediatamente el valor de cada capa.
-- En la columna NAIVE, los Decision Trace chips muestran doc_010 y doc_011 incluidos sin restriccion - estos son documentos de nivel partner que un analyst no deberia ver.
-- Los Blocked chips en RBAC y FULL muestran claramente "doc_010 -partner" y "doc_011 -partner".
-- Los Stale chips en FULL muestran "doc_007 -> doc_008" y "doc_002 -> doc_003", indicando que versiones nuevas reemplazaron a las viejas.
+- La diferencia visual es impactante: NAIVE tiene 0 blocked, RBAC tiene 10 blocked, FULL tiene 10 blocked + stale. Se ve inmediatamente el valor de cada capa.
+- En la columna NAIVE, los Decision Trace chips muestran documentos como doc_010, doc_011 y doc_013 incluidos sin restriccion - estos son documentos de nivel partner que un analyst no deberia ver.
+- Los Blocked chips en RBAC y FULL muestran claramente documentos `vp` y `partner`, incluido el memo legal.
+- Los Stale chips en FULL muestran pares como "doc_002 -> doc_003", indicando que versiones nuevas reemplazaron a las viejas.
 
 **Lo que puede confundir:**
 - La barra de "Budget" con 75%, 63%, 63% no tiene contexto de que es "bueno". El usuario no sabe si deberia apuntar a 100% o si 63% esta bien.
@@ -408,7 +411,7 @@ Se ven los controles superiores: buscador, rol selector, politica selector, y bo
 
 ## 10. Limitaciones y ambiguedades de UX actuales
 
-1. **No se explica que es cada metrica.** El usuario ve "Precision@5 = 0.30" pero no hay tooltip, leyenda, o explicacion contextual de que significa. Lo mismo con TTFT, budget utilization, avg freshness, etc.
+1. **No se explica que es cada metrica.** El usuario ve "Precision@5 = 0.3333" pero no hay tooltip, leyenda, o explicacion contextual de que significa. Lo mismo con TTFT, budget utilization, avg freshness, etc.
 
 2. **Los scores no tienen referencia.** Un score de relevancia de 0.54 no dice nada sin contexto. El usuario no sabe si eso es "bueno" o "malo".
 

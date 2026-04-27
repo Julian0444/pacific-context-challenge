@@ -150,6 +150,17 @@ def test_ingest_bad_doc_type(tmp_path, monkeypatch):
         )
 
 
+@pytest.mark.parametrize("doc_type", ["internal_memo", "legal_memo", "news_article"])
+def test_ingest_accepts_current_demo_doc_types(doc_type):
+    ingest._validate_inputs(
+        title="t",
+        date="2024-01-01",
+        min_role="analyst",
+        doc_type=doc_type,
+        sensitivity="low",
+    )
+
+
 def test_ingest_bad_sensitivity(tmp_path, monkeypatch):
     mp = _write_tmp_metadata(tmp_path)
     monkeypatch.setattr("src.ingest.extract_text_from_pdf", _stub_extract)

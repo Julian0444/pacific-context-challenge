@@ -2,7 +2,7 @@
 
 A **permission-aware context gateway** built as a policy lab. Given a natural-language query and a user role, QueryTrace retrieves relevant documents from a private equity corpus, applies role-based access control, penalises stale documents, enforces a token budget, and returns both the assembled context and a full decision audit trace.
 
-**Corpus:** 12 documents from the fictional Atlas Capital / Meridian Technologies deal ("Project Clearwater") — spanning public filings, research notes, deal memos, financial models, board materials, and LP updates. Three role levels (analyst < VP < partner) enforced via `min_role` per document.
+**Corpus:** 16 documents from the fictional Atlas Capital / Meridian Technologies deal ("Project Clearwater") — spanning public filings, research notes, public news, deal memos, financial models, legal diligence, board materials, and LP updates. Three role levels (analyst < VP < partner) enforced via `min_role` per document.
 
 ---
 
@@ -27,10 +27,10 @@ The **Compare** tab shows all three policies side by side:
 
 | Scenario | How to trigger | What it demonstrates |
 |---|---|---|
-| **Permission Wall** | Single empty state → card "Permission Wall" → `Open in Compare →` | Analyst is blocked from 7 VP/partner docs that naive retrieval surfaces. Full policy shows 7 blocked, naive shows 0. |
+| **Permission Wall** | Single empty state → card "Permission Wall" → `Open in Compare →` | Analyst is blocked from 10 VP/partner docs that naive retrieval surfaces. Full policy shows 10 blocked, naive shows 0. |
 | **Financial model access** | Single empty state → card "Financial model access" → `Open in Compare →` | VP sees deal memos and financial models blocked from analyst. Stale doc_007 (financial model v1) is demoted by full policy. |
-| **Stale Detection** (renamed from "Partner view") | Compare row shortcut `Stale detection →`, or Single empty state → card "Stale Detection" → `Open in Compare →` | Partner has full corpus access. No permission blocks in any policy. Full pipeline demotes 2 superseded docs 0.5× (doc_002, doc_007). |
-| **Evals dashboard** | Click "Evals" tab | Live pipeline metrics: precision@5, recall, permission violation rate, trace counts across 8 test queries. |
+| **Stale Detection** (renamed from "Partner view") | Compare row shortcut `Stale detection →`, or Single empty state → card "Stale Detection" → `Open in Compare →` | Partner has full corpus access. No permission blocks in any policy. Full pipeline demotes 3 superseded docs 0.5× (doc_002, doc_007, doc_014). |
+| **Metrics dashboard** | Click "Metrics" tab | Live pipeline metrics: precision@5, recall, permission violation rate, trace counts across 12 test queries. |
 
 ---
 
@@ -70,14 +70,15 @@ Over-retrieval: the pipeline fetches `top_k × 3` candidates to compensate for p
 ### Corpus & access control
 
 ```
-analyst  (rank 1) — public filings, research notes, press releases
-vp       (rank 2) — deal memos, financial models, internal email
-partner  (rank 3) — IC memos, LP updates, board materials
+analyst  (rank 1) — public filings, research notes, press releases, public news
+vp       (rank 2) — deal memos, financial models, internal email, internal memos
+partner  (rank 3) — IC memos, LP updates, board materials, legal diligence
 ```
 
-Two superseded document pairs:
+Three superseded document pairs:
 - `doc_002` → `doc_003` (research note Q3 → Q4 revision)
 - `doc_007` → `doc_008` (financial model v1 → v2)
+- `doc_014` → `doc_010` (IC draft defer recommendation → final approval memo)
 
 Superseded docs receive a 0.5× freshness penalty and appear in `demoted_as_stale` on the trace.
 
@@ -119,18 +120,18 @@ curl http://localhost:8000/health
 ## Running tests and evaluator
 
 ```bash
-# Full test suite (172 passed, 14 skipped — skipped are deprecated legacy tests)
+# Full test suite (current expected count printed by pytest; skipped are deprecated legacy tests)
 python3 -m pytest tests/ -v
 
-# Evaluator — runs 8 corpus-grounded queries through the production pipeline
+# Evaluator — runs 12 corpus-grounded queries through the production pipeline
 python3 -m src.evaluator
 # Flags: --k 5 --top-k 8
 
 # Current eval metrics:
-#   Avg Precision@5: 0.3000
+#   Avg Precision@5: 0.3333
 #   Avg Recall:      1.0000
 #   Permission violations: 0%
-#   Avg blocked: 3.38 · avg stale: 1.62 · avg budget util: 53%
+#   Avg blocked: 4.17 · avg stale: 2.08 · avg budget util: 71%
 ```
 
 ---
@@ -142,7 +143,7 @@ The FAISS index and BM25 corpus are pre-built and committed to `artifacts/`. If 
 ```bash
 python3 -m src.indexer
 # Produces:
-#   artifacts/querytrace.index   — FAISS IndexFlatIP (384-dim, 12 vectors)
+#   artifacts/querytrace.index   — FAISS IndexFlatIP (384-dim, 16 vectors)
 #   artifacts/index_documents.json
 #   artifacts/bm25_corpus.json
 ```
@@ -167,15 +168,15 @@ src/
   protocols.py      # RetrieverProtocol, RoleStoreProtocol, MetadataStoreProtocol
   evaluator.py      # run_evals() — wired to run_pipeline()
 corpus/
-  documents/        # 12 .txt source documents
+  documents/        # 16 .txt source documents
   metadata.json     # Per-doc: min_role, superseded_by, tags, dates
   roles.json        # analyst / vp / partner with access_rank
 artifacts/          # Pre-built FAISS index + BM25 corpus (committed)
 evals/
-  test_queries.json # 8 corpus-grounded queries with expected doc IDs
+  test_queries.json # 12 corpus-grounded queries with expected doc IDs
 frontend/
   index.html        # Static UI — open directly in browser
-  app.js            # Single / Compare / Evals modes
+  app.js            # Query / Side-by-side / Metrics modes
   styles.css
 tests/              # 172 passing, 14 skipped
   test_pipeline.py  test_stages.py  test_retriever.py

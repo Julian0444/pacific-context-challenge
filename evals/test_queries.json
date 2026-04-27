@@ -19,15 +19,15 @@
       "query": "What risks did Atlas Capital identify in their due diligence assessment of Meridian?",
       "role": "analyst",
       "expected_doc_ids": ["doc_005"],
-      "forbidden_doc_ids": ["doc_006", "doc_007", "doc_008", "doc_009", "doc_010", "doc_011", "doc_012"],
-      "notes": "Permissions test. The retriever surfaces partner and vp docs (doc_010, doc_006, doc_007, doc_008) as top semantic matches. After analyst-role filtering, only the sector overview (doc_005) and public docs remain. Validates that no restricted content leaks through."
+      "forbidden_doc_ids": ["doc_006", "doc_007", "doc_008", "doc_009", "doc_010", "doc_011", "doc_012", "doc_013", "doc_014", "doc_016"],
+      "notes": "Permissions test. The retriever surfaces partner and vp docs (doc_010, doc_013, doc_006, doc_007, doc_008) as top semantic matches. After analyst-role filtering, only the sector overview (doc_005) and public docs remain. Validates that no restricted content leaks through."
     },
     {
       "id": "q004",
       "query": "What is the breakdown of Meridian's ARR by top customers and what is the customer concentration risk?",
       "role": "vp",
       "expected_doc_ids": ["doc_012", "doc_001"],
-      "forbidden_doc_ids": ["doc_010", "doc_011"],
+      "forbidden_doc_ids": ["doc_010", "doc_011", "doc_013", "doc_014"],
       "notes": "Customer concentration case. doc_012 (vp-level concentration analysis, top 3 = 58.5% ARR) and doc_001 (10-K discloses 58% concentration as primary risk) are the authoritative sources."
     },
     {
@@ -35,7 +35,7 @@
       "query": "How did the Atlas Capital financial model for Project Clearwater change between version 1 and version 2?",
       "role": "vp",
       "expected_doc_ids": ["doc_008", "doc_007"],
-      "forbidden_doc_ids": ["doc_010", "doc_011"],
+      "forbidden_doc_ids": ["doc_010", "doc_011", "doc_013", "doc_014"],
       "notes": "Valuation and model revision case. doc_008 is the current model (EV $340M, 22% growth, 24% IRR). doc_007 is the superseded v1 (EV $480M, 35% growth, 28% IRR). Both should appear: doc_007 is stale but provides the comparison baseline."
     },
     {
@@ -49,9 +49,9 @@
       "id": "q007",
       "query": "What are the operational integration risks for Meridian including the CTO departure and customer renewal exposure?",
       "role": "vp",
-      "expected_doc_ids": ["doc_009", "doc_006"],
-      "forbidden_doc_ids": ["doc_010", "doc_011"],
-      "notes": "Integration risk case. doc_009 (integration email: 18-month timeline, August 2024 Customer 3 renewal, $4.1M deferred revenue) and doc_006 (DD memo flagging CTO departure in January 2024) are the primary sources."
+      "expected_doc_ids": ["doc_009", "doc_006", "doc_016"],
+      "forbidden_doc_ids": ["doc_010", "doc_011", "doc_013", "doc_014"],
+      "notes": "Integration risk case. doc_009 (integration email: 18-month timeline, August 2024 Customer 3 renewal, $4.1M deferred revenue), doc_006 (DD memo flagging CTO departure), and doc_016 (CTO departure context memo) are the primary sources."
     },
     {
       "id": "q008",
@@ -59,6 +59,36 @@
       "role": "partner",
       "expected_doc_ids": ["doc_011"],
       "notes": "Partner-only LP reporting case. doc_011 (Q1 2024 LP letter referencing Clearwater pipeline without naming the target) is the sole source. Partner access required."
+    },
+    {
+      "id": "q009",
+      "query": "What legal or regulatory risk did Atlas identify around Meridian's revenue recognition?",
+      "role": "partner",
+      "expected_doc_ids": ["doc_013"],
+      "notes": "Partner-only legal diligence case. doc_013 flags a pending regulatory inquiry into implementation-fee revenue recognition and recommended deal protections."
+    },
+    {
+      "id": "q010",
+      "query": "How did the Investment Committee recommendation change between the draft and final Meridian acquisition memos?",
+      "role": "partner",
+      "expected_doc_ids": ["doc_014", "doc_010"],
+      "notes": "Stale governance case. doc_014 is a superseded IC draft recommending DEFER; doc_010 is the final IC memo recommending APPROVE at $340M EV."
+    },
+    {
+      "id": "q011",
+      "query": "What valuation figures exist for Meridian from public rumors versus Atlas internal diligence?",
+      "role": "vp",
+      "expected_doc_ids": ["doc_015", "doc_008"],
+      "forbidden_doc_ids": ["doc_010", "doc_011", "doc_013", "doc_014"],
+      "notes": "Contradictory-source case. doc_015 cites a public rumored $500M valuation, while doc_008 contains Atlas's internal $340M model."
+    },
+    {
+      "id": "q012",
+      "query": "What did Atlas learn about Meridian's CTO departure and engineering retention risk?",
+      "role": "vp",
+      "expected_doc_ids": ["doc_016", "doc_009"],
+      "forbidden_doc_ids": ["doc_010", "doc_011", "doc_013", "doc_014"],
+      "notes": "CTO continuity case. doc_016 gives structured context on Rohan Mehta's departure and retention risk, while doc_009 carries the integration email that references the same risk."
     }
   ]
 }

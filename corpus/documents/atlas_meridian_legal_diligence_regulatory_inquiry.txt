@@ -1,0 +1,14 @@
+PARTNER-ONLY · DO NOT DISTRIBUTE — LEGAL DILIGENCE MEMO: pending regulatory inquiry into Meridian revenue recognition practices.
+April 16, 2024 | STRICTLY CONFIDENTIAL — PARTNER ACCESS ONLY
+
+PREPARED BY: Atlas Legal Diligence Team
+
+SUMMARY
+
+Outside counsel has identified an open inquiry from the Texas Department of Banking related to Meridian's recognition of implementation fees on multi-year ClearFlow contracts. The matter is not public, has not been disclosed in Meridian's 10-K, and should not be distributed outside the partner group until counsel completes the materiality assessment.
+
+The issue centers on whether certain upfront implementation fees were recognized too early for three regional-bank customers signed in late 2022 and early 2023. Management characterizes the inquiry as routine and expects no restatement. Counsel is less definitive: if the regulator concludes that implementation obligations were not substantially complete, Meridian may need to defer $2.8M to $3.6M of previously recognized revenue and revise covenant schedules delivered to lenders.
+
+DEAL IMPLICATION
+
+This does not currently change the recommendation to proceed, but it should be reflected in the purchase agreement through a specific indemnity, a revenue-recognition representation, and a closing condition tied to counsel's final memo. Do not reference this issue in analyst or VP materials until the IC has reviewed the legal recommendation.
