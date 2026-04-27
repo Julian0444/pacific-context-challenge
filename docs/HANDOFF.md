@@ -1221,3 +1221,39 @@ It also adds a visible `PARTNER-ONLY · DO NOT DISTRIBUTE` header to `doc_010` a
 - **Tests:** 175 passed, 14 skipped under `.venv/bin/python`.
 - **Evaluator:** 12 queries, 0 failures, recall 1.0, permission violations 0%.
 - **Demo status:** READY for a 16-doc narrative demo after optional browser spot-check.
+
+---
+
+## Session — 2026-04-27 (MET-A: In-Memory Session Query Audit Backend)
+
+### Summary
+
+Added backend support for live session query auditing. Every successful `POST /query` is logged to an in-memory audit store with auto-incrementing IDs starting at q013 (after the 12 benchmark queries). A new `GET /session-audit` endpoint exposes the log.
+
+**What was done:**
+
+1. **Thread-safe audit store** — Module-level `_session_audit` list, `_session_audit_lock` (threading.Lock), `_session_started_at` (UTC timestamp), and `_BENCHMARK_COUNT` (derived from `evals/test_queries.json` at startup, currently 12). All in `src/main.py`.
+
+2. **Audit logging in /query** — After successful pipeline execution and QueryResponse construction, the trace is extracted into an audit entry dict and appended under the lock. ID formula: `q{benchmark_count + live_index:03d}`. Wrapped in try/except with `logger.warning()` — audit failure never breaks the user's query response. `/compare` and `/evals` do not log.
+
+3. **GET /session-audit endpoint** — Returns `{session_started_at, benchmark_count, entries}`. Returns a snapshot copy under the lock. Each entry includes: id, created_at, query, role, policy_name, precision_at_5 (null), recall (null), metrics (included_count, total_tokens, avg_score, avg_freshness_score, blocked_count, stale_count, dropped_count, budget_utilization), doc_ids (included, blocked, stale, dropped).
+
+4. **9 tests** — With a `reset_session_audit` pytest fixture that clears module-level state before each session-audit test. Tests cover: endpoint shape, benchmark_count, q013 start, q013/q014 increment, one-entry-per-query, compare-does-not-append, evals-does-not-append, entry shape, null precision/recall.
+
+5. **Docs** — Updated `CLAUDE.md` with session-audit endpoint documentation. Updated `docs/HANDOFF.md`.
+
+**Key design decisions:**
+
+- In-memory only, no disk persistence. Resets on process restart. Matches existing `_evals_cache` pattern.
+- `threading.Lock` (not asyncio.Lock) because FastAPI sync endpoints run on a threadpool.
+- ID assignment and append are atomic under the lock.
+- Globally shared across all demo visitors in a single process — documented as a demo caveat.
+- Audit failures logged as warnings, never propagated to the client.
+
+### Current State
+
+- **Branch:** `main`
+- **Tests:** 184 passed, 14 skipped (175 existing + 9 new session-audit tests)
+- **Evaluator:** 12 queries, 0 failures, recall 1.0, permission violations 0%
+- **No disk artifacts:** No SQLite, no log files, no audit DB created
+- **MET-B ready:** Frontend can now fetch `GET /session-audit` to render live queries in the Metrics tab after q001–q012

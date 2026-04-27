@@ -2,9 +2,19 @@
 
 import pytest
 from fastapi.testclient import TestClient
+
+import src.main as _main_module
 from src.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture()
+def reset_session_audit():
+    """Reset the in-memory audit store so session-audit tests start clean."""
+    with _main_module._session_audit_lock:
+        _main_module._session_audit.clear()
+    yield
 
 
 def test_health():
@@ -185,3 +195,81 @@ def test_evals_caching_returns_identical_results():
     resp1 = client.get("/evals")
     resp2 = client.get("/evals")
     assert resp1.json() == resp2.json()
+
+
+# ── /session-audit endpoint tests ──
+
+def test_session_audit_returns_200(reset_session_audit):
+    resp = client.get("/session-audit")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "session_started_at" in data
+    assert "benchmark_count" in data
+    assert "entries" in data
+
+
+def test_session_audit_benchmark_count(reset_session_audit):
+    data = client.get("/session-audit").json()
+    assert data["benchmark_count"] == 12
+
+
+def test_session_audit_id_starts_after_benchmark(reset_session_audit):
+    client.post("/query", json={"query": "test audit id", "role": "analyst"})
+    entries = client.get("/session-audit").json()["entries"]
+    assert len(entries) == 1
+    assert entries[0]["id"] == "q013"
+
+
+def test_session_audit_id_increments(reset_session_audit):
+    client.post("/query", json={"query": "first query", "role": "analyst"})
+    client.post("/query", json={"query": "second query", "role": "vp"})
+    entries = client.get("/session-audit").json()["entries"]
+    assert len(entries) == 2
+    assert entries[0]["id"] == "q013"
+    assert entries[1]["id"] == "q014"
+
+
+def test_session_audit_query_appends_one_entry(reset_session_audit):
+    before = len(client.get("/session-audit").json()["entries"])
+    client.post("/query", json={"query": "append test", "role": "analyst"})
+    after = len(client.get("/session-audit").json()["entries"])
+    assert after - before == 1
+
+
+def test_session_audit_compare_does_not_append(reset_session_audit):
+    before = len(client.get("/session-audit").json()["entries"])
+    client.post("/compare", json={"query": "compare test", "role": "analyst"})
+    after = len(client.get("/session-audit").json()["entries"])
+    assert after == before
+
+
+def test_session_audit_evals_does_not_append(reset_session_audit):
+    before = len(client.get("/session-audit").json()["entries"])
+    client.get("/evals")
+    after = len(client.get("/session-audit").json()["entries"])
+    assert after == before
+
+
+def test_session_audit_entry_shape(reset_session_audit):
+    client.post("/query", json={"query": "shape test", "role": "vp", "policy_name": "full_policy"})
+    entry = client.get("/session-audit").json()["entries"][0]
+    assert entry["id"] == "q013"
+    assert "created_at" in entry
+    assert entry["query"] == "shape test"
+    assert entry["role"] == "vp"
+    assert entry["policy_name"] == "full_policy"
+    assert "metrics" in entry
+    m = entry["metrics"]
+    for key in ("included_count", "total_tokens", "avg_score", "avg_freshness_score",
+                "blocked_count", "stale_count", "dropped_count", "budget_utilization"):
+        assert key in m, f"Missing metrics key: {key}"
+    assert "doc_ids" in entry
+    for key in ("included", "blocked", "stale", "dropped"):
+        assert key in entry["doc_ids"], f"Missing doc_ids key: {key}"
+
+
+def test_session_audit_live_entries_have_null_precision_recall(reset_session_audit):
+    client.post("/query", json={"query": "null check", "role": "analyst"})
+    entry = client.get("/session-audit").json()["entries"][0]
+    assert entry["precision_at_5"] is None
+    assert entry["recall"] is None

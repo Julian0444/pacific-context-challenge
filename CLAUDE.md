@@ -127,6 +127,10 @@ Runs the same query through multiple policy presets side-by-side. Calls `run_pip
 
 Returns cached evaluator results as structured JSON. On first call: loads `evals/test_queries.json`, runs `run_evals(queries, k=5, top_k=8)` through the production pipeline, and stores the result in a module-level cache. Subsequent calls return the cached dict (~1.6ms). Response shape: `{ "per_query": [...], "aggregate": {...} }`. The route is a thin dispatch — all metric logic lives in `src/evaluator.py`.
 
+### Session audit endpoint (GET /session-audit in `src/main.py`)
+
+In-memory log of every successful `/query` call since the process started. Resets on restart — no disk persistence. Response shape: `{ "session_started_at": "...", "benchmark_count": 12, "entries": [...] }`. Each entry has `id` (q013, q014, ...), `created_at` (UTC), `query`, `role`, `policy_name`, `precision_at_5` (always null — no expected_doc_ids for live queries), `recall` (always null), `metrics` (included_count, total_tokens, avg_score, avg_freshness_score, blocked_count, stale_count, dropped_count, budget_utilization), and `doc_ids` (included, blocked, stale, dropped arrays). ID numbering: `q{benchmark_count + live_index:03d}` where `benchmark_count` is derived from `evals/test_queries.json` at startup (currently 12). `/compare` and `/evals` do not log entries. Audit state is module-level (`_session_audit` list + `threading.Lock`), matching the `_evals_cache` pattern. Demo caveat: globally shared across all visitors in a single process.
+
 ### Ingestion endpoint (POST /ingest in `src/main.py`)
 
 Multipart endpoint for uploading a PDF + metadata at runtime. The HTTP handler in `main.py` is a thin adapter; all logic lives in `src/ingest.py`.

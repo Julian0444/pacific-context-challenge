@@ -7,8 +7,11 @@ No pipeline business logic lives here.
 """
 
 import json
+import logging
 import os
-from typing import Optional
+import threading
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,6 +59,20 @@ with open(_METADATA_PATH, "r") as _f:
 _EVALS_PATH = os.path.join(os.path.dirname(__file__), "..", "evals", "test_queries.json")
 _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 _evals_cache: Optional[dict] = None
+
+_logger = logging.getLogger(__name__)
+
+# Session audit — in-memory store for live /query calls (q013+).
+# Resets on process restart. Globally shared across all demo visitors.
+_session_audit: List[dict] = []
+_session_audit_lock = threading.Lock()
+_session_started_at: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def _benchmark_count() -> int:
+    with open(_EVALS_PATH) as f:
+        return len(json.load(f)["queries"])
+
+_BENCHMARK_COUNT: int = _benchmark_count()
 
 
 def _ingest_enabled() -> bool:
@@ -126,12 +143,50 @@ def query(request: QueryRequest):
         for inc in result.context
     ]
 
-    return QueryResponse(
+    response = QueryResponse(
         query=request.query,
         context=context,
         total_tokens=result.total_tokens,
         decision_trace=result.trace,
     )
+
+    try:
+        trace = result.trace
+        if trace is not None:
+            with _session_audit_lock:
+                live_index = len(_session_audit) + 1
+                qid = f"q{_BENCHMARK_COUNT + live_index:03d}"
+                _session_audit.append({
+                    "id": qid,
+                    "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "query": request.query,
+                    "role": request.role,
+                    "policy_name": request.policy_name,
+                    "precision_at_5": None,
+                    "recall": None,
+                    "metrics": {
+                        "included_count": trace.metrics.included_count,
+                        "total_tokens": trace.metrics.total_tokens,
+                        "avg_score": trace.metrics.avg_score,
+                        "avg_freshness_score": trace.metrics.avg_freshness_score,
+                        "blocked_count": trace.metrics.blocked_count,
+                        "stale_count": trace.metrics.stale_count,
+                        "dropped_count": trace.metrics.dropped_count,
+                        "budget_utilization": trace.metrics.budget_utilization,
+                    },
+                    "doc_ids": {
+                        "included": [d.doc_id for d in trace.included],
+                        "blocked": [d.doc_id for d in trace.blocked_by_permission],
+                        "stale": [d.doc_id for d in trace.demoted_as_stale],
+                        "dropped": [d.doc_id for d in trace.dropped_by_budget],
+                    },
+                })
+        else:
+            _logger.warning("Skipping session audit: pipeline returned trace=None")
+    except Exception:
+        _logger.warning("Session audit logging failed", exc_info=True)
+
+    return response
 
 
 @app.post("/compare", response_model=CompareResponse)
@@ -205,6 +260,18 @@ def evals():
         queries = load_test_queries(_EVALS_PATH)
         _evals_cache = run_evals(queries, k=5, top_k=8)
     return _evals_cache
+
+
+@app.get("/session-audit")
+def session_audit():
+    """Return the in-memory session audit log (live queries since process start)."""
+    with _session_audit_lock:
+        entries = list(_session_audit)
+    return {
+        "session_started_at": _session_started_at,
+        "benchmark_count": _BENCHMARK_COUNT,
+        "entries": entries,
+    }
 
 
 @app.post("/ingest", response_model=IngestResponse)
