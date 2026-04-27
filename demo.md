@@ -196,7 +196,11 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 > "Este dashboard corre el pipeline completo contra 12 queries de test escritas para cubrir los tres roles. Cero violaciones de permisos en 12 de 12. Recall perfecto. Y cada fila es reproducible — no es una screenshot, es el endpoint `/evals` respondiendo en vivo."
 
-**Por qué importa:** es la evidencia que un CTO o un head of security le pediría a cualquier herramienta de context/retrieval antes de dejarla pasar a producción.
+**Session Audit (debajo de la tabla de benchmark):**
+
+Scrolleá debajo de la tabla de 12 queries. Ahí aparece la sección **Session Audit**: un log de todas las queries que corriste en modo Query durante esta sesión del servidor. Los IDs arrancan en q013 (q001–q012 están reservados para benchmark). Señalá que cada entrada muestra rol, política, docs incluidos, bloqueados, tokens, y budget — pero **no** P@5 ni Recall (esos requieren expected_doc_ids que las queries en vivo no tienen). Si corriste la misma query como analyst y después como partner, las dos entradas quedan lado a lado y se ve la diferencia de acceso. Caveat: el log es in-memory y se resetea al reiniciar el servidor.
+
+**Por qué importa:** es la evidencia que un CTO o un head of security le pediría a cualquier herramienta de context/retrieval antes de dejarla pasar a producción. Y el Session Audit demuestra que la observabilidad no es solo sobre queries de test — es sobre cada consulta en vivo.
 
 ---
 

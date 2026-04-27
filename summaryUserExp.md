@@ -234,6 +234,19 @@ Each row is a different test query. Columns:
 - The most important figure for a business user is that **Permission Violations = 0.0%** and **Recall = 1.0000**. That means: "we never leaked a restricted document" and "we never missed a relevant document".
 - Precision@5 of 0.3333 may seem low, but context matters: the system returns more documents than strictly "expected" because it includes additional relevant context. This is not necessarily a problem but a consequence of the small corpus where many documents are partially relevant across queries.
 
+**Session Audit (below the benchmark table):**
+
+Below the benchmark table, a Session Audit section shows every query run in Query mode during the current server session. It is fetched from `GET /session-audit` on every Metrics tab switch (not cached).
+
+- **ID numbering:** IDs start at q013 because q001–q012 are reserved for the benchmark queries.
+- **Table columns:** Query (full text), Time (relative timestamp, ISO on hover), Role, Policy (human-readable label), Docs, Tokens, Freshness (N/A for policies that skip freshness scoring), Blocked, Stale, Dropped, Budget.
+- **Expandable doc chips:** Each row has a toggle to reveal color-coded chips for included (green), blocked (red), stale (yellow), and dropped (gray) document IDs.
+- **Precision@5 and Recall are not available** for live queries because there are no predefined `expected_doc_ids` to evaluate against.
+- **Copy button:** A hover-reveal copy button on each query cell copies the full query text to the clipboard.
+- **Empty state:** If no live queries have been run, the section shows: "Run a query in Query mode and it will appear here as q013."
+- **Persistence:** The audit log is in-memory only — no disk persistence. It resets when the server process restarts or redeploys. On shared/public deploys, all visitors see the same log.
+- **Scope:** Only `POST /query` calls are logged. Side-by-side (`/compare`) and Metrics (`/evals`) calls do not create audit entries.
+
 ---
 
 ## 5. How the search actually works

@@ -94,7 +94,7 @@
 
 ---
 
-## PART 4 — Metrics (~30 seconds)
+## PART 4 — Metrics (~45 seconds)
 
 > *[Click "Metrics" tab]*
 
@@ -107,6 +107,10 @@
 > *[Point at the metric cards]*
 
 "Permission Violations: 0%. Recall: 1.0. And every row in the table below is reproducible — this isn't a screenshot, it's the `/evals` endpoint responding live."
+
+> *[Scroll down past the benchmark table to the Session Audit section]*
+
+"Below the benchmark, there's a Session Audit log. Every query I ran in Query mode — the Permission Wall, the Stale Detection — is logged here as q013, q014, with full pipeline metrics. If I'd run the same query as analyst and then as partner, you'd see the difference right here: more documents included, fewer blocks, higher budget usage. This is an in-memory log for the current session — it resets when the server restarts."
 
 ---
 

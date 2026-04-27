@@ -1299,3 +1299,54 @@ MET-A backend is complete and untouched. 184 passed, 14 skipped — identical to
 - **Branch:** `main`
 - **Tests:** 184 passed, 14 skipped (no new backend tests — frontend-only batch)
 - **Verified:** Desktop (1440px) and mobile (375px) layouts, doc expansion, copy buttons, empty state, freshness N/A, query accumulation (q013→q014→q015)
+
+---
+
+## MET-C: Demo Question Guide + Pacific Demo Narrative
+
+**Commit:** (this batch)
+**Scope:** Documentation only — no application code changes
+**Depends on:** MET-A (commit `2513838`), MET-B (commit `3567b1d`)
+
+### What Changed
+
+1. **Created `docs/pacific_demo_guide.md`** — Self-service reviewer companion guide. Positioned alongside `demo.md` (presenter script) and `script_en.md` (Loom narration). Contains:
+   - Quick orientation (role/policy/mode cheat sheet)
+   - All 12 benchmark queries (q001–q012) in readable form, grouped by role, with full query text and what each tests
+   - 6 guided live queries: on-topic, off-topic, permission wall, role escalation, stale detection, financial model comparison
+   - Step-by-step analyst-vs-partner live audit walkthrough (CTO departure query → Session Audit comparison)
+   - Reading the Metrics tab: benchmark vs Session Audit explanation, why P@5/recall are null for live queries
+   - Public demo caveats (shared state, no persistence, reset on restart)
+   - Pacific framing (context governance, auditability, traceability, live session observability)
+
+2. **Updated `script_en.md` PART 4** — Expanded from ~30s to ~45s. Added stage direction and narration for Session Audit section: mentions q013+ log, role comparison value, in-memory reset caveat.
+
+3. **Updated `demo.md` Demo E** — Added "Session Audit" paragraph (Spanish) after the benchmark section. Describes q013+ entries, P@5/recall null for live queries, analyst-vs-partner comparison visibility, reset caveat.
+
+4. **Updated `summaryUserExp.md` Section 4.3** — Added "Session Audit" sub-section after the per-query table description. Documents table columns, q013+ numbering, expandable doc chips, copy button, null P@5/recall explanation, persistence caveat, scope (only `/query` calls logged).
+
+5. **Updated `README.md`** — Expanded Metrics scenario row to mention Session Audit (q013+). Added `GET /session-audit` to Architecture endpoint list.
+
+### No Application Code Changes
+
+Zero changes to `src/`, `frontend/`, or `tests/`. 184 passed, 14 skipped — identical to pre-MET-C baseline.
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| "Session Audit" in guide | 13 occurrences |
+| "q013" in guide | 5 occurrences |
+| "Session Audit" in script_en.md | 2 occurrences |
+| "Session Audit" in demo.md | 3 occurrences |
+| "Session Audit" in summaryUserExp.md | 2 occurrences |
+| "session-audit/Session Audit" in README.md | 2 occurrences |
+| All 12 benchmark IDs in guide | q001–q012 all present |
+| App code diff | empty |
+| Test suite | 184 passed, 14 skipped |
+
+### Current State
+
+- **Branch:** `main`
+- **Tests:** 184 passed, 14 skipped (no changes to test suite)
+- **Files changed:** `docs/pacific_demo_guide.md` (new), `script_en.md`, `demo.md`, `summaryUserExp.md`, `README.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-27-met-c-pacific-demo-guide-plan.md` (new)

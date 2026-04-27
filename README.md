@@ -30,16 +30,17 @@ The **Compare** tab shows all three policies side by side:
 | **Permission Wall** | Single empty state → card "Permission Wall" → `Open in Compare →` | Analyst is blocked from 10 VP/partner docs that naive retrieval surfaces. Full policy shows 10 blocked, naive shows 0. |
 | **Financial model access** | Single empty state → card "Financial model access" → `Open in Compare →` | VP sees deal memos and financial models blocked from analyst. Stale doc_007 (financial model v1) is demoted by full policy. |
 | **Stale Detection** (renamed from "Partner view") | Compare row shortcut `Stale detection →`, or Single empty state → card "Stale Detection" → `Open in Compare →` | Partner has full corpus access. No permission blocks in any policy. Full pipeline demotes 3 superseded docs 0.5× (doc_002, doc_007, doc_014). |
-| **Metrics dashboard** | Click "Metrics" tab | Live pipeline metrics: precision@5, recall, permission violation rate, trace counts across 12 test queries. |
+| **Metrics dashboard** | Click "Metrics" tab | Benchmark: precision@5, recall, permission violation rate across 12 test queries. Session Audit: live log of every `/query` call (q013+) with pipeline metrics — resets on restart. |
 
 ---
 
 ## Architecture
 
 ```
-POST /query   → run_pipeline() → QueryResponse  (single-policy)
-POST /compare → run_pipeline() × 3 policies     (side-by-side)
-GET  /evals   → run_evals() (cached after first call)
+POST /query        → run_pipeline() → QueryResponse  (single-policy)
+POST /compare      → run_pipeline() × 3 policies     (side-by-side)
+GET  /evals        → run_evals() (cached after first call)
+GET  /session-audit → in-memory query log (q013+)
 ```
 
 ### Pipeline stages (`src/stages/`)
