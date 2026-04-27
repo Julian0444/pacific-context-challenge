@@ -62,6 +62,7 @@
     },
     {
       "id": "q009",
+<<<<<<< HEAD
       "query": "What legal or regulatory risk did Atlas identify around Meridian's revenue recognition?",
       "role": "partner",
       "expected_doc_ids": ["doc_013"],
@@ -89,6 +90,35 @@
       "expected_doc_ids": ["doc_016", "doc_009"],
       "forbidden_doc_ids": ["doc_010", "doc_011", "doc_013", "doc_014"],
       "notes": "CTO continuity case. doc_016 gives structured context on Rohan Mehta's departure and retention risk, while doc_009 carries the integration email that references the same risk."
+=======
+      "query": "How much funding has Meridian Technologies raised in total and who led the Series C round?",
+      "role": "analyst",
+      "expected_doc_ids": ["doc_004"],
+      "notes": "Series C press release case. doc_004 ($45M Series C led by Parkview Growth Equity, total funding $72M) is the definitive source. Tests retrieval of the only public funding document in the corpus."
+    },
+    {
+      "id": "q010",
+      "query": "How does Meridian fit Atlas Capital's target acquisition profile in the fintech infrastructure sector?",
+      "role": "analyst",
+      "expected_doc_ids": ["doc_005", "doc_001"],
+      "forbidden_doc_ids": ["doc_006", "doc_007", "doc_008", "doc_009", "doc_010", "doc_011", "doc_012"],
+      "notes": "Sector positioning case. doc_005 (Atlas sector overview identifying Meridian as primary target, ideal profile $30-60M ARR) and doc_001 (10-K with ARR $38.1M confirming the fit) are the primary sources. Analyst role blocks all internal deal docs."
+    },
+    {
+      "id": "q011",
+      "query": "What was the full deal progression from initial due diligence findings through the final Investment Committee recommendation for Meridian?",
+      "role": "partner",
+      "expected_doc_ids": ["doc_006", "doc_010"],
+      "notes": "Cross-tier deal timeline case. Partner access sees both doc_006 (VP-level DD memo recommending Phase 2) and doc_010 (partner-level IC memo recommending acquisition at $340M). Tests that partner role retrieves the full escalation chain."
+    },
+    {
+      "id": "q012",
+      "query": "What is the deferred revenue exposure and specific customer renewal timeline risk flagged for Project Clearwater?",
+      "role": "vp",
+      "expected_doc_ids": ["doc_009"],
+      "forbidden_doc_ids": ["doc_010", "doc_011"],
+      "notes": "Deferred revenue and renewal risk case. doc_009 (internal email: $4.1M deferred revenue, August 2024 Customer 3 renewal at risk) is the primary source. Distinct from q007 which asks broadly about integration risks — this targets the specific financial exposure."
+>>>>>>> d3e30da (f)
     }
   ]
 }
