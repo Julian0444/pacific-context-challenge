@@ -111,6 +111,7 @@ const mainEl = document.getElementById("main");
 const singlePolicySelector = document.getElementById("single-policy-selector");
 const evalsSection = document.getElementById("evals-section");
 const evalsContent = document.getElementById("evals-content");
+const sessionAuditContent = document.getElementById("session-audit-content");
 const adminSection = document.getElementById("admin-section");
 
 // ── Mode state ──
@@ -162,9 +163,10 @@ function switchMode(mode) {
     : resultsSection;
   if (entering) playModeEnter(entering);
 
-  // Auto-fetch evals on first switch
-  if (isEvals && !evalsLoaded) {
-    runEvals();
+  // Auto-fetch evals on first switch; session audit on every switch
+  if (isEvals) {
+    if (!evalsLoaded) runEvals();
+    fetchSessionAudit();
   }
 
   // Stale banner bookkeeping (UI-B). Leaving Single removes any visible banner
@@ -933,12 +935,12 @@ function renderEvals(data) {
       }
       const hasViolation = q.permission_violations && q.permission_violations.length > 0;
       const qText = q.query || "";
-      const qTextTrunc = qText.length > 50 ? qText.slice(0, 50) + "…" : qText;
       return `
         <tr class="${hasViolation ? "evals-row-violation" : ""}">
           <td class="evals-query-cell">
             <span class="evals-qid">${escapeHTML(q.id)}</span>
-            <span class="evals-qtext" title="${escapeHTML(qText)}">${escapeHTML(qTextTrunc)}</span>
+            <span class="evals-qtext">${escapeHTML(qText)}</span>
+            ${copyBtnHTML(qText)}
           </td>
           <td><span class="evals-role-chip">${escapeHTML(q.role)}</span></td>
           <td class="mono-cell">${(q.precision_at_5 ?? 0).toFixed(2)}</td>
@@ -958,6 +960,7 @@ function renderEvals(data) {
   evalsContent.innerHTML = `
     ${narrativeHTML}
     <div class="metrics-grid">${cardsHTML}</div>
+    <h3 class="evals-section-label">Benchmark Questions</h3>
     <div class="evals-table-wrap">
       <table class="evals-table">
         <thead>${headerRow}</thead>
@@ -965,6 +968,8 @@ function renderEvals(data) {
       </table>
     </div>
     <p class="evals-footer">Queries run: ${agg.queries_run ?? 0} · Failed: ${agg.queries_failed ?? 0}</p>`;
+
+  wireCopyButtons(evalsContent);
 }
 
 // ── Narrative banner for Evals (IDEA 6) ──
@@ -1012,6 +1017,155 @@ function buildEvalsNarrative(agg) {
 
 function fmtPct(v) {
   return (v * 100).toFixed(1) + "%";
+}
+
+function copyBtnHTML(text) {
+  return `<button class="copy-query-btn" data-copy="${escapeHTML(text)}" title="Copy query">⎘</button>`;
+}
+
+function wireCopyButtons(container) {
+  container.querySelectorAll(".copy-query-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const text = btn.dataset.copy;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = "✓";
+        setTimeout(() => { btn.textContent = "⎘"; }, 1200);
+      }).catch(() => {});
+    });
+  });
+}
+
+// ── Session Audit (MET-B) ──
+
+async function fetchSessionAudit() {
+  try {
+    const res = await fetch(`${API_BASE}/session-audit`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const data = await res.json();
+    renderSessionAudit(data);
+  } catch (err) {
+    sessionAuditContent.innerHTML = `<div class="session-audit-section">
+      <h3 class="evals-section-label">Session Audit</h3>
+      <p class="session-audit-error">Failed to load session audit: ${escapeHTML(err.message)}</p>
+    </div>`;
+  }
+}
+
+function fmtRelativeTime(isoStr) {
+  const now = Date.now();
+  const then = new Date(isoStr).getTime();
+  const diffS = Math.max(0, Math.floor((now - then) / 1000));
+  if (diffS < 60) return `${diffS}s ago`;
+  const diffM = Math.floor(diffS / 60);
+  if (diffM < 60) return `${diffM}m ago`;
+  const diffH = Math.floor(diffM / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  return `${Math.floor(diffH / 24)}d ago`;
+}
+
+function renderSessionAudit(data) {
+  const entries = data.entries || [];
+  const sessionStart = data.session_started_at || "";
+
+  const disclaimerHTML = `<div class="session-audit-disclaimer">Shared demo log — visible to all visitors on this server instance. Do not enter sensitive information. Resets on server restart.</div>`;
+
+  if (entries.length === 0) {
+    sessionAuditContent.innerHTML = `
+      <hr class="evals-divider">
+      <div class="session-audit-section">
+        <h3 class="evals-section-label">Session Audit</h3>
+        ${disclaimerHTML}
+        <div class="session-audit-empty">Run a query in <strong>Query</strong> mode and it will appear here as q013.</div>
+      </div>`;
+    return;
+  }
+
+  const sessionTime = sessionStart ? new Date(sessionStart).toLocaleString() : "unknown";
+
+  const headerRow = `<tr>
+    <th>Query</th>
+    <th>Time</th>
+    <th>Role</th>
+    <th>Policy</th>
+    <th>Docs</th>
+    <th>Tokens</th>
+    <th>Freshness</th>
+    <th>Blocked</th>
+    <th>Stale</th>
+    <th>Dropped</th>
+    <th>Budget</th>
+  </tr>`;
+
+  const bodyRows = entries.map((e) => {
+    const m = e.metrics || {};
+    const policyKey = e.policy_name || "";
+    const meta = POLICY_META[policyKey] || { label: policyKey, skipFreshness: false };
+    const freshness = meta.skipFreshness ? "N/A" : (m.avg_freshness_score ?? 0).toFixed(3);
+    const docIds = e.doc_ids || {};
+    const hasDetail = (docIds.included && docIds.included.length) ||
+                      (docIds.blocked && docIds.blocked.length) ||
+                      (docIds.stale && docIds.stale.length) ||
+                      (docIds.dropped && docIds.dropped.length);
+    const detailId = `sa-detail-${escapeHTML(e.id)}`;
+
+    let detailRow = "";
+    if (hasDetail) {
+      const chips = (arr, cls) => (arr || []).map(id => `<span class="sa-chip sa-chip-${cls}">${escapeHTML(id)}</span>`).join("");
+      detailRow = `<tr class="sa-detail-row" id="${detailId}" hidden>
+        <td colspan="11" class="sa-detail-cell">
+          ${docIds.included?.length ? `<span class="sa-chip-label">Included</span> ${chips(docIds.included, "included")}` : ""}
+          ${docIds.blocked?.length ? `<span class="sa-chip-label">Blocked</span> ${chips(docIds.blocked, "blocked")}` : ""}
+          ${docIds.stale?.length ? `<span class="sa-chip-label">Stale</span> ${chips(docIds.stale, "stale")}` : ""}
+          ${docIds.dropped?.length ? `<span class="sa-chip-label">Dropped</span> ${chips(docIds.dropped, "dropped")}` : ""}
+        </td>
+      </tr>`;
+    }
+
+    return `<tr class="sa-entry-row">
+      <td class="evals-query-cell">
+        <span class="evals-qid">${escapeHTML(e.id)}</span>
+        <span class="evals-qtext">${escapeHTML(e.query || "")}</span>
+        ${copyBtnHTML(e.query || "")}
+      </td>
+      <td class="mono-cell sa-time" title="${escapeHTML(e.created_at || "")}">${fmtRelativeTime(e.created_at)}</td>
+      <td><span class="evals-role-chip">${escapeHTML(e.role || "")}</span></td>
+      <td class="mono-cell">${escapeHTML(meta.label)}</td>
+      <td class="mono-cell">${m.included_count ?? 0}</td>
+      <td class="mono-cell">${m.total_tokens ?? 0}</td>
+      <td class="mono-cell">${freshness}</td>
+      <td class="mono-cell${(m.blocked_count ?? 0) > 0 ? " val-blocked" : ""}">${m.blocked_count ?? 0}</td>
+      <td class="mono-cell${(m.stale_count ?? 0) > 0 ? " val-stale" : ""}">${m.stale_count ?? 0}</td>
+      <td class="mono-cell${(m.dropped_count ?? 0) > 0 ? " val-dropped" : ""}">${m.dropped_count ?? 0}</td>
+      <td class="mono-cell">${fmtPct(m.budget_utilization ?? 0)}</td>
+    </tr>${hasDetail ? `<tr class="sa-toggle-row"><td colspan="11"><button class="sa-toggle-btn" data-target="${detailId}">▸ docs</button></td></tr>${detailRow}` : ""}`;
+  }).join("");
+
+  sessionAuditContent.innerHTML = `
+    <hr class="evals-divider">
+    <div class="session-audit-section">
+      <h3 class="evals-section-label">Session Audit</h3>
+      <p class="session-audit-meta">Session started: ${escapeHTML(sessionTime)} · ${entries.length} ${entries.length === 1 ? "query" : "queries"}</p>
+      ${disclaimerHTML}
+      <div class="evals-table-wrap">
+        <table class="evals-table sa-table">
+          <thead>${headerRow}</thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  sessionAuditContent.querySelectorAll(".sa-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      const showing = !target.hidden;
+      target.hidden = showing;
+      btn.textContent = showing ? "▸ docs" : "▾ docs";
+    });
+  });
+
+  wireCopyButtons(sessionAuditContent);
 }
 
 // ── Build natural-language Decision Trace summary (IDEA 4) ──

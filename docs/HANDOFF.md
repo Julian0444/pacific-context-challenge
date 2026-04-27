@@ -1257,3 +1257,45 @@ Added backend support for live session query auditing. Every successful `POST /q
 - **Evaluator:** 12 queries, 0 failures, recall 1.0, permission violations 0%
 - **No disk artifacts:** No SQLite, no log files, no audit DB created
 - **MET-B ready:** Frontend can now fetch `GET /session-audit` to render live queries in the Metrics tab after q001–q012
+
+---
+
+## MET-B: Metrics Dashboard — Benchmark + Session Audit UI
+
+**Commit:** (pending)
+**Scope:** Frontend-only — `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`
+**Depends on:** MET-A (commit `2513838`)
+
+### What Changed
+
+1. **Benchmark questions fully readable** — Removed 50-char truncation from the per-query table (app.js line 936). Removed `max-width: 320px` from `.evals-query-cell`, set `min-width: 280px`. All 12 benchmark queries now display their full text with natural wrapping.
+
+2. **"Benchmark Questions" section label** — `<h3>` label inserted between metric cards and benchmark table to frame the 12 rows as a labeled test suite.
+
+3. **Session Audit section** — New `#session-audit-content` container in `index.html`, rendered by `fetchSessionAudit()` + `renderSessionAudit()` in `app.js`. Fetches `GET /session-audit` on every Metrics tab switch (not gated by a loaded flag). Shows:
+   - "Session Audit" heading with session start timestamp and query count
+   - Public-demo disclaimer banner
+   - Table with columns: Query (full text), Time (relative with ISO tooltip), Role, Policy (human label from `POLICY_META`), Docs, Tokens, Freshness (N/A for `naive_top_k`/`permission_aware`), Blocked, Stale, Dropped, Budget
+   - Expandable doc ID chips per entry (▸ docs / ▾ docs toggle) with color-coded included/blocked/stale/dropped chips
+   - Empty state: "Run a query in Query mode and it will appear here as q013."
+
+4. **Copy affordances** — Hover-reveal `⎘` copy button on every query cell (benchmark and session audit). Uses `navigator.clipboard.writeText()` with `✓` feedback.
+
+5. **Visual structure** — `<hr class="evals-divider">` separates benchmark footer from session audit. Narrative banner + metric cards + benchmark table remain tied to `/evals` data only.
+
+### Fetch Strategy
+
+- `/evals` fetched once (existing `evalsLoaded` gate, unchanged)
+- `/session-audit` fetched on every Metrics tab switch (unconditional)
+- No polling
+- Failures in `/session-audit` do not break benchmark rendering (independent containers)
+
+### No Backend Changes
+
+MET-A backend is complete and untouched. 184 passed, 14 skipped — identical to pre-MET-B baseline.
+
+### Current State
+
+- **Branch:** `main`
+- **Tests:** 184 passed, 14 skipped (no new backend tests — frontend-only batch)
+- **Verified:** Desktop (1440px) and mobile (375px) layouts, doc expansion, copy buttons, empty state, freshness N/A, query accumulation (q013→q014→q015)

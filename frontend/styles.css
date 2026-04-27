@@ -1973,7 +1973,7 @@ body {
 
 /* Query cell: id badge + truncated query text (IDEA 6) */
 .evals-query-cell {
-  max-width: 320px;
+  min-width: 280px;
   white-space: normal !important;
 }
 
@@ -2063,6 +2063,177 @@ body {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--text-tertiary);
+}
+
+/* ─── Benchmark / Session Audit shared (MET-B) ─── */
+
+.evals-section-label {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 1.25rem 0 0.6rem;
+}
+
+.evals-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5rem 0 0.25rem;
+}
+
+/* ─── Session Audit (MET-B) ─── */
+
+.session-audit-section {
+  margin-top: 0.25rem;
+}
+
+.session-audit-meta {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.5rem;
+}
+
+.session-audit-disclaimer {
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-tertiary);
+  border-radius: var(--radius-md);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.session-audit-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.session-audit-empty strong {
+  color: var(--text-secondary);
+}
+
+.session-audit-error {
+  color: var(--trace-blocked);
+  font-size: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.sa-table {
+  margin-top: 0.25rem;
+}
+
+.sa-time {
+  white-space: nowrap;
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+}
+
+.sa-toggle-row td {
+  padding: 0 0.6rem 0.25rem !important;
+  border-bottom: none !important;
+}
+
+.sa-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-tertiary);
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+}
+
+.sa-toggle-btn:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.sa-detail-row td {
+  padding: 0.35rem 0.6rem 0.6rem !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.sa-detail-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.sa-chip-label {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  margin-right: 0.15rem;
+  margin-left: 0.4rem;
+}
+
+.sa-chip-label:first-child {
+  margin-left: 0;
+}
+
+.sa-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.sa-chip-included {
+  color: var(--trace-included);
+  background: color-mix(in srgb, var(--trace-included) 12%, transparent);
+}
+
+.sa-chip-blocked {
+  color: var(--trace-blocked);
+  background: color-mix(in srgb, var(--trace-blocked) 12%, transparent);
+}
+
+.sa-chip-stale {
+  color: var(--trace-stale);
+  background: color-mix(in srgb, var(--trace-stale) 12%, transparent);
+}
+
+.sa-chip-dropped {
+  color: var(--trace-dropped);
+  background: color-mix(in srgb, var(--trace-dropped) 12%, transparent);
+}
+
+/* Copy query button (MET-B) */
+
+.copy-query-btn {
+  display: inline-block;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  padding: 0.05rem 0.25rem;
+  margin-left: 0.3rem;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.evals-query-cell:hover .copy-query-btn {
+  opacity: 1;
+}
+
+.copy-query-btn:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 /* ─── Responsive ─── */
