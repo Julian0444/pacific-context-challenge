@@ -14,7 +14,7 @@ Con eso ya comunicaste tres cosas: **dominio realista, permisos, trazabilidad**.
 
 ## 2. Cómo explicar la UI (sin tecnicismos al principio)
 
-La app tiene **una sola ventana con cuatro pestañas** arriba a la derecha: **Single, Compare, Evals, Admin**. En todas las pestañas hay los mismos controles a la izquierda — una barra de búsqueda, un selector de rol (Analyst / VP / Partner), y en Single también un selector de política (No Filters / Permissions Only / Full Pipeline).
+La app tiene **una sola ventana con cuatro pestañas** arriba a la derecha: **Query, Side-by-side, Metrics, Upload** (los data-mode keys internos siguen siendo `single / compare / evals / admin`). En todas las pestañas hay los mismos controles a la izquierda — una barra de búsqueda, un selector de rol (Analyst / VP / Partner), y en Query también un selector de política (No Filters / Permissions Only / Full Pipeline).
 
 Explicalo así, en orden:
 
@@ -44,7 +44,7 @@ Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tre
 
 ## 3. Qué representa cada modo visible (y cuándo mostrarlo)
 
-### Single — "el uso diario"
+### Query (Single) — "el uso diario"
 
 - **Qué se ve:** barra de resumen (docs / tokens / role / policy / blocked / stale / Export JSON), tarjetas de documentos, una sección colapsable "🔒 N documents blocked by permissions", y un Decision Trace colapsable al fondo.
 - **Qué historia contás:** "Así se ve cuando un usuario real consulta la base. Le da los documentos relevantes a los que su rol le da acceso, y le muestra con transparencia qué documentos existían pero fueron bloqueados."
@@ -52,21 +52,21 @@ Si el usuario entra a Compare sin haber corrido ninguna consulta, ahora ve **tre
 - **Mensaje de negocio:** transparencia — "cada decisión queda documentada; esto es auditable por compliance".
 - **Coherencia de estado (UI-B):** cambiar el rol o la política mientras hay un resultado en pantalla muestra un banner discreto arriba ("Controls changed — press Run to refresh these results.") y desatura las tarjetas viejas al 60% hasta que apretás **Run**. Esto evita el "bug visual" de que los controles digan una cosa y los resultados reflejen otra. Los botones de ejemplo de la fila Single (`Diligence risks` / `IC recommendation`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con **Full Pipeline**, sin importar qué política estuviera seleccionada antes, y sincronizan el radio de política para que la UI quede coherente con el resultado renderizado.
 
-### Compare — "la pantalla que vende sola"
+### Side-by-side (Compare) — "la pantalla que vende sola"
 
 - **Qué se ve:** tres columnas lado a lado (No Filters, Permissions Only, Full Pipeline), cada una con su propio stats strip (included/tokens/blocked/stale/dropped/ttft), tarjetas compactas de documentos, y Decision Trace abierto por defecto.
 - **Qué historia contás:** "Misma consulta, mismo rol, tres niveles de protección. Mirá lo que cambia."
 - **Cuándo mostrarlo en la demo:** **siempre al principio**. Es el 80% del impacto visual del proyecto.
 - **Mensaje de negocio:** "sin permisos" no es "no pasa nada" — es "un analyst junior acaba de ver el memo del Investment Committee". Las etiquetas "blocked in full" en la columna No Filters muestran **exactamente** qué documentos se filtrarían.
 
-### Evals — "los números duros"
+### Metrics (Evals) — "los números duros"
 
 - **Qué se ve:** un banner narrativo arriba ("Zero permission violations across 12 test queries"), 10 tarjetas de métricas agregadas, y una tabla con 12 filas (una por query de test).
 - **Qué historia contás:** "Esto no es una demo subjetiva — son métricas de 12 queries corriendo a través del pipeline real. Permission Violations: 0%. Recall: 100%."
 - **Cuándo mostrarlo en la demo:** **después del Compare**, para pasar de lo cualitativo a lo cuantitativo.
 - **Mensaje de negocio:** "esto podés ponerlo en un reporte a legal o auditoría. No es una promesa, es un test reproducible".
 
-### Admin — "el modo 'cómo se alimenta el sistema'"
+### Upload (Admin) — "el modo 'cómo se alimenta el sistema'"
 
 - **Qué se ve:** un formulario para subir un PDF con metadata (título, fecha, min_role, tipo, sensibilidad, tags). Un aviso de "Demo only: ephemeral filesystem".
 - **Qué historia contás:** "Se puede cargar nuevo contenido en vivo. El backend extrae texto, lo indexa, y ya está disponible."
@@ -83,7 +83,7 @@ Cada demo te dice: qué escribir, qué rol, qué policy, qué tab, qué señalar
 
 | Paso | Acción |
 |---|---|
-| Tab | **Compare** |
+| Tab | **Side-by-side** |
 | Cómo llegar | Click en **`Open in Compare →`** de la tarjeta "Permission Wall" del empty state. (El shortcut row ya no duplica esta historia: la tarjeta de onboarding es el único acceso directo.) |
 | Buscador | `What is Meridian's ARR growth rate and net revenue retention?` |
 | Rol | **Analyst** |
@@ -109,7 +109,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 | Paso | Acción |
 |---|---|
-| Tab | **Compare** |
+| Tab | **Side-by-side** |
 | Cómo llegar | Click en **`Open in Compare →`** de la tarjeta "Financial model access" del empty state. (UI-C quitó el shortcut "VP deal view ↔" de la fila Compare por redundante.) |
 | Buscador | `What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?` |
 | Rol | **VP** |
@@ -131,7 +131,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 | Paso | Acción |
 |---|---|
-| Tab | **Compare** |
+| Tab | **Side-by-side** |
 | Cómo llegar | Click en el shortcut **`Stale detection →`** (fila Compare) o en **`Open in Compare →`** de la tarjeta "Stale Detection" del empty state. UI-C renombró el escenario: la query y el rol (partner) **no cambiaron**; cambió la narrativa. |
 | Buscador | `What is the investment committee recommendation and LP update for the Meridian acquisition?` |
 | Rol | **Partner** |
@@ -154,7 +154,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 | Paso | Acción |
 |---|---|
-| Tab | **Single** |
+| Tab | **Query** |
 | Cómo llegar | Click en **`Run in Single`** de la tarjeta "Permission Wall" del empty state (UI-C: la fila Single ya no tiene "ARR growth" — la tarjeta de onboarding cubre esa historia con un botón primario que fuerza rol=Analyst y policy=Full Pipeline). Alternativa: tipear la query, elegir rol, apretar Run. |
 | Buscador | `What is Meridian's ARR growth rate and net revenue retention?` |
 | Rol | **Analyst** |
@@ -181,7 +181,7 @@ Los LLMs no tienen noción de quién está preguntando. Si mandás un documento 
 
 | Paso | Acción |
 |---|---|
-| Tab | **Evals** (se carga automáticamente al primer click) |
+| Tab | **Metrics** (se carga automáticamente al primer click) |
 
 **Qué señalar:**
 
@@ -228,7 +228,7 @@ Ya está abierto en Compare. Señalá el resumen en lenguaje natural de la colum
 
 ### 2:30 — 3:20 · Evals para cuantificar
 
-Click en la pestaña **Evals**.
+Click en la pestaña **Metrics**.
 
 > "Hasta acá fue cualitativo. Esto es cuantitativo. Doce queries de test, cada una corriendo a través del pipeline. La métrica que importa está arriba: **Permission Violations: cero por ciento**. En doce queries, el sistema nunca dejó pasar un documento restringido. Recall: uno coma cero — nunca perdimos un documento que debía aparecer."
 
@@ -236,7 +236,7 @@ Click en la pestaña **Evals**.
 
 ### 3:20 — 4:00 · Cierre con Single + Decision Trace
 
-Click en **Single**, después click en **`Run in Single`** de la tarjeta "Permission Wall".
+Click en **Query**, después click en **`Run in Single`** de la tarjeta "Permission Wall".
 
 > "Para cerrar: así se ve el uso real de una persona. Un analyst hace una consulta, ve 6 documentos relevantes, una barra le dice que hay 10 bloqueados por permisos. Expando el panel 'documents blocked' y veo los títulos, los tipos, y la razón. Abro el Decision Trace abajo y tengo la traza completa para auditoría. Esto es transparencia nativa, no un feature agregado al final."
 
@@ -248,21 +248,21 @@ Click en **Single**, después click en **`Run in Single`** de la tarjeta "Permis
 
 ## 6. Cómo verbalizar las diferencias entre roles, policies y modos
 
-Este es un problema real: **Single, Compare, Evals y Admin se parecen visualmente** (hay cards, barras, colores). Si no explicás las diferencias con claridad, tu audiencia va a pensar "es la misma pantalla repetida".
+Este es un problema real: **Query, Side-by-side, Metrics y Upload se parecen visualmente** (hay cards, barras, colores). Si no explicás las diferencias con claridad, tu audiencia va a pensar "es la misma pantalla repetida".
 
 Anclá cada modo a un **caso de uso humano distinto**, no a una diferencia técnica:
 
 | Modo | "Es como si estuvieras…" |
 |---|---|
-| Single | haciendo una búsqueda diaria en la base de conocimiento de tu empresa. |
-| Compare | un ingeniero o compliance officer validando que los controles funcionan. |
-| Evals | preparando un reporte para legal o auditoría con métricas reproducibles. |
-| Admin | el bibliotecario cargando un documento nuevo al corpus. |
+| Query | haciendo una búsqueda diaria en la base de conocimiento de tu empresa. |
+| Side-by-side | un ingeniero o compliance officer validando que los controles funcionan. |
+| Metrics | preparando un reporte para legal o auditoría con métricas reproducibles. |
+| Upload | el bibliotecario cargando un documento nuevo al corpus. |
 
 Lo mismo con roles y policies:
 
 - **Rol ≠ política.** El rol es *quién sos*. La política es *cómo se ensambla el contexto*. Podés tener el mismo rol con distintas políticas (Single) o la misma política con distintos roles (probás Analyst y después Partner en Compare). Mencioná esto explícitamente una vez durante la demo para que no se mezclen.
-- **"No Filters" no es un setting — es un contraejemplo.** Existe para mostrar qué pasa sin controles. No es una opción que usarías en producción. El banner amarillo "⚠ This policy skips all access controls" al lado está hecho justamente para que nadie se confunda.
+- **"No Filters" no es un setting — es un contraejemplo.** Existe para mostrar qué pasa sin controles. No es una opción que usarías en producción. El banner amarillo "⚠ Baseline only — no access controls. Use for comparison." al lado está hecho justamente para que nadie se confunda.
 
 Cuando hagas Compare y tu audiencia vea tres columnas, señalá: **"El rol es el mismo en las tres columnas. Lo único que cambia es cómo se ensambla el contexto. Por eso las diferencias que ves son atribuibles a la política, no al usuario."** Esa frase desambigua todo.
 
@@ -306,7 +306,7 @@ Los tres ángulos comparten el mismo mensaje de fondo: **"hace visible lo invisi
 2. **Corpus chico (16 docs).** No hables de escala. Si te preguntan: *"Es un demo; el pipeline no tiene dependencia de tamaño, el retriever está construido sobre FAISS y BM25 que escalan a millones."* (esta es la única vez donde mencionás la arquitectura — y solo si preguntan).
 3. **Los excerpts están cortados a 200 caracteres.** Si alguien quiere ver el documento completo, no hay forma desde la UI. Tené un "Show more ▾" a mano para ampliar un poco, pero no prometas full-document view.
 4. **No hay highlighting del texto matched dentro del excerpt.** Si te lo piden, decí "es un feature trivial de agregar, pero no es lo que este proyecto está demostrando".
-5. **Admin mode y filesystem efímero en Render.** Si deployás con `ALLOW_INGEST=false`, el tab ni aparece y nadie pregunta. Si lo dejás habilitado, el PDF que subas va a desaparecer en el próximo redeploy. Si vas a mostrar Admin en una demo pública, deployá con un Render Disk (persistente) o hacé la demo localmente.
+5. **Upload mode y filesystem efímero en Render.** Si deployás con `ALLOW_INGEST=false`, el tab ni aparece y nadie pregunta. Si lo dejás habilitado, el PDF que subas va a desaparecer en el próximo redeploy. Si vas a mostrar Admin en una demo pública, deployá con un Render Disk (persistente) o hacé la demo localmente.
 6. **Policy selector desaparece en Compare.** Puede desorientar. Si alguien lo nota, decí "en Compare corremos las tres políticas en paralelo, por eso no hay selector".
 7. **TTFT proxy.** El número "ttft 38ms" es una estimación del tiempo que tardaría un LLM en empezar a generar, no una medición real. Si te preguntan, sé honesto: "es un proxy basado en token count; no estamos llamando a un LLM real".
 8. **La interfaz está en inglés** (incluso si tu audiencia es hispanohablante). Coherente con el contenido financiero, pero mencionalo si preguntan.
@@ -328,7 +328,7 @@ Los tres ángulos comparten el mismo mensaje de fondo: **"hace visible lo invisi
 - [ ] El empty state aparece (las 3 tarjetas de onboarding al centro).
 - [ ] Click en **`Open in Compare →`** de la tarjeta "Permission Wall" y carga Compare en <2 segundos.
 - [ ] En Compare, las tres columnas muestran datos, no skeletons.
-- [ ] Click en Evals — el banner verde dice "Zero permission violations".
+- [ ] Click en Metrics — el banner verde dice "Zero permission violations".
 - [ ] Si vas a mostrar Admin: tené un PDF de prueba chico (<5 MB) listo para arrastrar.
 - [ ] Si deployaste en Render: confirmá que `ALLOW_INGEST=false` está seteado si no querés que Admin aparezca, o que hay Render Disk montado si sí.
 - [ ] Zoom del navegador al 100% o 110% para que las tarjetas de Compare entren sin scroll horizontal.
