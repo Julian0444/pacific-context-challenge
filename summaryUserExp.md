@@ -1,462 +1,472 @@
-# QueryTrace: Resumen completo de experiencia de usuario
+# QueryTrace: Complete User Experience Summary
 
 ---
 
-## 1. Que es QueryTrace y para que sirve
+## 1. What is QueryTrace and what does it do
 
-QueryTrace es una herramienta de laboratorio que simula como un sistema de busqueda empresarial con inteligencia artificial ensambla el contexto que luego le pasaria a un modelo de lenguaje (LLM) para responder preguntas.
+QueryTrace is a lab tool that simulates how an enterprise AI search system assembles the context it would pass to a language model (LLM) to answer questions.
 
-**No es un chatbot.** No responde preguntas. No genera texto con IA. Lo que hace es mostrar *que documentos elegiria el sistema* para armar el paquete de contexto que un LLM usaria como fuente de verdad, y *por que eligio esos y no otros*.
+**It is not a chatbot.** It does not answer questions. It does not generate text with AI. What it does is show *which documents the system would choose* to build the context package an LLM would use as its source of truth, and *why it chose those and not others*.
 
-El escenario simulado es el siguiente: una firma de capital privado llamada **Atlas Capital Partners** esta evaluando la adquisicion de una empresa fintech llamada **Meridian Technologies** (proyecto interno: "Project Clearwater"). El corpus de documentos contiene 16 archivos realistas que cualquier firma de inversiones tendria en un deal asi:
+The simulated scenario is the following: a private equity firm called **Atlas Capital Partners** is evaluating the acquisition of a fintech company called **Meridian Technologies** (internal project: "Project Clearwater"). The document corpus contains 16 realistic files that any investment firm would have in a deal like this:
 
-| Tipo de documento | Ejemplo | Quien puede verlo |
+| Document type | Example | Who can see it |
 |---|---|---|
-| Filings publicos (10-K) | Reporte anual de Meridian FY2023 | Todos (Analyst, VP, Partner) |
-| Notas de research | Cobertura de Summit Financial Research | Todos |
-| Press releases | Comunicado de la Serie C de Meridian | Todos |
-| Noticias publicas | Articulo de prensa con rumor de valuacion | Todos |
-| Overview de sector | Vision interna de Atlas sobre fintech | Todos |
-| Memos de due diligence | Hallazgos de Phase 1 de Atlas | Solo VP y Partner |
-| Modelos financieros | Modelo v1.0 y v2.0 del deal | Solo VP y Partner |
-| Emails internos | Riesgos de integracion | Solo VP y Partner |
-| Memos internos de CTO | Contexto de salida del CTO y riesgo de retencion | Solo VP y Partner |
-| Analisis de concentracion de clientes | ARR breakdown por cliente | Solo VP y Partner |
-| Memo del Investment Committee | Recomendacion formal del IC | Solo Partner |
-| Memo legal | Riesgo regulatorio y revenue recognition | Solo Partner |
-| Update para LPs | Carta trimestral a inversores | Solo Partner |
+| Public filings (10-K) | Meridian annual report FY2023 | Everyone (Analyst, VP, Partner) |
+| Research notes | Summit Financial Research coverage | Everyone |
+| Press releases | Meridian Series C announcement | Everyone |
+| Public news | Press article with valuation rumor | Everyone |
+| Sector overview | Atlas internal fintech overview | Everyone |
+| Due diligence memos | Atlas Phase 1 findings | VP and Partner only |
+| Financial models | Deal model v1.0 and v2.0 | VP and Partner only |
+| Internal emails | Integration risks | VP and Partner only |
+| Internal CTO memo | CTO departure context and retention risk | VP and Partner only |
+| Customer concentration analysis | ARR breakdown by customer | VP and Partner only |
+| Investment Committee memo | Formal IC recommendation | Partner only |
+| Legal memo | Regulatory risk and revenue recognition | Partner only |
+| LP update | Quarterly letter to investors | Partner only |
 
-El punto central es: **no todos los usuarios deberian ver todos los documentos**. Un analista junior no tiene por que ver el memo del Investment Committee. Un VP no tiene por que ver la carta a los LPs. El sistema tiene que respetar eso.
-
----
-
-## 2. Los tres roles: quien sos cuando usas la app
-
-Cuando abris QueryTrace, lo primero que elegis es **tu rol**. Hay tres:
-
-### Analyst (Rango 1 - el mas bajo)
-- Puede ver: filings publicos, research notes, press releases, el sector overview y noticias publicas.
-- **No puede ver**: memos internos, modelos financieros, emails, analisis de clientes, memo legal, memo del IC, ni updates para LPs.
-- Es el rol mas restrictivo. De los 16 documentos, solo tiene acceso a **6**.
-
-### VP (Rango 2 - intermedio)
-- Puede ver todo lo del analyst **mas**: memos de due diligence, modelos financieros, emails internos, memo de CTO, y analisis de concentracion.
-- **No puede ver**: memo del IC, memo legal ni updates para LPs (esos son solo para partners).
-- De los 16 documentos, tiene acceso a **12**.
-
-### Partner (Rango 3 - acceso total)
-- Ve absolutamente todo. Los 16 documentos.
-- Es el unico que puede ver el memo del Investment Committee, el memo legal y la carta a los LPs.
-
-**Lo que ves en la UI:** En la barra de controles hay tres botones (Analyst, VP, Partner). Al seleccionar uno, le estas diciendo al sistema "simulemos que soy esta persona" y todas las busquedas que hagas respetaran los permisos de ese rol.
-
-**Para que sirve esto al usuario:** Para entender y demostrar que el sistema de busqueda no filtra documentos a ciegas, sino que respeta las jerarquias de acceso. Si sos un analista y buscas algo, el sistema te muestra solo lo que tu rol permite ver, y ademas te dice cuantos documentos *fueron bloqueados* y por que.
+The central point is: **not all users should see all documents**. A junior analyst should not see the Investment Committee memo. A VP should not see the LP letter. The system must enforce this.
 
 ---
 
-## 3. Las tres politicas: como se ensambla el contexto
+## 2. The three roles: who you are when using the app
 
-Ademas del rol, podes elegir una **politica de ensamblado** (solo visible en modo Single). Esto controla *que etapas del pipeline se aplican* a los documentos recuperados:
+When you open QueryTrace, the first thing you choose is **your role**. There are three:
 
-### naive (naive_top_k)
-- **Que hace:** Busca documentos y los devuelve tal cual, sin ningun filtro.
-- **No filtra por permisos.** Un analyst veria documentos confidenciales del IC.
-- **No evalua frescura.** Un documento viejo y desactualizado aparece igual que uno nuevo.
-- **No aplica presupuesto de tokens.** Mete todo lo que encuentra sin limite.
-- **Para que existe:** Es el "baseline peligroso". Existe para que el usuario pueda comparar y ver lo que pasa cuando un sistema NO tiene controles. Es la version "todo vale" para demostrar por contraste por que las otras politicas importan.
+### Analyst (Rank 1 - lowest)
+- Can see: public filings, research notes, press releases, sector overview, and public news.
+- **Cannot see**: internal memos, financial models, emails, customer analyses, legal memo, IC memo, or LP updates.
+- The most restrictive role. Out of 16 documents, has access to **6**.
 
-### rbac (permission_aware)
-- **Que hace:** Busca documentos y luego filtra por permisos del rol.
-- **Si filtra por permisos.** Los documentos que tu rol no puede ver se bloquean.
-- **No evalua frescura.** Los documentos viejos no se penalizan.
-- **Si aplica presupuesto de tokens.** Hay un limite maximo de tokens que pueden entrar al contexto.
-- **Para que existe:** Muestra el efecto de agregar solo la capa de seguridad (RBAC = Role-Based Access Control). Es el punto medio.
+### VP (Rank 2 - intermediate)
+- Can see everything the analyst can **plus**: due diligence memos, financial models, internal emails, CTO memo, and customer concentration analysis.
+- **Cannot see**: IC memo, legal memo, or LP updates (those are partner-only).
+- Out of 16 documents, has access to **12**.
 
-### full (full_policy)
-- **Que hace:** Aplica todas las etapas del pipeline.
-- **Si filtra por permisos.** Documentos restringidos se bloquean.
-- **Si evalua frescura.** Documentos mas nuevos tienen mejor score. Documentos que fueron reemplazados por una version mas nueva (como un modelo financiero v1 reemplazado por v2) reciben una penalizacion del 50%.
-- **Si aplica presupuesto de tokens.** Hay un limite (2048 tokens por defecto) y si no cabe todo, los documentos menos relevantes se descartan.
-- **Para que existe:** Es la politica "de produccion". Representa como deberia funcionar un sistema real en una empresa.
+### Partner (Rank 3 - full access)
+- Sees absolutely everything. All 16 documents.
+- The only role that can see the Investment Committee memo, the legal memo, and the LP letter.
 
-**Lo que ves en la UI:** En modo Single, hay tres botones (naive, rbac, full). La politica seleccionada se aplica cuando haces clic en "Run". En modo Compare no se muestra este selector porque el sistema automaticamente ejecuta las tres politicas en paralelo.
+**What you see in the UI:** In the controls bar there are three buttons (Analyst, VP, Partner). Selecting one tells the system "let's simulate that I'm this person" and all searches will respect that role's permissions.
+
+**Why this matters to the user:** To understand and demonstrate that the search system does not filter documents blindly, but respects access hierarchies. If you are an analyst and search for something, the system shows you only what your role is allowed to see, and also tells you how many documents *were blocked* and why.
 
 ---
 
-## 4. Los tres modos de la interfaz
+## 3. The three policies: how context is assembled
 
-### 4.1 Modo Single - "Buscar con una politica"
+In addition to the role, you can choose an **assembly policy** (visible only in Query mode). This controls *which pipeline stages are applied* to the retrieved documents:
 
-**Que ves:** Un buscador, un selector de rol, un selector de politica, y cuando ejecutas una consulta, una lista de documentos como tarjetas (cards).
+### No Filters (naive_top_k)
+- **What it does:** Searches for documents and returns them as-is, with no filters.
+- **Does not filter by permissions.** An analyst would see confidential IC documents.
+- **Does not evaluate freshness.** An outdated document appears the same as a new one.
+- **Does not enforce a token budget.** Includes everything it finds with no limit.
+- **Why it exists:** It is the "dangerous baseline". It exists so the user can compare and see what happens when a system has NO controls. It is the "anything goes" version to demonstrate by contrast why the other policies matter.
 
-**Que hace:**
-1. Escribis una pregunta en lenguaje natural (ejemplo: "What is Meridian's ARR growth rate?")
-2. Elegis un rol (Analyst, VP, Partner)
-3. Elegis una politica (naive, rbac, full)
-4. Haces clic en "Run"
-5. El sistema busca los documentos mas relevantes, aplica la politica seleccionada, y te muestra los resultados
+### Permissions Only (permission_aware)
+- **What it does:** Searches for documents and then filters by role permissions.
+- **Does filter by permissions.** Documents your role cannot see are blocked.
+- **Does not evaluate freshness.** Old documents are not penalized.
+- **Does enforce a token budget.** There is a maximum limit of tokens that can enter the context.
+- **Why it exists:** Shows the effect of adding only the security layer (RBAC = Role-Based Access Control). It is the middle ground.
 
-**Que te muestra para cada documento:**
-- **doc_id**: Identificador del documento (ej: doc_001)
-- **Posicion en el ranking**: #1, #2, etc.
-- **Extracto del contenido**: Los primeros ~480 caracteres del documento
-- **Barra de Relevance**: Un valor de 0 a 1 que indica que tan relevante es el documento para tu consulta. 1.00 = perfectamente relevante. Es un score combinado de busqueda semantica y lexica (BM25).
-- **Barra de Freshness**: Un valor de 0 a 1 que indica que tan reciente/vigente es el documento relativo al documento mas nuevo del corpus. Si la politica es naive, aparece "N/A" porque esa politica no evalua frescura.
-- **Tags**: Etiquetas descriptivas del documento (ej: "meridian", "public", "financials", "arr")
+### Full Pipeline (full_policy)
+- **What it does:** Applies all pipeline stages.
+- **Does filter by permissions.** Restricted documents are blocked.
+- **Does evaluate freshness.** Newer documents score higher. Documents that have been replaced by a newer version (like a financial model v1 replaced by v2) receive a 50% penalty.
+- **Does enforce a token budget.** There is a limit (2048 tokens by default) and if everything does not fit, the least relevant documents are dropped.
+- **Why it exists:** This is the "production" policy. It represents how a real system should work in an enterprise.
 
-**Barra de resumen superior:**
-- Cantidad de documentos incluidos
-- Total de tokens consumidos
-- Rol utilizado
-- Politica aplicada
-- Documentos bloqueados por permisos
-- Documentos marcados como "stale" (obsoletos/reemplazados)
-
-**Panel de Decision Trace (colapsable):**
-Al final de los resultados hay un panel que se puede expandir llamado "Decision Trace". Este es el corazon de la transparencia del sistema. Muestra:
-
-- **Included**: Chips verdes con los IDs de los documentos que entraron al contexto final. Al pasar el mouse ves el score y la cantidad de tokens.
-- **Blocked**: Chips rojos con los IDs de los documentos bloqueados por permisos. Muestra que rol se necesita para accederlos.
-- **Stale**: Chips amarillos con los IDs de documentos que tienen una version mas nueva. Muestra a cual documento fueron reemplazados (ej: "doc_002 -> doc_003").
-- **Dropped**: Chips grises con los IDs de documentos que pasaron todos los filtros pero no cupieron en el presupuesto de tokens.
-- **Budget**: Una barra de progreso mostrando que porcentaje del presupuesto de tokens se uso.
-- **Metricas**: Score promedio, freshness promedio, y una estimacion de Time-to-First-Token (TTFT) en milisegundos.
-
-**Para que le sirve al usuario:**
-- Para entender *exactamente* que documentos entraron al contexto y por que.
-- Para ver el impacto de cambiar la politica: si cambias de "full" a "naive", vas a ver documentos bloqueados que ahora aparecen, documentos stale que ya no se penalizan, etc.
-- Para verificar que el sistema de permisos funciona correctamente.
-
-**Coherencia de controles y resultados (UI-B):**
-Si cambias el rol o la politica despues de haber ejecutado una consulta, los controles nuevos quedan seleccionados pero los resultados siguen siendo los de la corrida anterior. Para que no parezca que la UI miente, aparece un banner discreto arriba de los resultados ("Controls changed — press Run to refresh these results.") y las tarjetas viejas se atenuan al 60% de opacidad. El banner y la atenuacion desaparecen cuando apretas **Run** (o cuando volves a dejar los controles como estaban al momento del ultimo render). Los botones de ejemplo de la fila "Single" (`Diligence risks` / `IC recommendation`) y los botones `Run in Single` del empty state son **presets deterministas**: siempre corren con politica **Full Pipeline** y sincronizan el radio de politica, asi la demo se comporta igual sin importar que politica tuvieras seleccionada antes.
+**What you see in the UI:** In Query mode, there are three policy tabs ("No Filters", "Permissions Only", "Full Pipeline"). Each tab shows a sub-label listing the active pipeline stages (e.g., "Retrieval + RBAC + Freshness + Budget"). The selected policy is applied when you click "Run". In Side-by-side mode this selector does not appear because the system automatically runs all three policies in parallel.
 
 ---
 
-### 4.2 Modo Compare - "La misma consulta con tres politicas"
+## 4. The four modes of the interface
 
-**Que ves:** Tres columnas lado a lado, una por cada politica (NAIVE, RBAC, FULL).
+### 4.1 Query mode — "Search with one policy"
 
-**Que hace:**
-1. Escribis una pregunta y elegis un rol
-2. Haces clic en "Run"
-3. El sistema ejecuta la misma consulta tres veces, una con cada politica
-4. Te muestra los resultados en tres columnas para que compares
+**What you see:** A search bar, a role selector, a policy selector (tabs), and when you run a query, a list of documents as cards.
 
-**Que te muestra en cada columna:**
-- **Header coloreado**: Con el nombre de la politica y su descripcion corta
-- **Stats strip**: Una fila con 6 metricas rapidas:
-  - `included`: cuantos documentos quedaron en el contexto final
-  - `tokens`: total de tokens usados
-  - `blocked`: cuantos documentos fueron bloqueados por permisos
-  - `stale`: cuantos documentos estan marcados como obsoletos
-  - `dropped`: cuantos documentos fueron descartados por presupuesto
-  - `ttft`: estimacion del Time-to-First-Token en milisegundos
+**What it does:**
+1. You type a question in natural language (example: "What is Meridian's ARR growth rate?")
+2. You choose a role (Analyst, VP, Partner)
+3. You choose a policy (No Filters, Permissions Only, Full Pipeline)
+4. You click "Run"
+5. The system finds the most relevant documents, applies the selected policy, and shows you the results
 
-- **Cards de documentos**: Version compacta de cada documento con score de relevancia y freshness
-- **Annotation "blocked in full"**: En la columna de NAIVE, si un documento aparece ahi pero estaria bloqueado en la politica FULL, se le agrega una etiqueta roja que dice "blocked in full". Esto es para que veas visualmente la "filtracion" que el modo naive permite.
-- **Decision Trace por columna**: Cada columna tiene su propio trace expandido (en Compare empieza abierto por defecto).
+**What it shows for each document:**
+- **doc_id**: Document identifier (e.g., doc_001)
+- **Position in ranking**: #1, #2, etc.
+- **Content excerpt**: The first ~200 characters, with "Show more / Hide" expand/collapse to the full ~500-char indexer excerpt
+- **Relevance bar**: A value from 0 to 1 indicating how relevant the document is to your query. 1.00 = perfectly relevant. A combined score from semantic and lexical (BM25) search.
+- **Freshness bar**: A value from 0 to 1 indicating how recent/current the document is relative to the newest document in the corpus. If the policy is No Filters or Permissions Only, it shows "N/A" because those policies do not evaluate freshness.
+- **Tags**: Descriptive labels for the document (e.g., "meridian", "public", "financials", "arr")
 
-**Escenarios pre-armados (post UI-C):**
+**Top summary bar:**
+- Number of documents included
+- Total tokens consumed
+- Role used
+- Policy applied
+- Documents blocked by permissions
+- Documents marked as "stale" (obsolete/superseded)
+- Export JSON button (downloads the full `/query` response)
 
-Los tres escenarios base (Permission Wall / Financial model access / Stale Detection) viven como **tarjetas en el empty state de Single**. Cada tarjeta tiene dos botones: `Run in Single` (corre en Single con full_policy, **no** cambia de modo) y `Open in Compare →` (salta explicitamente a Compare). UI-C elimino el "teleport silencioso" del onboarding anterior.
+**Blocked documents section (collapsible):**
+Below the result cards, a "N documents blocked by permissions" section shows one mini-card per blocked document with title, doc_id badge, doc type, and a human-readable reason ("Requires partner role — you are analyst"). Hidden when no documents are blocked.
 
-La fila de shortcuts "Compare" quedo reducida a **un solo boton**: `Stale detection →` (antes "Partner view ↔"). La query y el rol (partner, IC + LP update) no cambiaron; la narrativa se reenfoca en los 3 documentos demotados como stale (doc_002, doc_007 y doc_014) por el full pipeline, en vez de enfatizar "partner no tiene bloqueos". Los shortcuts "Analyst wall ↔" y "VP deal view ↔" fueron removidos por duplicar las tarjetas de onboarding.
+**Decision Trace panel (collapsible):**
+At the bottom of the results there is an expandable panel called "Decision Trace". This is the heart of the system's transparency. It opens with a natural-language summary paragraph translating the counts into prose — e.g., "6 documents were included (675 tokens, 33% of budget). 10 documents were blocked — your role (analyst) cannot access vp- and partner-level materials." Below the summary it shows:
 
-La fila "Single" conserva `Diligence risks` (VP) y `IC recommendation` (partner) — queries distintas de las del onboarding, sin cambio de modo.
+- **Included**: Green chips with the IDs of documents that made it into the final context. Hovering shows the score and token count.
+- **Blocked**: Red chips with the IDs of documents blocked by permissions. Shows which role is needed to access them.
+- **Stale**: Yellow chips with the IDs of documents that have a newer version. Shows which document superseded them (e.g., "doc_002 -> doc_003").
+- **Dropped**: Grey chips with the IDs of documents that passed all filters but did not fit in the token budget.
+- **Budget**: A progress bar showing what percentage of the token budget was used. Tooltip explains the metric.
+- **Metrics**: Average score, average freshness, and a Time-to-First-Token (TTFT) estimate in milliseconds. Tooltips explain each metric.
 
-**Las tres historias base:**
+**Controls-results coherence (UI-B):**
+If you change the role or policy after running a query, the new controls are selected but the results still reflect the previous run. To make this clear, a banner appears above the results ("Controls changed — press Run to refresh these results.") and the old cards fade to 60% opacity. The banner and fade disappear when you press **Run** (or when you set the controls back to match the last render). The example buttons in the "Single" row (`Diligence risks` / `IC recommendation`) and the `Run in Single` buttons from the empty state are **deterministic presets**: they always run with **Full Pipeline** policy and sync the policy tab, so the demo behaves identically regardless of which policy was previously selected.
 
-1. **Permission Wall** (analyst, ARR query): naive devuelve 16 docs, RBAC+Full bloquean 10. El caso mas dramatico de "mira lo que pasa sin permisos".
-2. **Financial model access** (VP, financial model query): el VP accede a los modelos, 4 docs bloqueados (partner-only), y en Full el modelo v1 queda demotado como stale.
-3. **Stale Detection** (partner, IC + LP query): acceso total (0 bloqueos en los tres policies), pero Full pipeline demote 3 docs superseded (doc_002, doc_007, doc_014) — demuestra que frescura y permisos son ortogonales.
-
-**Compare tambien tiene empty state (UI-C):** si el usuario entra a Compare sin haber corrido nada, ve tres tarjetas de preview que reflejan las mismas tres historias, con hints cuantitativos resumidos. Un click corre `/compare` y las tarjetas desaparecen para dar paso al banner + las tres columnas.
-
-**Para que le sirve al usuario:**
-- Es la funcionalidad mas poderosa para entender **por que las politicas importan**. 
-- Ver tres columnas lado a lado hace inmediatamente visible la diferencia entre "sin filtros", "con permisos", y "pipeline completo".
-- Los annotations de "blocked in full" en la columna naive son especialmente utiles porque muestran exactamente que documentos "se filtran" si tuvieras la politica completa.
-- Es ideal para hacer demos y explicar a alguien no tecnico por que un sistema de contexto necesita capas de seguridad.
+**Why it is useful to the user:**
+- To understand *exactly* which documents entered the context and why.
+- To see the impact of changing the policy: switching from "Full Pipeline" to "No Filters" reveals blocked documents appearing and stale documents losing their penalty.
+- To verify that the permission system works correctly.
 
 ---
 
-### 4.3 Modo Evals - "Dashboard de evaluacion"
+### 4.2 Side-by-side mode — "Same query, three policies"
 
-**Que ves:** Un dashboard con 10 tarjetas de metricas agregadas y una tabla con 12 filas (una por query de test).
+**What you see:** Three columns side by side, one per policy (No Filters, Permissions Only, Full Pipeline).
 
-**Que hace:**
-1. Al hacer clic en la pestaña "Evals", el sistema ejecuta automaticamente 12 consultas predefinidas a traves del pipeline completo (full_policy).
-2. Calcula metricas de calidad de retrieval y seguridad.
-3. Muestra los resultados.
+**What it does:**
+1. You type a question and choose a role
+2. You click "Run"
+3. The system runs the same query three times, once with each policy
+4. It shows the results in three columns for comparison
 
-**Las 10 metricas agregadas (tarjetas superiores):**
+**What it shows in each column:**
+- **Color-coded header**: With the policy name and its severity color
+- **Stats strip**: A row with 6 quick metrics:
+  - `included`: how many documents made it into the final context
+  - `tokens`: total tokens used
+  - `blocked`: how many documents were blocked by permissions
+  - `stale`: how many documents are marked as obsolete
+  - `dropped`: how many documents were dropped by budget
+  - `ttft`: Time-to-First-Token estimate in milliseconds
 
-| Metrica | Que significa para el usuario |
+- **Document cards**: Compact version of each document with title heading, doc_id badge + type + date metadata, 120-char snippet, mini relevance/freshness bars, compact "Superseded" badge on stale docs
+- **"blocked in full" annotation**: In the No Filters column, if a document appears there but would be blocked under the full policy, it gets a red label saying "blocked in full". This visually shows the "leak" that No Filters allows.
+- **Decision Trace per column**: Each column has its own trace panel expanded by default, opening with a compact narrative summary.
+- **Export JSON button**: In the banner area, downloads the full `/compare` response.
+
+**Pre-built scenarios (post UI-C):**
+
+The three base stories (Permission Wall / Financial model access / Stale Detection) live as **cards in the Query empty state**. Each card has two buttons: `Run in Single` (runs in Query mode with full_policy, **does not** switch mode) and `Open in Compare →` (explicitly jumps to Side-by-side). UI-C eliminated the "silent teleport" from the previous onboarding.
+
+The shortcut row for Compare has **one button**: `Stale detection →` (previously "Partner view"). The query and role (partner, IC + LP update) did not change; the narrative refocuses on the 3 superseded documents (doc_002, doc_007, doc_014) that the full pipeline demotes 0.5x, instead of emphasizing "partner has no blocks". The shortcuts "Analyst wall" and "VP deal view" were removed to avoid duplicating the onboarding cards.
+
+The "Single" row keeps `Diligence risks` (VP) and `IC recommendation` (partner) — distinct queries from the onboarding, with no mode change.
+
+**The three base stories:**
+
+1. **Permission Wall** (analyst, ARR query): No Filters returns 16 docs, RBAC + Full block 10. The most dramatic case of "look what happens without permissions".
+2. **Financial model access** (VP, financial model query): VP accesses the models, 4 docs blocked (partner-only), and in Full the model v1 is demoted as stale.
+3. **Stale Detection** (partner, IC + LP query): full access (0 blocks across all three policies), but Full pipeline demotes 3 superseded docs (doc_002, doc_007, doc_014) — demonstrates that freshness and permissions are orthogonal.
+
+**Side-by-side also has an empty state (UI-C):** if the user enters Side-by-side without having run anything, they see three preview cards reflecting the same three stories, with summarized quantitative hints. A single click runs `/compare` and the cards disappear to reveal the banner + three columns.
+
+**Why it is useful to the user:**
+- It is the most powerful feature for understanding **why policies matter**.
+- Seeing three columns side by side makes the difference between "no filters", "with permissions", and "full pipeline" immediately visible.
+- The "blocked in full" annotations in the No Filters column are especially useful because they show exactly which documents "would leak" under the full policy.
+- Ideal for demos and explaining to non-technical audiences why a context system needs security layers.
+
+---
+
+### 4.3 Metrics mode — "Evaluation dashboard"
+
+**What you see:** A narrative banner at the top, 10 aggregate metric cards, and a table with 12 rows (one per test query).
+
+**What it does:**
+1. When you click the "Metrics" tab, the system automatically runs 12 predefined queries through the full pipeline (full_policy).
+2. It calculates retrieval quality and security metrics.
+3. It shows the results.
+
+**Narrative banner:**
+An executive-summary banner renders three sentences: a permission-violations line (celebratory when rate=0), a recall line (100% or fallback), and a budget-utilization tier line.
+
+**The 10 aggregate metrics (top cards):**
+
+| Metric | What it means to the user |
 |---|---|
-| **Precision@5** | De los primeros 5 documentos que el sistema devuelve, que porcentaje son realmente los correctos. 0.3333 = ~33% de acierto en el top 5. |
-| **Recall** | De todos los documentos que deberian aparecer, que porcentaje efectivamente aparecio. 1.0000 = nunca se perdio un documento esperado. |
-| **Permission Violations** | Porcentaje de queries donde un documento restringido aparecio en el contexto final. 0.0% = perfecto, nunca hubo una filtracion de permisos. |
-| **Avg Context Docs** | Promedio de documentos incluidos por consulta. |
-| **Avg Total Tokens** | Promedio de tokens consumidos por consulta. |
-| **Avg Freshness** | Promedio del score de frescura de los documentos incluidos. |
-| **Avg Blocked** | Promedio de documentos bloqueados por permisos por consulta. |
-| **Avg Stale** | Promedio de documentos marcados como obsoletos por consulta. |
-| **Avg Dropped** | Promedio de documentos descartados por presupuesto por consulta. |
-| **Avg Budget Util** | Promedio de utilizacion del presupuesto de tokens (71% = se usa alrededor de dos tercios del presupuesto disponible). |
+| **Precision@5** | Of the top 5 documents the system returns, what percentage are truly the correct ones. 0.3333 = ~33% accuracy in the top 5. |
+| **Recall** | Of all documents that should appear, what percentage actually did. 1.0000 = never lost an expected document. |
+| **Permission Violations** | Percentage of queries where a restricted document appeared in the final context. 0.0% = perfect, never had a permission leak. |
+| **Avg Context Docs** | Average number of documents included per query. |
+| **Avg Total Tokens** | Average tokens consumed per query. |
+| **Avg Freshness** | Average freshness score of included documents. |
+| **Avg Blocked** | Average number of documents blocked by permissions per query. |
+| **Avg Stale** | Average number of documents marked as obsolete per query. |
+| **Avg Dropped** | Average number of documents dropped by budget per query. |
+| **Avg Budget Util** | Average budget utilization (~71% = roughly two-thirds of the available budget is used). |
 
-**La tabla por query (12 filas):**
-Cada fila es una consulta de test diferente. Las columnas son:
-- **Query**: ID de la consulta (q001-q012)
-- **Role**: El rol usado para esa consulta
-- **P@5**: Precision en el top 5 para esa consulta especifica
-- **Recall**: Recall para esa consulta
-- **Docs**: Cuantos documentos se incluyeron
-- **Tokens**: Cuantos tokens se usaron
-- **Freshness**: Score promedio de frescura
-- **Blocked**: Cuantos documentos se bloquearon (resaltado en rojo si >0)
-- **Stale**: Cuantos documentos estan obsoletos (resaltado en amarillo si >0)
-- **Dropped**: Cuantos documentos se descartaron por presupuesto
-- **Budget**: Porcentaje de utilizacion del presupuesto
-- **Violations**: Si hubo alguna filtracion de permisos ("none" = todo correcto)
+Each card includes a one-line micro-explanation hint.
 
-**Para que le sirve al usuario:**
-- Es la prueba cuantitativa de que el sistema funciona. No es una demo subjetiva, son numeros.
-- El dato mas importante para el usuario de negocio es que **Permission Violations = 0.0%** y **Recall = 1.0000**. Eso significa: "nunca filtramos un documento restringido" y "nunca nos perdemos un documento relevante".
-- La Precision@5 de 0.3333 puede parecer baja, pero hay que entender por que: el sistema devuelve mas documentos de los estrictamente "esperados" porque incluye contexto adicional relevante. No es necesariamente un problema, sino una consecuencia de que el corpus es chico y muchos documentos son parcialmente relevantes para varias queries.
+**The per-query table (12 rows):**
+Each row is a different test query. Columns:
+- **Query**: A query ID pill (q001–q012) plus the query text truncated to 50 characters (full text via tooltip)
+- **Role**: The role used for that query
+- **P@5**: Precision in the top 5 for that specific query
+- **Recall**: Recall for that query
+- **Docs**: How many documents were included
+- **Tokens**: How many tokens were used
+- **Freshness**: Average freshness score
+- **Blocked**: How many documents were blocked (highlighted in red if >0)
+- **Stale**: How many documents are obsolete (highlighted in yellow if >0)
+- **Dropped**: How many documents were dropped by budget
+- **Budget**: Budget utilization percentage
+- **Violations**: Whether there was any permission leak ("none" = all correct)
 
----
-
-## 5. Como funciona realmente el buscador
-
-### Que tipo de busqueda hace
-
-El buscador combina **dos metodos de busqueda** que se fusionan:
-
-1. **Busqueda semantica (FAISS + sentence-transformers):** Convierte tu pregunta en un vector numerico y busca documentos con significado similar. Buena para preguntas conceptuales como "cuales son los riesgos de la adquisicion?" porque entiende el significado, no solo las palabras.
-
-2. **Busqueda lexica (BM25):** Busca coincidencias exactas de palabras. Buena para terminos especificos como "MRDN" (ticker de Meridian) o "Section 13D" que la busqueda semantica puede no captar.
-
-Los dos rankings se fusionan usando **Reciprocal Rank Fusion (RRF)**, un metodo estandar que combina ambos rankings en uno solo. El score final va de 0 a 1 (normalizado).
-
-### Que devuelve
-
-No devuelve una "respuesta" a tu pregunta. Devuelve una **lista de documentos rankeados** con sus extractos (`excerpt`), scores, y metadata. Son los documentos que un LLM *usaria* para responder tu pregunta si estuvieras en un sistema RAG (Retrieval-Augmented Generation).
-
-### Sobre que busca
-
-Busca sobre los **16 documentos del corpus**. Estos son documentos simulados pero realistas de un caso de M&A (fusiones y adquisiciones) en fintech. La busqueda se realiza sobre el texto completo de cada documento, mientras la UI muestra un `excerpt` de aproximadamente 500 caracteres.
-
-### Limitaciones del buscador
-
-1. **No busca dentro de los documentos con precision quirurgica.** No es un buscador de texto plano tipo Ctrl+F. Si buscas "4.1M deferred revenue adjustment" probablemente encuentre el email interno que menciona eso (doc_009), pero lo devuelve como un resultado *completo* del documento, no te resalta la linea exacta donde aparece.
-
-2. **El corpus base es pequeño (16 documentos).** Se puede extender por codigo editando `corpus/documents/`, actualizando `metadata.json`, y reconstruyendo el indice con `python3 -m src.indexer`; el modo Upload permite pruebas de ingestion en entornos donde este habilitado.
-
-3. **Los scores de relevancia son relativos, no absolutos.** Un score de 0.20 no significa "poco relevante en general", sino "menos relevante que los otros documentos *dentro de este corpus* para esta query". En un corpus de 16 documentos, incluso los menos relevantes pueden tener scores decentes.
-
-4. **No hay filtrado por texto exacto de tags o tipo de documento.** El usuario no puede filtrar por "solo research notes" o "solo documentos con tag 'arr'". Todo pasa por la busqueda en lenguaje natural.
-
-5. **No hay paginacion.** El sistema devuelve los top-K documentos (por defecto 8 candidatos, luego filtrados por politica) y no hay forma de pedir "los siguientes 8".
-
-6. **El buscador no tiene autocompletado, sugerencias, ni historial.** Es un campo de texto plano.
+**Why it is useful to the user:**
+- It is the quantitative proof that the system works. Not a subjective demo — numbers.
+- The most important figure for a business user is that **Permission Violations = 0.0%** and **Recall = 1.0000**. That means: "we never leaked a restricted document" and "we never missed a relevant document".
+- Precision@5 of 0.3333 may seem low, but context matters: the system returns more documents than strictly "expected" because it includes additional relevant context. This is not necessarily a problem but a consequence of the small corpus where many documents are partially relevant across queries.
 
 ---
 
-## 6. Que informacion ve el usuario en cada pantalla y para que le sirve
+## 5. How the search actually works
 
-### En modo Single
+### What kind of search it performs
 
-| Elemento | Que le dice al usuario |
+The search combines **two methods** that are fused together:
+
+1. **Semantic search (FAISS + sentence-transformers):** Converts your question into a numerical vector and finds documents with similar meaning. Good for conceptual questions like "what are the acquisition risks?" because it understands meaning, not just words.
+
+2. **Lexical search (BM25):** Finds exact word matches. Good for specific terms like "MRDN" (Meridian's ticker) or "Section 13D" that semantic search may not capture.
+
+The two rankings are fused using **Reciprocal Rank Fusion (RRF)**, a standard method that combines both rankings into one. The final score ranges from 0 to 1 (normalized).
+
+### What it returns
+
+It does not return an "answer" to your question. It returns a **ranked list of documents** with their excerpts, scores, and metadata. These are the documents an LLM *would use* to answer your question if you were in a RAG (Retrieval-Augmented Generation) system.
+
+### What it searches over
+
+It searches over the **16 documents in the corpus**. These are simulated but realistic documents from an M&A (mergers and acquisitions) deal in fintech. The search runs over the full text of each document, while the UI shows an excerpt of approximately 500 characters.
+
+### Search limitations
+
+1. **It does not search within documents with surgical precision.** It is not a plain-text search like Ctrl+F. If you search for "4.1M deferred revenue adjustment" it will probably find the internal email that mentions it (doc_009), but it returns it as a *complete* document result, not highlighting the exact line where it appears.
+
+2. **The base corpus is small (16 documents).** It can be extended by editing `corpus/documents/`, updating `metadata.json`, and rebuilding the index with `python3 -m src.indexer`; Upload mode allows ingestion testing in environments where it is enabled.
+
+3. **Relevance scores are relative, not absolute.** A score of 0.20 does not mean "not very relevant in general", but "less relevant than the other documents *within this corpus* for this query". In a corpus of 16 documents, even the least relevant can have decent scores.
+
+4. **There is no filtering by exact tag text or document type.** The user cannot filter by "only research notes" or "only documents with tag 'arr'". Everything goes through natural-language search.
+
+5. **There is no pagination.** The system returns the top-K documents (default 8 candidates, then filtered by policy) and there is no way to request "the next 8".
+
+6. **The search has no autocomplete, suggestions, or history.** It is a plain text field.
+
+---
+
+## 6. What information the user sees on each screen and why it is useful
+
+### In Query mode
+
+| Element | What it tells the user |
 |---|---|
-| Cards de documentos | "Estos son los documentos que el sistema eligio para responder tu pregunta" |
-| Barra de relevancia | "Este documento es mas/menos relevante que los otros para tu consulta" |
-| Barra de freshness | "Este documento es mas/menos reciente comparado con el mas nuevo del corpus" |
-| Tags | "De que temas trata este documento" |
-| Summary bar (docs/tokens/blocked/stale) | "Resumen rapido de que paso con tu consulta" |
-| Decision Trace | "Queres saber exactamente por que el sistema tomo cada decision? Abri este panel" |
+| Document cards | "These are the documents the system chose to answer your question" |
+| Relevance bar | "This document is more/less relevant than the others for your query" |
+| Freshness bar | "This document is more/less recent compared to the newest in the corpus" |
+| Tags | "What topics this document is about" |
+| Summary bar (docs/tokens/blocked/stale) | "Quick summary of what happened with your query" |
+| Blocked section | "These documents exist but your role cannot access them — here's why" |
+| Decision Trace | "Want to know exactly why the system made each decision? Open this panel" |
+| Export JSON | "Download the full response as a JSON file for auditing or sharing" |
 
-### En modo Compare
+### In Side-by-side mode
 
-| Elemento | Que le dice al usuario |
+| Element | What it tells the user |
 |---|---|
-| Tres columnas lado a lado | "Asi se ve la misma consulta con tres niveles de proteccion diferentes" |
-| Stats strip por columna | "Comparacion rapida: cuantos documentos, tokens, bloqueos en cada politica" |
-| Etiqueta "blocked in full" | "Este documento aparece en naive pero se bloquearia con la politica completa - cuidado, esto es una filtracion" |
-| Decision Trace por columna | "El detalle completo de cada decision, politica por politica" |
+| Three columns side by side | "This is what the same query looks like with three different protection levels" |
+| Stats strip per column | "Quick comparison: how many documents, tokens, blocks in each policy" |
+| "blocked in full" label | "This document appears in No Filters but would be blocked under the full policy — careful, this is a leak" |
+| Decision Trace per column | "The complete detail of each decision, policy by policy" |
+| Export JSON | "Download the full comparison as a JSON file" |
 
-### En modo Evals
+### In Metrics mode
 
-| Elemento | Que le dice al usuario |
+| Element | What it tells the user |
 |---|---|
-| Permission Violations = 0% | "El sistema nunca filtro un documento restringido. Los permisos funcionan." |
-| Recall = 1.0 | "El sistema nunca perdio un documento que deberia haber incluido." |
-| Precision@5 | "De los 5 primeros resultados, este porcentaje eran los correctos." |
-| Tabla por query | "Para cada tipo de consulta de prueba, asi se comporto el sistema." |
+| Narrative banner | "Executive summary: zero violations, perfect recall, budget efficiency tier" |
+| Permission Violations = 0% | "The system never leaked a restricted document. Permissions work." |
+| Recall = 1.0 | "The system never lost a document it should have included." |
+| Precision@5 | "Of the top 5 results, this percentage were the correct ones." |
+| Metric card hints | "One-line explanation of what each metric measures" |
+| Per-query table | "For each test query, this is how the system behaved." |
 
 ---
 
-## 7. Clasificacion: que es para el usuario final y que es para evaluacion/demo
+## 7. Classification: what is for the end user vs. evaluation/demo
 
-### Funcionalidades para el usuario final
+### End-user features
 
-1. **Modo Single con politica "full"**: Es la experiencia principal. Buscar documentos relevantes respetando permisos, frescura y presupuesto de tokens. El Decision Trace es util para auditar las decisiones.
+1. **Query mode with "Full Pipeline" policy**: The main experience. Search for relevant documents while respecting permissions, freshness, and token budget. The Decision Trace is useful for auditing decisions.
 
-2. **Cards de documentos con extractos y scores**: Le dicen al usuario que documentos encontro el sistema y con que confianza.
+2. **Document cards with excerpts and scores**: Tell the user which documents the system found and with what confidence. Expand/collapse reveals more of the excerpt.
 
-3. **Tags en las cards**: Ayudan a identificar rapidamente de que trata cada documento.
+3. **Tags on cards**: Help quickly identify what each document is about.
 
-4. **Selector de rol**: Util si un usuario quiere verificar que veria alguien de otro nivel de acceso (ej: un partner verificando que ven los analysts).
+4. **Role selector**: Useful if a user wants to verify what someone at a different access level would see (e.g., a partner checking what analysts see).
 
-### Funcionalidades para comparar politicas/sistemas
+5. **Export JSON**: Download the full response for auditing, sharing, or integration with other tools.
 
-5. **Modo Compare**: Es una herramienta de comparacion, no de uso diario. Sirve para demostrar y validar que las politicas funcionan como se espera. Ideal para presentaciones, auditorias internas, y validacion con stakeholders.
+### Policy comparison features
 
-6. **Escenarios pre-armados (Permission Wall, Financial model access, Stale Detection — post UI-C)**: Son atajos para demos rapidas. Viven como tarjetas del empty state en Single (con dos botones: `Run in Single` y `Open in Compare →`), y como un unico shortcut `Stale detection →` en la fila Compare. Los nombres antiguos eran "Analyst wall", "VP deal view" y "Partner view".
+6. **Side-by-side mode**: A comparison tool, not for daily use. Useful for demonstrating and validating that policies work as expected. Ideal for presentations, internal audits, and stakeholder validation.
 
-7. **Selector de politica en modo Single (naive/rbac/full)**: Permite al usuario cambiar manualmente entre politicas para ver la diferencia. Es mas una herramienta de exploracion que de uso productivo.
+7. **Pre-built scenarios (Permission Wall, Financial model access, Stale Detection — post UI-C)**: Shortcuts for quick demos. They live as cards in the Query empty state (with two buttons: `Run in Single` and `Open in Compare →`), and as a single shortcut `Stale detection →` in the Compare row. Old names were "Analyst wall", "VP deal view", and "Partner view".
 
-8. **Etiquetas "blocked in full" en la columna naive del Compare**: Una ayuda visual para entender la filtracion.
+8. **Policy selector in Query mode (No Filters / Permissions Only / Full Pipeline)**: Allows the user to manually switch between policies to see the difference. More an exploration tool than a production feature. Selecting "No Filters" triggers a warning banner.
 
-### Funcionalidades internas de metricas/evaluacion
+9. **"blocked in full" labels in the No Filters column of Side-by-side**: A visual aid for understanding the leak.
 
-9. **Modo Evals**: Es una herramienta de benchmarking. Demuestra con numeros que el pipeline funciona. Util para ingenieros, QA, y documentacion tecnica.
+### Internal metrics/evaluation features
 
-10. **Metricas detalladas (budget utilization, TTFT proxy, avg score, avg freshness)**: Son datos internos del pipeline. Un usuario de negocio no necesita saber que la "budget utilization" es 71% ni que el TTFT proxy es 8ms. Pero un ingeniero si.
+10. **Metrics mode**: A benchmarking tool. Demonstrates with numbers that the pipeline works. Useful for engineers, QA, and technical documentation.
 
-11. **Precision@5 y Recall**: Son metricas estandar de information retrieval. Tienen significado tecnico preciso. Un usuario no tecnico probablemente no las entienda sin contexto.
+11. **Detailed metrics (budget utilization, TTFT proxy, avg score, avg freshness)**: Internal pipeline data. A business user does not need to know that "budget utilization" is 71% or that the TTFT proxy is 8ms. But an engineer does. Tooltips explain each one.
 
----
-
-## 8. Analisis de las capturas
-
-### Captura 1 y 4: Modo Single (Analyst + full policy)
-
-Se ve la consulta "What is Meridian's ARR growth rate and net revenue retention?" ejecutada con rol Analyst y politica FULL.
-
-**Lo que esta bien:**
-- La summary bar muestra claramente: 6 docs, 675 tokens, analyst role, FULL policy, 10 blocked, 1 stale.
-- Los 10 bloqueados tienen sentido: son los documentos VP/partner que un analyst no puede ver (doc_006 a doc_014 y doc_016, excluyendo el public news doc_015).
-- El 1 stale es doc_002 (la research note vieja de Q3 2023 que fue reemplazada por doc_003).
-- doc_001 (el 10-K con datos de ARR) aparece primero con relevancia 1.00 y freshness 0.91 - correcto, es el documento mas relevante.
-- doc_003 (la research note actualizada) aparece dentro del contexto visible - correcto, es la revision de estimaciones.
-
-**Lo que puede confundir:**
-- El usuario ve "10 blocked" pero no sabe cuales son a menos que abra el Decision Trace.
-- Los tags (meridian, public, financials, etc.) son informativos pero no hay forma de hacer clic en ellos para filtrar.
-- El extracto del contenido esta cortado a 480 caracteres sin indicacion visual de que hay mas.
-
-### Captura 2: Modo Evals
-
-Se ven las 10 tarjetas de metricas y la tabla de 12 queries.
-
-**Lo que esta bien:**
-- Permission Violations en 0.0% esta resaltado en verde - transmite inmediatamente que los permisos son seguros.
-- La tabla muestra patron claro: las queries de analyst (q001-q003) tienen 10 blocked, las de VP tienen 4 blocked, y las de partner tienen 0 blocked. Esto es consistente con la jerarquia de roles.
-- Todas las queries tienen recall 1.00 y violations "none".
-
-**Lo que puede confundir:**
-- Precision@5 de 0.3333 puede parecer baja y alarmar a alguien que no entiende el contexto. En un corpus de 16 docs con queries amplias, es esperable.
-- "Avg Context Docs = 11.8" y "Avg Budget Util = 71%" no dicen mucho al usuario de negocio.
-- Los colores de las tarjetas (rojo para blocked, amarillo para stale) son informativos pero sin explicacion de que es "bueno" o "malo".
-
-### Captura 3: Modo Compare (Analyst, ARR query)
-
-Se ven las tres columnas NAIVE, RBAC, FULL con los Decision Traces expandidos.
-
-**Lo que esta bien:**
-- La diferencia visual es impactante: NAIVE tiene 0 blocked, RBAC tiene 10 blocked, FULL tiene 10 blocked + stale. Se ve inmediatamente el valor de cada capa.
-- En la columna NAIVE, los Decision Trace chips muestran documentos como doc_010, doc_011 y doc_013 incluidos sin restriccion - estos son documentos de nivel partner que un analyst no deberia ver.
-- Los Blocked chips en RBAC y FULL muestran claramente documentos `vp` y `partner`, incluido el memo legal.
-- Los Stale chips en FULL muestran pares como "doc_002 -> doc_003", indicando que versiones nuevas reemplazaron a las viejas.
-
-**Lo que puede confundir:**
-- La barra de "Budget" con 75%, 63%, 63% no tiene contexto de que es "bueno". El usuario no sabe si deberia apuntar a 100% o si 63% esta bien.
-- Los "avg score 0.40/0.42" y "avg freshness 0.00/0.79" no tienen benchmark. El 0.00 en freshness de NAIVE y RBAC es porque no calculan freshness, pero el usuario podria pensar que es un error.
-- TTFT de 38ms vs 8ms: la primera politica (NAIVE) es mas lenta que las otras porque no filtra nada y procesa mas documentos, pero el usuario no tiene forma de saber si 38ms es rapido o lento sin contexto.
-
-### Capturas 5 y 6: Barra de controles
-
-Se ven los controles superiores: buscador, rol selector, politica selector, y botones de escenarios.
-
-**Lo que esta bien:**
-- Los controles son claros y compactos.
-- Los botones de escenarios tienen tooltips descriptivos que explican que va a pasar.
-- La separacion "SINGLE" vs "COMPARE" para los botones de escenario es clara.
-
-**Lo que puede confundir:**
-- El selector de politica (naive/rbac/full) desaparece en modo Compare sin explicacion. El usuario podria pensar que algo se rompio.
-- Los botones de escenario cambian automaticamente de modo (de Single a Compare o viceversa) lo cual puede ser desorientador si el usuario no lo espera.
-- No hay indicacion visual de cual escenario esta seleccionado actualmente despues de hacer clic.
+12. **Precision@5 and Recall**: Standard information retrieval metrics. They have precise technical meaning. A non-technical user probably will not understand them without context.
 
 ---
 
-## 9. Resumen: que valor recibe el usuario
+## 8. Screenshot analysis
 
-### Si sos un decisor de negocio o stakeholder:
-- **Compare mode + los tres escenarios pre-armados** son lo mas valioso. En segundos ves la diferencia entre "sin controles", "con permisos", y "pipeline completo".
-- **Permission Violations = 0%** en Evals es el dato que importa: el sistema es seguro.
-- Las etiquetas "blocked in full" en la columna naive te muestran exactamente lo que se filtraria.
+### Screenshot 1 and 4: Query mode (Analyst + Full Pipeline)
 
-### Si sos un ingeniero o evaluador tecnico:
-- **Evals mode** te da las metricas duras: precision, recall, budget utilization.
-- **Decision Trace** en cualquier modo te muestra cada decision del pipeline como datos estructurados.
-- Los scores, freshness, y token counts te permiten validar que cada etapa del pipeline funciona correctamente.
+The query "What is Meridian's ARR growth rate and net revenue retention?" executed with Analyst role and Full Pipeline policy.
 
-### Si sos un usuario final haciendo busquedas:
-- **Single mode con full policy** es tu modo de uso. Escribis una pregunta, elegis tu rol, y ves los documentos relevantes que el sistema te daria como contexto.
-- Las cards con extractos, tags, y scores te ayudan a evaluar rapidamente si los resultados son utiles.
-- El Decision Trace te da transparencia total si necesitas auditar por que cierto documento fue incluido o excluido.
+**What works well:**
+- The summary bar clearly shows: 6 docs, 675 tokens, analyst role, Full Pipeline, 10 blocked, 1 stale.
+- The 10 blocked make sense: they are the VP/partner documents an analyst cannot see (doc_006 through doc_014 and doc_016, excluding the public news doc_015).
+- The 1 stale is doc_002 (the old Q3 2023 research note replaced by doc_003).
+- doc_001 (the 10-K with ARR data) appears first with relevance 1.00 and freshness 0.91 — correct, it is the most relevant document.
+- doc_003 (the updated research note) appears in the visible context — correct, it is the revised estimates.
+
+**What might confuse:**
+- Tags (meridian, public, financials, etc.) are informative but there is no way to click them to filter.
+
+### Screenshot 2: Metrics mode
+
+The 10 metric cards and the 12-query table are visible.
+
+**What works well:**
+- Permission Violations at 0.0% is highlighted in green — immediately communicates that permissions are safe.
+- The table shows a clear pattern: analyst queries (q001–q003) have 10 blocked, VP queries have 4 blocked, and partner queries have 0 blocked. This is consistent with the role hierarchy.
+- All queries have recall 1.00 and violations "none".
+
+**What might confuse:**
+- Precision@5 of 0.3333 may seem low and alarm someone who does not understand the context. In a corpus of 16 docs with broad queries, this is expected.
+- "Avg Context Docs = 11.8" and "Avg Budget Util = 71%" do not say much to a business user.
+
+### Screenshot 3: Side-by-side mode (Analyst, ARR query)
+
+The three columns No Filters, Permissions Only, Full Pipeline with Decision Traces expanded.
+
+**What works well:**
+- The visual difference is striking: No Filters has 0 blocked, Permissions Only has 10 blocked, Full Pipeline has 10 blocked + stale. The value of each layer is immediately visible.
+- In the No Filters column, the Decision Trace chips show documents like doc_010, doc_011, and doc_013 included without restriction — these are partner-level documents an analyst should not see.
+- The Blocked chips in Permissions Only and Full Pipeline clearly show `vp` and `partner` documents, including the legal memo.
+- The Stale chips in Full Pipeline show pairs like "doc_002 -> doc_003", indicating that newer versions replaced the old ones.
+
+**What might confuse:**
+- The Budget bar percentages lack context for what is "good". The user does not know if they should aim for 100% or if 63% is fine.
+- "avg freshness 0.00" in No Filters and Permissions Only is because those policies do not calculate freshness, but the user might think it is an error. (The label shows "N/A" for those policies.)
+- TTFT values: the user has no way to know if 38ms is fast or slow without context.
+
+### Screenshots 5 and 6: Controls bar
+
+The top controls are visible: search bar, role selector, policy selector, and scenario buttons.
+
+**What works well:**
+- Controls are clear and compact.
+- Scenario buttons have descriptive tooltips explaining what will happen.
+- The separation of "SINGLE" vs "COMPARE" labels for scenario buttons is clear.
+
+**What might confuse:**
+- The policy selector disappears in Side-by-side mode. If someone notices, the explanation is: "in Side-by-side we run all three policies in parallel, so there is no selector".
+- There is no visual indication of which scenario is currently selected after clicking.
 
 ---
 
-## 10. Limitaciones y ambiguedades de UX actuales
+## 9. Summary: what value the user receives
 
-1. **No se explica que es cada metrica.** El usuario ve "Precision@5 = 0.3333" pero no hay tooltip, leyenda, o explicacion contextual de que significa. Lo mismo con TTFT, budget utilization, avg freshness, etc.
+### If you are a business decision-maker or stakeholder:
+- **Side-by-side mode + the three pre-built scenarios** are the most valuable. In seconds you see the difference between "no controls", "with permissions", and "full pipeline".
+- **Permission Violations = 0%** in Metrics is the number that matters: the system is safe.
+- The "blocked in full" labels in the No Filters column show you exactly what would be leaked.
 
-2. **Los scores no tienen referencia.** Un score de relevancia de 0.54 no dice nada sin contexto. El usuario no sabe si eso es "bueno" o "malo".
+### If you are an engineer or technical evaluator:
+- **Metrics mode** gives you hard numbers: precision, recall, budget utilization.
+- **Decision Trace** in any mode shows you each pipeline decision as structured data.
+- Scores, freshness, and token counts let you validate that each pipeline stage works correctly.
+- **Export JSON** lets you capture any query or comparison response for offline analysis.
 
-3. **El Decision Trace es poderoso pero denso.** Tiene mucha informacion valiosa, pero un usuario no tecnico puede sentirse abrumado. No hay un "resumen en lenguaje humano" de por que el sistema tomo las decisiones que tomo.
-
-4. **El selector de politica puede confundir en Single mode.** Un usuario casual podria elegir "naive" sin saber que esta desactivando todos los controles de seguridad. No hay warning o explicacion de lo que implica cada politica.
-
-5. **El modo Evals no tiene contexto para las queries.** La tabla muestra "q001", "q002", etc., pero no muestra el texto completo de la consulta. El usuario tiene que adivinar de que se trata cada una (a menos que lea el tooltip o la columna "Query" que solo muestra el ID).
-
-6. **No hay forma de ver el contenido completo de un documento.** Las cards muestran un extracto cortado y no hay forma de expandirlas para leer el documento entero.
-
-7. **El estado vacio (post UI-C)** ofrece tres tarjetas de onboarding — Permission Wall, Financial model access, Stale Detection — con dos botones explicitos cada una (`Run in Single` / `Open in Compare →`). Resuelve el problema previo del "Try Analyst wall" sin contexto y elimina el teleport silencioso al modo Compare.
-
-8. **En modo Compare, la columna NAIVE muestra freshness como "N/A" lo cual es correcto tecnicamente** (la politica no calcula freshness), pero visualmente parece un error o dato faltante.
-
-9. **No hay forma de exportar resultados.** Si el usuario quiere guardar una comparacion o un trace para reportarlo, tiene que hacer screenshot manual.
-
-10. **La interfaz esta solo en ingles.** Dado que el escenario es financiero y los documentos estan en ingles, esto es coherente, pero podria ser una barrera para usuarios hispanohablantes.
+### If you are an end user doing searches:
+- **Query mode with Full Pipeline** is your mode. Type a question, choose your role, and see the relevant documents the system would give you as context.
+- Cards with excerpts, tags, and scores help you quickly evaluate whether the results are useful.
+- The Decision Trace gives you full transparency if you need to audit why a certain document was included or excluded.
 
 ---
 
-## 11. Resumen ejecutivo
+## 10. Current UX limitations and ambiguities
 
-QueryTrace no es un buscador comun. Es un **laboratorio de transparencia** para sistemas de busqueda empresarial con IA. Su valor esta en hacer visible lo invisible: por que un sistema de IA eligio ciertos documentos y no otros para armar el contexto de una respuesta.
+1. **Relevance scores lack a reference point.** A relevance score of 0.54 says nothing without context. The user cannot tell if that is "good" or "bad".
 
-Tiene tres capas de valor:
+2. **The Decision Trace is powerful but dense.** It has a lot of valuable information, but a non-technical user may feel overwhelmed. The narrative summary at the top helps, but the chip section below can be intimidating.
 
-1. **Capa de busqueda (Single mode):** Demuestra que la busqueda hibrida (semantica + lexica) funciona, que los permisos se respetan, que los documentos viejos se penalizan, y que hay un presupuesto de tokens controlado.
+3. **The corpus is small (16 documents).** This is a demo; the pipeline has no size dependency — the retriever is built on FAISS and BM25 which scale to millions. But the small corpus means scores are relative and precision metrics look lower than they would on a production-sized corpus.
 
-2. **Capa de comparacion (Compare mode):** Demuestra visualmente que pasa cuando quitamos capas de proteccion. Es la herramienta de storytelling del proyecto: "mira lo que pasa sin permisos, mira lo que pasa sin freshness, mira lo que pasa con todo activado".
+4. **No full-document view.** Cards show a ~200-char excerpt that expands to ~500 chars (the indexer excerpt length), but there is no way to read the entire source document from the UI.
 
-3. **Capa de evaluacion (Evals mode):** Demuestra con numeros que el sistema es seguro (0% violations), exhaustivo (100% recall), y eficiente (budget controlado).
+5. **No filtering by tags or document type.** Tags appear on cards as descriptive metadata but are not clickable filters. The user cannot say "show me only research notes".
 
-El proyecto esta pensado como herramienta de demostracion y validacion tecnica para Pacific, no como producto final para usuarios. Su fortaleza esta en la transparencia y la rigurosidad del pipeline. Las mejoras de UX deberian enfocarse en hacer esa transparencia mas accesible sin sacrificar la profundidad tecnica.
+6. **The interface is in English.** Consistent with the financial content, but could be a barrier for Spanish-speaking audiences. Mention this if asked.
+
+7. **TTFT proxy is an estimate.** The "ttft 38ms" number estimates how long an LLM would take to start generating, not an actual measurement. If asked, be honest: "it is a proxy based on token count; we are not calling a real LLM".
+
+8. **Precision@5 = 0.3333 may seem low.** If asked: "The corpus has 16 documents and many queries are broad, so the 'expected top 5' bar is very high. What matters is Recall = 1.0 — we never lost a doc — and Permission Violations = 0%."
 
 ---
 
-*Archivos clave referenciados:*
+## 11. Executive summary
+
+QueryTrace is not an ordinary search engine. It is a **transparency lab** for enterprise AI search systems. Its value lies in making the invisible visible: why an AI system chose certain documents and not others to build the context for a response.
+
+It has three layers of value:
+
+1. **Search layer (Query mode):** Demonstrates that hybrid search (semantic + lexical) works, that permissions are respected, that old documents are penalized, and that there is a controlled token budget.
+
+2. **Comparison layer (Side-by-side mode):** Visually demonstrates what happens when we remove protection layers. It is the project's storytelling tool: "look what happens without permissions, look what happens without freshness, look what happens with everything enabled".
+
+3. **Evaluation layer (Metrics mode):** Demonstrates with numbers that the system is safe (0% violations), exhaustive (100% recall), and efficient (controlled budget).
+
+The project is designed as a demonstration and technical validation tool, not as a final product for end users. Its strength lies in the transparency and rigor of the pipeline. UX improvements should focus on making that transparency more accessible without sacrificing technical depth.
+
+---
+
+*Key files referenced:*
 - Frontend: `frontend/index.html`, `frontend/app.js`, `frontend/styles.css`
 - API: `src/main.py` (endpoints `/query`, `/compare`, `/evals`)
 - Pipeline: `src/pipeline.py`
-- Busqueda: `src/retriever.py` (hibrida FAISS + BM25)
-- Etapas: `src/stages/permission_filter.py`, `src/stages/freshness_scorer.py`, `src/stages/budget_packer.py`
-- Politicas: `src/policies.py`
-- Modelos: `src/models.py`
-- Evaluador: `src/evaluator.py`
+- Search: `src/retriever.py` (hybrid FAISS + BM25)
+- Stages: `src/stages/permission_filter.py`, `src/stages/freshness_scorer.py`, `src/stages/budget_packer.py`
+- Policies: `src/policies.py`
+- Models: `src/models.py`
+- Evaluator: `src/evaluator.py`
 - Corpus: `corpus/metadata.json`, `corpus/roles.json`, `corpus/documents/`
-- Queries de test: `evals/test_queries.json`
+- Test queries: `evals/test_queries.json`

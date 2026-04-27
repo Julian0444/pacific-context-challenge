@@ -176,9 +176,9 @@ evals/
   test_queries.json # 12 corpus-grounded queries with expected doc IDs
 frontend/
   index.html        # Static UI — open directly in browser
-  app.js            # Query / Side-by-side / Metrics modes
+  app.js            # Query / Side-by-side / Metrics / Upload modes
   styles.css
-tests/              # 172 passing, 14 skipped
+tests/              # 175 passing, 14 skipped
   test_pipeline.py  test_stages.py  test_retriever.py
   test_models.py    test_evaluator.py  test_main.py  ...
 ```
