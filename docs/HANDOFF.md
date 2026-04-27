@@ -1262,7 +1262,7 @@ Added backend support for live session query auditing. Every successful `POST /q
 
 ## MET-B: Metrics Dashboard — Benchmark + Session Audit UI
 
-**Commit:** (pending)
+**Commit:** `3567b1d`
 **Scope:** Frontend-only — `frontend/app.js`, `frontend/index.html`, `frontend/styles.css`
 **Depends on:** MET-A (commit `2513838`)
 

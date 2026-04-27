@@ -1019,15 +1019,19 @@ function fmtPct(v) {
   return (v * 100).toFixed(1) + "%";
 }
 
+const _copyTexts = [];
+
 function copyBtnHTML(text) {
-  return `<button class="copy-query-btn" data-copy="${escapeHTML(text)}" title="Copy query">⎘</button>`;
+  const idx = _copyTexts.length;
+  _copyTexts.push(text);
+  return `<button class="copy-query-btn" data-copy-idx="${idx}" title="Copy query">⎘</button>`;
 }
 
 function wireCopyButtons(container) {
   container.querySelectorAll(".copy-query-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const text = btn.dataset.copy;
+      const text = _copyTexts[Number(btn.dataset.copyIdx)] ?? "";
       navigator.clipboard.writeText(text).then(() => {
         btn.textContent = "✓";
         setTimeout(() => { btn.textContent = "⎘"; }, 1200);
