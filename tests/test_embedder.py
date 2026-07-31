@@ -44,13 +44,13 @@ def test_empty_input_returns_empty_matrix():
 
 def test_cache_dir_defaults_outside_tempdir(monkeypatch, tmp_path):
     """The model cache must survive OS temp purges (macOS wipes /var/folders,
-    leaving a half-deleted snapshot that fails with NO_SUCHFILE)."""
-    import tempfile
-
+    leaving a half-deleted snapshot that fails with NO_SUCHFILE). Anchoring at
+    Path.home() (asserted exactly below) is what keeps it out of fastembed's
+    <tempdir>/fastembed_cache default — a startswith(gettempdir()) check would
+    be self-contradictory here because the monkeypatched home IS a pytest tmp dir."""
     monkeypatch.delenv("FASTEMBED_CACHE_PATH", raising=False)
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     path = embedder._cache_dir()
-    assert not path.startswith(tempfile.gettempdir())
     assert path == str(tmp_path / ".cache" / "querytrace" / "fastembed")
 
 
