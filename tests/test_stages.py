@@ -6,6 +6,9 @@ Also includes pipeline-level integration tests for blocked, stale, and
 dropped-by-budget scenarios using the real corpus.
 """
 
+import json
+import os
+
 import pytest
 
 from src.models import (
@@ -14,14 +17,18 @@ from src.models import (
     FreshnessScoredDocument,
     IncludedDocument,
     PolicyConfig,
+    QueryRequest,
     ScoredDocument,
     StaleDocument,
     UserContext,
 )
+from src.pipeline import run_pipeline
+from src.policies import load_roles
+from src.retriever import retrieve
 from src.stages.permission_filter import filter_permissions, PermissionResult
-from src.stages.freshness_scorer import score_freshness, FreshnessResult, STALE_PENALTY
+from src.stages.freshness_scorer import score_freshness, FreshnessResult
 from src.stages.budget_packer import pack_budget, BudgetResult
-from src.stages.trace_builder import build_trace
+from src.stages.trace_builder import build_trace, TraceAccountingError
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +189,17 @@ class TestFreshnessScorer:
         assert result.scored[0].superseded_by == "doc_003"
         assert len(result.stale) == 1
 
+    def test_stale_entry_carries_title(self):
+        """StaleDocument inherits the parent title (Fase 6 D.2 — Decision Record)."""
+        docs = [_scored("doc_002", superseded_by="doc_003", title="Q3 Research Note")]
+        result = score_freshness(docs, _METADATA)
+        assert result.stale[0].title == "Q3 Research Note"
+
+    def test_stale_entry_title_defaults_none(self):
+        docs = [_scored("doc_002", superseded_by="doc_003")]
+        result = score_freshness(docs, _METADATA)
+        assert result.stale[0].title is None
+
 
 # ===========================================================================
 # budget_packer
@@ -219,6 +237,17 @@ class TestBudgetPacker:
         assert d.token_count > 0
         assert d.score == 0.9
         assert d.freshness_score == 0.95
+
+    def test_dropped_entry_carries_title(self):
+        """DroppedByBudget inherits the parent title (Fase 6 D.2 — Decision Record)."""
+        docs = [_freshness_scored("doc_001", title="Financial Model v2")]
+        result = pack_budget(docs, token_budget=1)
+        assert result.over_budget[0].title == "Financial Model v2"
+
+    def test_dropped_entry_title_defaults_none(self):
+        docs = [_freshness_scored("doc_001")]
+        result = pack_budget(docs, token_budget=1)
+        assert result.over_budget[0].title is None
 
     def test_packed_has_token_count(self):
         docs = [_freshness_scored("doc_001")]
@@ -334,8 +363,9 @@ class TestTraceBuilder:
         assert trace.metrics.included_count == 0
 
     def test_accounting_mismatch_raises(self):
-        """If blocked + included + dropped != retrieved, build_trace must fail."""
-        with pytest.raises(ValueError, match="Document accounting mismatch"):
+        """If blocked + included + dropped != retrieved, build_trace must fail
+        with an internal error (500 at the API), never a ValueError (400)."""
+        with pytest.raises(TraceAccountingError, match="Chunk accounting mismatch") as exc_info:
             build_trace(
                 user_ctx=UserContext(role="analyst", access_rank=1),
                 policy=PolicyConfig(),
@@ -351,25 +381,19 @@ class TestTraceBuilder:
                 budget_utilization=0.0,
                 ttft_proxy_ms=1.0,
             )
+        assert not isinstance(exc_info.value, ValueError)
+        assert isinstance(exc_info.value, RuntimeError)
 
 
 # ===========================================================================
 # Pipeline integration — blocked, stale, dropped-by-budget
 # ===========================================================================
 
-import json
-import os
-from src.pipeline import run_pipeline, PipelineError
-from src.retriever import retrieve
-from src.policies import load_roles
-
-_ROLES_PATH = os.path.join(os.path.dirname(__file__), "..", "corpus", "roles.json")
-_METADATA_PATH = os.path.join(os.path.dirname(__file__), "..", "corpus", "metadata.json")
+_ROLES_PATH = os.path.join(os.path.dirname(__file__), "..", "corpora", "pe-deal", "roles.json")
+_METADATA_PATH = os.path.join(os.path.dirname(__file__), "..", "corpora", "pe-deal", "metadata.json")
 _real_roles = load_roles(_ROLES_PATH)
 with open(_METADATA_PATH) as f:
     _real_metadata = json.load(f)
-
-from src.models import QueryRequest
 
 
 def _run(query="What is Meridian's ARR?", role="analyst", top_k=8, policy="default"):

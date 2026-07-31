@@ -4,9 +4,34 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QueryTrace — Context Policy Lab</title>
+  <meta name="description" content="Auditable RAG gateway: hybrid retrieval with role-based access control, freshness scoring, token budgeting, and a full decision trace for every query." />
+  <!-- OG scrapers require absolute URLs; update host if the deploy URL changes -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://context-policy-lab.onrender.com/app/" />
+  <meta property="og:title" content="QueryTrace — Auditable RAG gateway" />
+  <meta property="og:description" content="Every document that enters (or gets blocked from) an LLM's context, accounted for: RBAC, freshness, token budget, decision trace. Naive retrieval leaks 50% of queries — the full pipeline leaks 0%." />
+  <meta property="og:image" content="https://context-policy-lab.onrender.com/app/og-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="QueryTrace — Auditable RAG gateway" />
+  <meta name="twitter:description" content="Retrieval with policy enforcement and a full audit trace. Compare naive vs permission-aware vs full-policy context assembly, live." />
+  <meta name="twitter:image" content="https://context-policy-lab.onrender.com/app/og-card.png" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <script>
+    // Theme boot (D6.3): apply the stored choice before first paint so the
+    // page never flashes the wrong theme. The data-theme attribute beats the
+    // prefers-color-scheme media query in both directions.
+    try {
+      var qtTheme = localStorage.getItem("qt_theme");
+      if (qtTheme === "dark" || qtTheme === "light") {
+        document.documentElement.setAttribute("data-theme", qtTheme);
+      }
+    } catch (e) { /* storage unavailable — fall back to the OS preference */ }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Fraunces subset to the axes actually used (opsz 9..144, wght 340..640,
+       SOFT/WONK at their 0 defaults); Source Serif 4 as static 400/600 (D6.2) -->
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,340..640&family=Source+Serif+4:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -20,14 +45,51 @@
           <p class="brand-tagline">Context Policy Lab</p>
         </div>
       </div>
+      <!-- Workspace picker (Fase 2) — options injected from GET /workspaces -->
+      <div class="workspace-switch">
+        <label class="workspace-switch-label" for="workspace-picker">Workspace</label>
+        <select id="workspace-picker" class="workspace-picker" aria-label="Workspace"></select>
+      </div>
       <div class="mode-toggle" role="group" aria-label="View mode">
         <button class="mode-btn active" data-mode="single" aria-pressed="true">Query</button>
-        <button class="mode-btn" data-mode="compare" aria-pressed="false">Side-by-side</button>
+        <button class="mode-btn" data-mode="compare" aria-pressed="false"><span class="mode-btn-full">Side-by-side</span><span class="mode-btn-short">Compare</span></button>
         <button class="mode-btn" data-mode="evals" aria-pressed="false">Metrics</button>
-        <button class="mode-btn" data-mode="admin" aria-pressed="false">Upload</button>
+        <!-- Upload requires an admin session (Fase P); revealed by applySessionUI -->
+        <button class="mode-btn" data-mode="admin" aria-pressed="false" hidden>Upload</button>
       </div>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">◐</button>
+      <div id="session-chip" class="session-chip"></div>
     </div>
+    <!-- Letterhead classification line (Fase 6 D.4) — workspace name from the manifest -->
+    <div class="classification-line" id="classification-line" hidden></div>
   </header>
+
+  <!-- Login screen (Fase P; letter-of-introduction since Fase 6 Etapa E).
+       Guest lab stays one click away — never forced. Personas and workspace
+       name are injected per workspace (Fase 2). -->
+  <div id="login-screen" class="login-screen" hidden>
+    <div class="login-box">
+      <div class="login-brand"><span class="brand-mark">QT</span> QueryTrace</div>
+      <div class="login-workspace-row">
+        <p class="login-workspace-name" id="login-workspace-name"></p>
+        <select id="login-workspace-picker" class="workspace-picker" aria-label="Workspace"></select>
+      </div>
+      <h2 class="login-title">Every document in the context, on the record.</h2>
+      <p class="login-sub">
+        Retrieval with role-based access control, freshness scoring and a token
+        budget — every include, block and demotion filed into a Decision Record.
+        Pick a clearance to see what it changes.
+      </p>
+      <div id="persona-cards" class="persona-cards"></div>
+      <button id="guest-link" class="guest-link" type="button">
+        Read the memo without credentials →
+      </button>
+      <p class="login-disclaimer">
+        Fictitious organizations, fictitious documents — the credentials above are
+        deliberately public. Each persona hits the same pipeline with a different clearance.
+      </p>
+    </div>
+  </div>
 
   <main class="main" id="main">
 
@@ -39,6 +101,7 @@
             id="query-input"
             class="search-input"
             placeholder="Try: 'ARR growth', 'integration risks', 'IC recommendation'…"
+            aria-label="Search query"
             autocomplete="off"
             spellcheck="false"
           />
@@ -46,27 +109,25 @@
             <span class="btn-label">Run</span>
             <span class="btn-spinner" aria-hidden="true"></span>
           </button>
+          <!-- Ask mode (Fase 4) — hidden unless /health reports ask_enabled -->
+          <button
+            type="button"
+            id="ask-btn"
+            class="search-btn ask-btn"
+            hidden
+            title="Grounded AI answer with [doc_id] citations over the governed context"
+          >
+            <span class="btn-label">✦ Ask AI</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
         </div>
 
         <div class="controls-row">
-          <!-- Role selector -->
+          <!-- Role selector — radios injected per workspace from /meta (Fase 2) -->
           <div class="role-selector-group">
             <div class="selector-group">
               <span class="control-label">Role</span>
-              <div class="role-options">
-                <label class="role-option">
-                  <input type="radio" name="role" value="analyst" checked />
-                  <span class="role-chip">Analyst</span>
-                </label>
-                <label class="role-option">
-                  <input type="radio" name="role" value="vp" />
-                  <span class="role-chip">VP</span>
-                </label>
-                <label class="role-option">
-                  <input type="radio" name="role" value="partner" />
-                  <span class="role-chip">Partner</span>
-                </label>
-              </div>
+              <div class="role-options" id="role-options"></div>
             </div>
             <p class="role-description" id="role-description"></p>
           </div>
@@ -107,116 +168,28 @@
         </div>
       </form>
 
-      <div class="examples">
-        <div class="examples-row">
-          <span class="examples-label">Single</span>
-          <button class="example-btn" data-query="What are the risks identified in the due diligence for Project Clearwater?" data-role="vp" data-mode="single" title="Shows diligence risk findings from deal materials and financial models">
-Diligence risks
-          </button>
-          <button class="example-btn" data-query="What is the IC recommendation for the Meridian acquisition?" data-role="partner" data-mode="single" title="Shows the investment committee recommendation for the Meridian acquisition">
-IC recommendation
-          </button>
-        </div>
-        <div class="examples-row">
-          <span class="examples-label">Compare</span>
-          <button class="example-btn scenario-btn" data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?" data-role="partner" data-mode="compare" title="Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline">
-            Stale detection →
-          </button>
-        </div>
-      </div>
+      <!-- Shortcut rows — injected per workspace from manifest example_queries (Fase 2) -->
+      <div class="examples" id="examples"></div>
     </section>
 
-    <!-- Single-policy results -->
-    <section id="results-section" class="results-section">
+    <!-- Single-policy results. Empty-state description + scenario cards are
+         injected per workspace from the manifest (Fase 2). The display
+         headline carries the measured product claim (Fase 6 Etapa E). -->
+    <section id="results-section" class="results-section" aria-live="polite">
       <div class="empty-state" id="empty-state">
-        <h2 class="empty-title">How different policies change context assembly</h2>
-        <p class="empty-description">
-          QueryTrace retrieves documents from the Atlas Capital / Meridian Technologies corpus,
-          filters by role, penalises stale docs, and enforces token budgets —
-          with every decision visible in the Decision Trace. Pick a scenario to see the contrast.
-        </p>
-        <div class="onboard-grid">
-          <div class="onboard-card" data-story="permission-wall">
-            <span class="onboard-card-head">
-              <span class="onboard-card-subtitle">Analyst</span>
-            </span>
-            <span class="onboard-card-title">Permission Wall</span>
-            <span class="onboard-hint">Analyst query hits 10 documents blocked by RBAC.</span>
-            <div class="onboard-actions">
-              <button type="button"
-                      class="example-btn onboard-primary"
-                      data-query="What is Meridian's ARR growth rate and net revenue retention?"
-                      data-role="analyst"
-                      data-mode="single"
-                      title="Shows which documents an analyst can access — 10 are blocked by RBAC">
-                Run in Single
-              </button>
-              <button type="button"
-                      class="example-btn onboard-secondary"
-                      data-query="What is Meridian's ARR growth rate and net revenue retention?"
-                      data-role="analyst"
-                      data-mode="compare"
-                      title="Opens side-by-side comparison — see how each policy handles analyst-level permissions">
-                Open in Compare →
-              </button>
-            </div>
-          </div>
-          <div class="onboard-card" data-story="vp-deal-view">
-            <span class="onboard-card-head">
-              <span class="onboard-card-subtitle">VP</span>
-            </span>
-            <span class="onboard-card-title">Financial model access</span>
-            <span class="onboard-hint">Retrieves deal memos and financial models — the outdated v1 model gets demoted by freshness scoring.</span>
-            <div class="onboard-actions">
-              <button type="button"
-                      class="example-btn onboard-primary"
-                      data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
-                      data-role="vp"
-                      data-mode="single"
-                      title="Shows financial projections and deal valuation — the superseded v1 model is freshness-penalized">
-                Run in Single
-              </button>
-              <button type="button"
-                      class="example-btn onboard-secondary"
-                      data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
-                      data-role="vp"
-                      data-mode="compare"
-                      title="Opens side-by-side comparison — only Full Pipeline demotes the outdated financial model">
-                Open in Compare →
-              </button>
-            </div>
-          </div>
-          <div class="onboard-card" data-story="stale-detection">
-            <span class="onboard-card-head">
-              <span class="onboard-card-subtitle">Partner</span>
-            </span>
-            <span class="onboard-card-title">Stale Detection</span>
-            <span class="onboard-hint">Full corpus access — superseded documents still appear but are freshness-penalized 0.5×.</span>
-            <div class="onboard-actions">
-              <button type="button"
-                      class="example-btn onboard-primary"
-                      data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
-                      data-role="partner"
-                      data-mode="single"
-                      title="Shows IC and LP documents — superseded versions are demoted by freshness scoring">
-                Run in Single
-              </button>
-              <button type="button"
-                      class="example-btn onboard-secondary"
-                      data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
-                      data-role="partner"
-                      data-mode="compare"
-                      title="Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline">
-                Open in Compare →
-              </button>
-            </div>
-          </div>
-        </div>
+        <p class="empty-kicker">Context assembly, on the record</p>
+        <h2 class="empty-display">
+          Naive retrieval leaks restricted documents on 50% of queries.
+          The full pipeline: <strong class="display-zero">0%</strong>.
+        </h2>
+        <p class="empty-description" id="empty-description"></p>
+        <div class="onboard-grid" id="onboard-grid"></div>
         <p class="empty-hint">Or type your own query above and choose a role to explore.</p>
       </div>
     </section>
 
-    <!-- Compare-mode results (hidden by default) -->
+    <!-- Compare-mode results (hidden by default). Scenario preview cards are
+         injected per workspace from the manifest (Fase 2). -->
     <section id="compare-section" class="compare-section" hidden>
       <div class="empty-state compare-empty-state" id="compare-empty-state">
         <h2 class="empty-title">Compare policies side by side</h2>
@@ -225,47 +198,7 @@ IC recommendation
           — see exactly which documents each policy includes, blocks, or demotes.
           Pick a scenario to preview the contrast.
         </p>
-        <div class="onboard-grid">
-          <button type="button"
-                  class="example-btn onboard-card onboard-card-compact"
-                  data-query="What is Meridian's ARR growth rate and net revenue retention?"
-                  data-role="analyst"
-                  data-mode="compare"
-                  data-story="permission-wall"
-                  title="Opens side-by-side comparison — No Filters surfaces all 16 docs while RBAC and Full Pipeline block 10">
-            <span class="onboard-card-head">
-              <span class="onboard-card-subtitle">Analyst · ARR</span>
-            </span>
-            <span class="onboard-card-title">Permission Wall</span>
-            <span class="onboard-hint">No Filters surfaces 16 docs · RBAC + Full Pipeline block 10.</span>
-          </button>
-          <button type="button"
-                  class="example-btn onboard-card onboard-card-compact"
-                  data-query="What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?"
-                  data-role="vp"
-                  data-mode="compare"
-                  data-story="vp-deal-view"
-                  title="Opens side-by-side comparison — only Full Pipeline demotes the outdated financial model">
-            <span class="onboard-card-head">
-              <span class="onboard-card-subtitle">VP · Financial models</span>
-            </span>
-            <span class="onboard-card-title">Financial model access</span>
-            <span class="onboard-hint">All three policies include the deal memo · only Full Pipeline demotes the outdated v1 model.</span>
-          </button>
-          <button type="button"
-                  class="example-btn onboard-card onboard-card-compact"
-                  data-query="What is the investment committee recommendation and LP update for the Meridian acquisition?"
-                  data-role="partner"
-                  data-mode="compare"
-                  data-story="stale-detection"
-                  title="Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline">
-            <span class="onboard-card-head">
-              <span class="onboard-card-subtitle">Partner · IC + LP</span>
-            </span>
-            <span class="onboard-card-title">Stale Detection</span>
-            <span class="onboard-hint">Full corpus retrievable · only Full Pipeline demotes superseded documents 0.5×.</span>
-          </button>
-        </div>
+        <div class="onboard-grid" id="compare-onboard-grid"></div>
         <p class="empty-hint">Or type your own query above and choose a role.</p>
       </div>
       <div class="compare-banner" id="compare-banner" hidden>
@@ -283,7 +216,7 @@ IC recommendation
     <section id="evals-section" class="evals-section" hidden>
       <div class="evals-header">
         <h2 class="evals-title">Evaluation Dashboard</h2>
-        <p class="evals-subtitle">Precision@5 · recall · permission safety · trace counts — 12 corpus-grounded test queries</p>
+        <p class="evals-subtitle" id="evals-subtitle">Precision@5 · recall · permission safety · trace counts — corpus-grounded benchmark</p>
       </div>
       <div id="evals-content">
         <!-- Injected by app.js -->
@@ -297,13 +230,13 @@ IC recommendation
     <section id="admin-section" class="admin-section" hidden>
       <div class="admin-header">
         <h2 class="admin-title">Ingest a document</h2>
-        <p class="admin-subtitle">Upload a PDF with metadata. The backend extracts text, appends to the corpus, and rebuilds the index. Reindex takes 5&ndash;15 seconds.</p>
+        <p class="admin-subtitle">Upload a document (.pdf, .txt, .md, .docx) with metadata. The backend verifies the file signature, extracts text, appends to the corpus, and rebuilds the index. Re-uploading identical content is rejected as a duplicate. Reindex takes 5&ndash;15 seconds.</p>
       </div>
 
       <form id="admin-form" class="admin-form" enctype="multipart/form-data">
         <div class="admin-field">
-          <label for="admin-file">PDF file</label>
-          <input type="file" id="admin-file" name="file" accept="application/pdf,.pdf" required />
+          <label for="admin-file">Document file</label>
+          <input type="file" id="admin-file" name="file" accept="application/pdf,.pdf,.txt,.md,.docx,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
         </div>
 
         <div class="admin-field">
@@ -318,32 +251,16 @@ IC recommendation
           </div>
           <div class="admin-field">
             <label for="admin-min-role">Minimum role</label>
-            <select id="admin-min-role" name="min_role" required>
-              <option value="analyst">analyst</option>
-              <option value="vp">vp</option>
-              <option value="partner">partner</option>
-            </select>
+            <!-- Options injected from the workspace's roles (Fase 2) -->
+            <select id="admin-min-role" name="min_role" required></select>
           </div>
         </div>
 
         <div class="admin-row">
           <div class="admin-field">
             <label for="admin-doc-type">Document type</label>
-            <select id="admin-doc-type" name="doc_type" required>
-              <option value="public_filing">public_filing</option>
-              <option value="research_note">research_note</option>
-              <option value="press_release">press_release</option>
-              <option value="financial_model">financial_model</option>
-              <option value="deal_memo">deal_memo</option>
-              <option value="internal_analysis">internal_analysis</option>
-              <option value="internal_email">internal_email</option>
-              <option value="internal_memo">internal_memo</option>
-              <option value="board_memo">board_memo</option>
-              <option value="legal_memo">legal_memo</option>
-              <option value="lp_update">lp_update</option>
-              <option value="news_article">news_article</option>
-              <option value="sector_overview">sector_overview</option>
-            </select>
+            <!-- Options injected from the workspace manifest's doc_types (Fase 2) -->
+            <select id="admin-doc-type" name="doc_type" required></select>
           </div>
           <div class="admin-field">
             <label for="admin-sensitivity">Sensitivity</label>
@@ -372,7 +289,7 @@ IC recommendation
       </form>
 
       <aside class="admin-note">
-        <strong>Demo only:</strong> uploads are persisted to the local repo (<code>corpus/</code> and <code>artifacts/</code>). Ephemeral hosting filesystems will lose uploaded docs on container restart. No auth, delete, or edit path — reindex is full-corpus and synchronous.
+        <strong>Demo only:</strong> uploads are persisted to the local repo (<code>corpora/&lt;workspace&gt;/</code> and <code>artifacts/&lt;workspace&gt;/</code>). Ephemeral hosting filesystems will lose uploaded docs on container restart. No delete or edit path — reindex is full-corpus and synchronous.
       </aside>
     </section>
 

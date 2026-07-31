@@ -5,14 +5,12 @@ Uses corpus-relative dating: age is measured from the newest document in the
 corpus, not from the current calendar date. This keeps freshness scores
 meaningful regardless of when the eval runs.
 
-Stale documents (superseded_by != null) are demoted with a multiplicative
-penalty but remain eligible for retrieval.
+Stale-document demotion lives in stages/freshness_scorer.py, which calls
+compute_freshness() and applies the superseded penalty.
 """
 
 import math
 from datetime import datetime
-
-STALE_PENALTY = 0.5  # multiplicative penalty for superseded docs
 
 
 def compute_freshness(
@@ -39,32 +37,3 @@ def compute_freshness(
         ref = datetime.now()
     age_days = max((ref - doc_date).days, 0)
     return math.exp(-math.log(2) * age_days / half_life_days)
-
-
-def apply_freshness(chunks: list, metadata: dict, half_life_days: float = 365.0) -> list:
-    """Attach freshness_score to each chunk based on corpus metadata.
-
-    Recency is computed relative to the newest document in the corpus,
-    so scores remain meaningful regardless of the current calendar date.
-    Stale documents (superseded_by != null) receive an additional penalty.
-    """
-    meta_by_id = {doc["id"]: doc for doc in metadata["documents"]}
-
-    # Use the newest document date as the reference point
-    all_dates = [doc["date"] for doc in metadata["documents"]]
-    reference_date = max(all_dates)
-
-    for chunk in chunks:
-        doc_meta = meta_by_id.get(chunk["doc_id"])
-        if doc_meta is None:
-            chunk["freshness_score"] = 0.0
-            continue
-
-        score = compute_freshness(doc_meta["date"], half_life_days, reference_date)
-
-        if doc_meta.get("superseded_by"):
-            score *= STALE_PENALTY
-
-        chunk["freshness_score"] = score
-
-    return chunks

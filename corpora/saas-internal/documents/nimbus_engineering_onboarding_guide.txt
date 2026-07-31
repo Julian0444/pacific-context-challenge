@@ -1,0 +1,43 @@
+NIMBUS ANALYTICS — ENGINEERING ONBOARDING GUIDE
+People Operations & Engineering Enablement
+Effective February 12, 2024 | INTERNAL — ALL EMPLOYEES
+
+OWNER: Tomás Aguirre, VP Engineering
+
+WELCOME
+
+Every engineering hire completes a 4-day onboarding bootcamp during their first week,
+run twice a month by Engineering Enablement. By day 5 you should have shipped a small
+change to production through the full pipeline.
+
+FIRST-WEEK CHECKLIST
+
+  Day 1: Laptop setup (managed image, disk encryption enforced), SSO enrollment with
+         hardware security key, 1Password vault, Slack channels (#eng-announce,
+         #helios-db, #incidents, #ship-it).
+  Day 2: Clone the nimbus-core monorepo, run the local stack, pair with your
+         onboarding buddy (assigned before your start date).
+  Day 3: Bootcamp sessions — architecture tour: Skyhook (event ingestion pipeline),
+         Prism (dashboard service), Gatekeeper (auth and production access broker),
+         helios-db (primary Postgres cluster).
+  Day 4: Ship your starter task through Skyship, our continuous-delivery system.
+  Day 5: Retro with your manager; 30-60-90 plan agreed and written down.
+
+HOW WE SHIP
+
+  — Trunk-based development: short-lived branches, merged behind feature flags.
+  — Skyship deploys on every green merge; production deploys freeze on Fridays.
+  — Every service has a runbook; on-call is opt-in before your 90th day.
+
+30-60-90 EXPECTATIONS
+
+  30 days: independent contributions in one service area, first on-call shadow.
+  60 days: own a small project end to end; participate in design reviews.
+  90 days: eligible for the on-call rotation (see On-Call Runbook, current version).
+
+QUESTIONS
+
+Ask in #eng-onboarding. Your buddy and manager are your first escalation path;
+People Ops (Ingrid Solberg) owns everything compensation- and benefits-related.
+
+Source: people-ops/onboarding_guide_2024.md | Classification: INTERNAL

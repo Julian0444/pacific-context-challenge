@@ -20,59 +20,52 @@ Reference:
      Rank Learning Methods" — SIGIR 2009
 """
 
-import re
-from typing import TYPE_CHECKING, Any
+from typing import Dict, Optional
 
 import numpy as np
 from rank_bm25 import BM25Okapi
 
+from src import embedder
 from src.indexer import (
-    MODEL_NAME,
     load_persisted_index,
     load_bm25_corpus,
     tokenize_for_bm25,
 )
-
-if TYPE_CHECKING:
-    from sentence_transformers import SentenceTransformer
+from src.workspaces import get_workspace
 
 # RRF constant — higher k dampens rank differences.
 RRF_K = 60
 
 # ---------------------------------------------------------------------------
-# Lazy-loaded singletons (expensive objects loaded once per process)
+# Lazy-loaded caches (expensive objects loaded once per process)
 # ---------------------------------------------------------------------------
 
-_model: Any = None
-_bm25 = None
+# The embeddings model lives in src.embedder (corpus-independent singleton).
+# BM25 depends on the workspace's tokenized corpus → one instance per slug.
+_bm25: Dict[str, BM25Okapi] = {}
 
 
-def _get_model() -> "SentenceTransformer":
-    global _model
-    if _model is None:
-        from sentence_transformers import SentenceTransformer
-
-        _model = SentenceTransformer(MODEL_NAME)
-    return _model
-
-
-def _get_bm25() -> BM25Okapi:
-    global _bm25
-    if _bm25 is None:
-        corpus = load_bm25_corpus()
-        _bm25 = BM25Okapi(corpus)
-    return _bm25
+def _get_bm25(workspace_slug: str) -> BM25Okapi:
+    bm25 = _bm25.get(workspace_slug)
+    if bm25 is None:
+        corpus = load_bm25_corpus(workspace_slug)
+        bm25 = BM25Okapi(corpus)
+        _bm25[workspace_slug] = bm25
+    return bm25
 
 
-def invalidate_caches() -> None:
-    """Reset in-process singletons that depend on the persisted corpus.
+def invalidate_caches(workspace: Optional[str] = None) -> None:
+    """Reset in-process caches that depend on a workspace's persisted corpus.
 
-    Call after the corpus is rebuilt (see src.ingest). Resets only `_bm25`;
-    FAISS is re-read from disk on every retrieve() call, and the embeddings
-    model is corpus-independent and can be kept cached.
+    Call after a workspace's corpus is rebuilt (see src.ingest). Resets only
+    the BM25 entry for that slug (all slugs when None); FAISS is re-read from
+    disk on every retrieve() call, and the embeddings model is
+    corpus-independent and can be kept cached.
     """
-    global _bm25
-    _bm25 = None
+    if workspace is None:
+        _bm25.clear()
+    else:
+        _bm25.pop(workspace, None)
 
 
 # ---------------------------------------------------------------------------
@@ -85,9 +78,7 @@ def _semantic_ranks(
     payloads: list[dict],
 ) -> dict[str, int]:
     """Return {doc_id: 1-based rank} from FAISS cosine similarity."""
-    model = _get_model()
-    query_vec = model.encode([query], normalize_embeddings=True)
-    query_vec = np.array(query_vec, dtype=np.float32)
+    query_vec = embedder.embed([query])
 
     n = index.ntotal
     scores, indices = index.search(query_vec, n)
@@ -103,9 +94,10 @@ def _semantic_ranks(
 def _bm25_ranks(
     query: str,
     payloads: list[dict],
+    workspace_slug: str,
 ) -> dict[str, int]:
     """Return {doc_id: 1-based rank} from BM25 lexical scoring."""
-    bm25 = _get_bm25()
+    bm25 = _get_bm25(workspace_slug)
     tokens = tokenize_for_bm25(query)
     scores = bm25.get_scores(tokens)
 
@@ -152,14 +144,23 @@ def _build_results(
     ranked_ids: list[tuple[str, float]],
     payloads: list[dict],
 ) -> list[dict]:
-    """Convert (doc_id, score) pairs into the standard result dict format."""
+    """Convert (row_id, score) pairs into the standard result dict format.
+
+    Rows are chunks (Fase 5 Etapa B): `doc_id` is the parent document id
+    (what permissions, freshness, evals and citations key on) and `chunk_id`
+    identifies the specific chunk. The .get fallbacks keep pre-chunking
+    artifacts (one row per doc, id == doc_id) readable.
+    """
     by_id = {p["id"]: p for p in payloads}
     results = []
-    for rank_0, (doc_id, score) in enumerate(ranked_ids):
-        p = by_id[doc_id]
+    for rank_0, (row_id, score) in enumerate(ranked_ids):
+        p = by_id[row_id]
         results.append({
             "rank": rank_0 + 1,
-            "doc_id": doc_id,
+            "doc_id": p.get("doc_id", p["id"]),
+            "chunk_id": p["id"],
+            "chunk_index": p.get("chunk_index", 0),
+            "chunk_count": p.get("chunk_count", 1),
             "title": p["title"],
             "file_name": p["file_name"],
             "score": float(score),
@@ -180,27 +181,29 @@ def _build_results(
 # Public API — both satisfy RetrieverProtocol
 # ---------------------------------------------------------------------------
 
-def retrieve(query: str, top_k: int = 8) -> list[dict]:
+def retrieve(query: str, top_k: int = 8, workspace: Optional[str] = None) -> list[dict]:
     """Hybrid retrieval: semantic + BM25 fused with Reciprocal Rank Fusion.
 
     Both FAISS and BM25 rank all corpus documents, then RRF merges the two
     rankings.  Fused scores are min-max normalized to [0, 1].
 
     Args:
-        query: Natural-language search string.
-        top_k: Number of results to return (default 8).
+        query:     Natural-language search string.
+        top_k:     Number of results to return (default 8).
+        workspace: Workspace slug (default: the default workspace).
 
     Returns:
         A list of dicts ranked by fused score, each containing:
             doc_id, title, file_name, score, type, date, min_role,
             tags, short_summary, superseded_by, sensitivity, excerpt
     """
-    index, payloads = load_persisted_index()
+    ws = get_workspace(workspace)
+    index, payloads = load_persisted_index(ws)
     n_total = index.ntotal
     top_k = min(top_k, n_total)
 
     sem = _semantic_ranks(query, index, payloads)
-    bm25 = _bm25_ranks(query, payloads)
+    bm25 = _bm25_ranks(query, payloads, ws.slug)
     fused = _rrf_fuse(sem, bm25, n_total)
     normed = _normalize_scores(fused)
 
@@ -208,19 +211,17 @@ def retrieve(query: str, top_k: int = 8) -> list[dict]:
     return _build_results(ranked, payloads)
 
 
-def semantic_retrieve(query: str, top_k: int = 8) -> list[dict]:
+def semantic_retrieve(query: str, top_k: int = 8, workspace: Optional[str] = None) -> list[dict]:
     """Semantic-only retrieval (FAISS cosine similarity).
 
     Provided for comparison and backward-compatibility testing.
     Same return shape as retrieve().
     """
-    index, payloads = load_persisted_index()
+    index, payloads = load_persisted_index(get_workspace(workspace))
     n_total = index.ntotal
     top_k = min(top_k, n_total)
 
-    model = _get_model()
-    query_vec = model.encode([query], normalize_embeddings=True)
-    query_vec = np.array(query_vec, dtype=np.float32)
+    query_vec = embedder.embed([query])
 
     scores, indices = index.search(query_vec, top_k)
 
@@ -231,7 +232,10 @@ def semantic_retrieve(query: str, top_k: int = 8) -> list[dict]:
         p = payloads[idx]
         results.append({
             "rank": rank_0 + 1,
-            "doc_id": p["id"],
+            "doc_id": p.get("doc_id", p["id"]),
+            "chunk_id": p["id"],
+            "chunk_index": p.get("chunk_index", 0),
+            "chunk_count": p.get("chunk_count", 1),
             "title": p["title"],
             "file_name": p["file_name"],
             "score": float(score),

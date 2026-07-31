@@ -1350,3 +1350,157 @@ Zero changes to `src/`, `frontend/`, or `tests/`. 184 passed, 14 skipped — ide
 - **Branch:** `main`
 - **Tests:** 184 passed, 14 skipped (no changes to test suite)
 - **Files changed:** `docs/pacific_demo_guide.md` (new), `script_en.md`, `demo.md`, `summaryUserExp.md`, `README.md`, `docs/HANDOFF.md`, `docs/plans/2026-04-27-met-c-pacific-demo-guide-plan.md` (new)
+
+
+
+
+Sos un ingeniero senior ayudándome a dejar QueryTrace (este repo, pacific-context-challenge) listo para mi portfolio y para defenderlo en entrevistas de AI-infra/backend. QueryTrace es un permission-aware RAG gateway: hybrid FAISS+BM25 retrieval con RRF, RBAC, freshness scoring, token-budget packing, y un decision-trace auditable. Es MI proyecto y quiero seguir entendiéndolo — no lo reescribas de cero ni cambies la arquitectura sin avisarme.
+
+FASE 1 — Revisá TODO el código y dame un reporte priorizado ANTES de tocar nada. Cubrí, en este orden:
+
+1. Reproducibilidad (lo MÁS importante): ¿un clon limpio puede hacer `pip install -r requirements.txt` y correr la app + el evaluator sin errores? Probalo de verdad en un venv limpio. Prestá atención especial a un posible choque de versiones torch/transformers (transformers usando `torch.library.register_fake`, que no existe en torch < 2.4). Decime exactamente cómo arreglar los pins.
+2. Bugs / correctness: cualquier cosa que no haga lo que dice.
+3. Seguridad para repo PÚBLICO: revisá el endpoint `/ingest` (¿sin auth?), el CORS (`allow_origins=['*']`?), el reindex in-process (¿atómico?), y buscá secrets/API keys hardcodeadas. Decime qué arreglar y qué documentar como "known limitation".
+4. Honestidad README/docs vs realidad: ¿los números coinciden? (conteo de tests, métricas de recall/precision, cantidad de modelos Pydantic). Marcá cualquier overclaim — quiero que TODO lo que diga el README sea verdad y reproducible, o esté marcado como "author-reported".
+5. Polish de portfolio: README (qué es, por qué importa, cómo correrlo en 3 pasos, arquitectura, link a la demo) y limpieza de docs de trabajo sueltos.
+6. Simplificación / code smells (liviano, solo lo que valga la pena).
+
+Formato: lista priorizada (Critical / High / Nice-to-have), cada ítem con archivo:línea, qué está mal, y el fix propuesto. NO cambies código todavía.
+
+
+CON TODO LO QUE RECOPILES TAMBIEN QUISIERA QUE ME EXPLIQUES QUE MAS LE FALTA A ESTE PROYECTO PARA DESTACAR, CREO QUE EL FRONTEND PODRIA MEJORARSE UN POQUITO Y LA CARGA DE PDFs nuevos tambien. LA IDEA DE ESTA APP ES DE QUE QUEDE DE PORTFOLIO DE LO QUE CONSTRUIR MOSTRANDOME PARA UN ROL DE AI ENGINEER. ME GUSTARIA QUE REVISES QUE SE PUEDE MEJORAR PARA QUE ESTE PROYECTO QUEDE PRO.
+
+
+EXTRA: al final escribime un "cómo explico QueryTrace en una entrevista": 5-6 decisiones de diseño clave (por qué hybrid FAISS+BM25, por qué RRF, cómo funciona el RBAC, qué garantiza el invariante `blocked+included+dropped==retrieved`, los trade-offs) en lenguaje simple, que yo pueda decir sin notas.
+
+NO TOQUES CODIGO POR FAVOR, SOLO LEE Y GENERA EL REPORTE
+
+
+---
+
+## Session — 2026-07-12/13 (Fase 6 "Lacre": rediseño institucional de la UI + empaquetado portfolio)
+
+### Estado: FASE 6 COMPLETA (A→G, Definition of Done al 100%) — todo local, sin commits (git manual del dueño)
+
+Plan fuente de verdad: `plansToPortfolio/fase-6-ui-lacre.md` — cada checkbox del DoD tiene nota
+fechada con lo hecho y lo medido. Suite final: **425 passed / 0 skipped** (421 + 4 tests nuevos de
+D.2), `ruff` limpio. Matriz Playwright global del estado final: **42/42** (4 modos ×
+guest/julia/patricia/alex × 2 workspaces × 2 temas × 375px × reduced-motion, consola limpia).
+
+**Qué cambió (resumen por etapa):**
+- **A (quick wins):** banner cold-start legible (1.05→13.83:1), focus rings en Role/Policy, header
+  móvil sin overflow ("Side-by-side"→"Compare" ≤640px), contraste provisional, keyframe único
+  `card-in` (fix real: compare-cols invisibles bajo reduced-motion), trace abierto por defecto con
+  desacople startOpen/compact, barras que se llenan (data-w + doble rAF), README 421/×6.
+- **B (fundación):** `:root` Lacre (papel/tinta/lacre-verde-ocre-azul; `--accent` = TINTA por
+  D6.1), escala tipográfica de 8 tokens (155 font-sizes colapsados, suelo 0.7rem), radios 2/4/8,
+  Fraunces+Source Serif 4+Plex Mono (104→145 KB woff2 medido), grano feTurbulence ≤3% +
+  atmósfera, gate de absorción = 0 literales fuera de los bloques de tokens, tema oscuro "reading
+  room" (media query + data-theme con toggle ◐ y boot anti-FOUC; lacre/verde oscuros recalibrados
+  a AA: #dc8177/#6fab86).
+- **C (sellos+folios):** sistema `.stamp` (doble anillo, máscara de tinta, multiply/screen por
+  tema, rotaciones ≤3°), folios con doble filete + Fraunces + EXHIBIT NN + REF:, stale/blocked con
+  sello + motivo legible.
+- **D (membrete+acta):** backend mínimo `title` en StaleDocument/DroppedByBudget (+4 tests),
+  summary-bar → membrete de memo, trace → acta "Decision Record" (fila por doc por acción,
+  motivos inline), regresión redactada FUERTE (julia: cero títulos/ids bloqueados en DOM),
+  línea de clasificación desde el manifest + sello circular QT en lacre.
+- **E (portada+carta):** empty state con el claim medido en Fraunces 2.2rem, login como carta
+  (personas = tarjetas de visita con CLEARANCE, guest → CTA primario), fixes aria/móvil.
+- **F (dictamen+informe):** sellos-veredicto en Compare (LEAKED N DOCS / CLEAN, N desde
+  `blocked_doc_count` del full), mini-folios, placa CERTIFIED condicional + estado financiero de
+  9 filas + mini-barras de budget (Session Audit las hereda).
+- **G (portfolio):** favicon + og-card con el sello lacre (dark embebido en el SVG), GIF 20s
+  2.37 MB en `docs/media/` (pipeline determinista frames+Pillow — el ffmpeg de Playwright no trae
+  encoder GIF), 3 capturas con caption en README, pipeline ASCII → Mermaid (validado con
+  mermaid@10 real), links locales verificados.
+
+**Docs actualizados:** CLAUDE.md (párrafos "Lacre design foundation" + "Lacre components" — donde
+el texto viejo de la sección Frontend contradiga, mandan esos párrafos; queda drift cosmético
+menor en los bullets largos de modos, no bloqueante), README (GIF + screenshots + Mermaid +
+números 421→ver nota), plan de fase con DoD completo.
+
+**Pendientes SOLO del dueño (post push/deploy):**
+1. Commits (mensajes sugeridos en el resumen de sesión de Claude, uno por etapa A→G).
+2. GitHub Settings: subir `frontend/og-card.png` como Social preview; description
+   ("Auditable RAG gateway: RBAC + freshness + token budget con Decision Record por query");
+   topics `rag, retrieval, rbac, fastapi, faiss, llm`.
+3. Validar el scrape social del deploy (p.ej. opengraph.xyz) y que el GIF del README reproduce
+   en GitHub.
+4. (resuelto en la propia sesión: README actualizado a 425 en L354/L395 — el punto quedó
+   documentado aquí solo como historial de la decisión).
+
+**Scripts de verificación de la sesión** (scratchpad, no versionados):
+verify_etapa_{a..f}.py, verify_global.py, contrast_{a4,b}.py, gate_check.py, collapse_pass.py,
+build_gif.py, og_card.html — reproducibles con
+`.venv/bin/python .claude/skills/webapp-testing/scripts/with_server.py --server ".venv/bin/python -m uvicorn src.main:app --port 8000" --port 8000 -- .venv/bin/python <script>`.
+
+---
+
+## Session — 2026-07-23 (Decisión GitHub-only + README portfolio-final + fix de caché del embedder)
+
+### Decisión del dueño: SIN deploy en Render — el repo ES el portfolio
+
+Esto cierra por decisión las casillas de deploy de las fases 0/1/2/3/4 (detailsToComplete §3) y el
+punto D3 (la key de Ask queda como feature local documentada — nunca estuvo en riesgo de ser
+pública: es env var de servidor, pero la decisión GitHub-only las vuelve moot).
+
+**1. Bug real encontrado y arreglado — caché del modelo en el tempdir.** Al retomar tras días, la
+primera query devolvía 500: `ONNXRuntimeError NO_SUCHFILE` — fastembed cachea por defecto en
+`<tempdir>/fastembed_cache` y la purga periódica de macOS dejó un snapshot a medio borrar que
+fastembed intenta cargar en vez de re-descargar. Fix en `src/embedder.py`: `_cache_dir()` →
+`~/.cache/querytrace/fastembed` (persistente), `FASTEMBED_CACHE_PATH` la pisa; +2 tests.
+Suite: **427 passed / 0 skipped** (README/CLAUDE.md actualizados al número).
+
+**2. README sin dependencias de deploy** (quedaba perfecto solo si existía la URL viva):
+- Hero: "Try it live" → "Runs locally in three commands" + GIF como demo + strip "At a glance"
+  con el claim medido 50–58%→0%.
+- 2 imágenes nuevas de UI en la sección Frontend (par side-by-side): `docs/media/login-letter.png`
+  (carta clara) + `docs/media/single-dark.png` (reading room oscuro).
+- Bullets de los 4 modos reescritos a la realidad Lacre (folios/EXHIBIT/Decision Record,
+  veredictos LEAKED/CLEAN, placa CERTIFIED).
+- Link de /docs → localhost; "(disabled on public deploy)" → gates reales (admin session +
+  ALLOW_INGEST); stack "Deploy:" → "Deploy-ready:" (Dockerfile + render.yaml incluidos, medidas
+  conservadas); Known Limitations generalizado a "free-tier hosts".
+- Verificado: 10 refs locales existen, 0 URLs de onrender.com restantes.
+
+**3. Para el dueño en GitHub (sin deploy, todo en Settings):**
+- About description (EN, lista para pegar): "Auditable RAG gateway — hybrid retrieval governed by
+  RBAC, freshness scoring and token budgets, with a per-query Decision Record that accounts for
+  every document. Measured: naive top-k leaks 50–58% of queries; the full pipeline, 0%."
+- Topics: rag · retrieval · rbac · information-retrieval · faiss · bm25 · fastapi · llm · python
+- Social preview: subir `frontend/og-card.png` (Settings → General → Social preview).
+- Opcional recomendado: renombrar el repo a `querytrace` (la marca hoy es coherente en
+  pestaña/social/app; el nombre "pacific-context-challenge" es lo único fuera de sistema — GitHub
+  redirige las URLs viejas).
+- Sigue vigente el pre-commit de detailsToComplete §1/§2: D6 (skills borradas), ¿plansToPortfolio/
+  al repo?, untrack test-results/, y el commit+push de todo (CI corre con el primer push).
+
+---
+
+## Session — 2026-07-28 (Rewrite editorial del README)
+
+El dueño pidió reescribir el README ("suena horrible") para que sea presentable a empresas.
+Diagnóstico: creció por acumulación de fases hasta ser la bitácora entera disfrazada de portada
+(~419 líneas / ~4.300 palabras, el claim repetido 4×, Decision Record explicado 5×, Quickstart
+duplicado, voz sobrecargada de mediciones entre paréntesis).
+
+**Resultado: README de 149 líneas / ~1.400 palabras**, voz humana, ordenado para un lector que
+decide si entrevistar: qué-es en una frase → cita → GIF → claim una vez → "la idea en 30 segundos"
+(la historia julia/victoria contada UNA vez) → 5 imágenes → Quickstart → Mermaid + 4 bullets →
+UNA tabla de números → features a bullet por ítem → API → stack → limitaciones a una línea →
+links de profundidad. Reglas de voz verificadas por script: "measured" ×1, "honest" ×0, números
+en tablas, cero vestigios de deploy.
+
+**Nada se perdió — se mudó:**
+- `docs/evaluation.md` (NUEVO): las 4 tablas, footnote de P@5, estudio de chunking antes/después,
+  fidelidad de citas de Ask, comandos del harness.
+- `docs/demo-guide.md`: + tour de 3 minutos, credenciales de ambos workspaces, los 3 escenarios,
+  detalle de corpora/pares superseded, BYO corpus completo, knobs de Ask; intro reencuadrada a
+  local (era "deployed app").
+- `docs/architecture.md`: + sección "Limitations & trade-offs" con los 8 bullets completos
+  (la portada los tiene a una línea con link).
+- El árbol de "Project structure" salió de la portada (architecture.md ya documenta los módulos).
+
+Verificado: 15+2+2 referencias locales existentes, ancla de limitations correcta, Mermaid
+renderiza ("ok" con mermaid@10 real). Sin cambios de código; suite sigue 427/0.

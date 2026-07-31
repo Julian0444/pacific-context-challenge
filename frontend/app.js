@@ -36,12 +36,40 @@ const POLICY_META = {
 // Canonical display order for compare columns
 const COMPARE_ORDER = ["naive_top_k", "permission_aware", "full_policy"];
 
-// ── Role descriptions (shown under the role selector) ──
+// ── Workspace state (Fase 2) ────────────────────────────────────────────────
+// Everything corpus-specific (roles, scenarios, examples, placeholders) is
+// rendered from GET /workspaces/{slug}/meta. Switching workspace persists the
+// slug and reloads for a clean re-bootstrap (same pattern as login).
 
-const ROLE_DESCRIPTIONS = {
-  analyst: "Sees 6 of 16 docs — public filings, research notes, press release, sector overview, public news.",
-  vp: "Sees 12 of 16 docs — adds deal memos, financial models, diligence analyses, internal memos.",
-  partner: "Sees 16 of 16 docs — full corpus including IC memo, LP update, and legal diligence.",
+const WORKSPACE_STORAGE_KEY = "qt_workspace";
+let WORKSPACES = []; // [{slug, name, description, doc_count}]
+let DEFAULT_WORKSPACE = "pe-deal";
+let CURRENT_WORKSPACE = null; // slug
+let WORKSPACE_META = null; // /workspaces/{slug}/meta payload
+
+// Role maps — rebuilt per workspace from /meta ("Sees N of M docs" is
+// computed server-side from metadata, never hardcoded here).
+let ROLE_DESCRIPTIONS = {};
+let ROLE_RANKS = {};
+
+// Offline fallback (server unreachable): keeps the form usable so submit can
+// surface the "Backend unavailable" error card instead of a dead page.
+const FALLBACK_META = {
+  slug: "pe-deal",
+  name: "QueryTrace",
+  description: "",
+  total_docs: 0,
+  doc_types: [],
+  roles: [
+    { name: "analyst", access_rank: 1, hint: "", docs_visible: 0 },
+    { name: "vp", access_rank: 2, hint: "", docs_visible: 0 },
+    { name: "partner", access_rank: 3, hint: "", docs_visible: 0 },
+  ],
+  scenarios: [],
+  example_queries: [],
+  search_placeholder: "Type a query…",
+  empty_state_description: "",
+  personas: [],
 };
 
 // Raw excerpt storage for expand/collapse — keyed by card index, avoids data-attr innerHTML
@@ -119,6 +147,398 @@ const adminSection = document.getElementById("admin-section");
 let currentMode = "single"; // "single" | "compare" | "evals" | "admin"
 let evalsLoaded = false;
 
+// ── Session state (Fase P) ──────────────────────────────────────────────────
+// SESSION is null for guests (lab mode — everything behaves as before).
+// With a session, role (and policy for non-admins) derive server-side from
+// the signed cookie; the UI mirrors that so controls never lie.
+
+let SESSION = null; // {username, name, role, is_admin, workspace} | null
+let INGEST_ENABLED = null; // from /health; null until probed
+let ASK_ENABLED = null; // from /health; Ask mode exists only with a model key
+
+// ── Workspace loading + rendering (Fase 2) ──────────────────────────────────
+
+async function loadWorkspaces() {
+  try {
+    const res = await fetch(`${API_BASE}/workspaces`);
+    if (!res.ok) throw new Error(`workspaces ${res.status}`);
+    const data = await res.json();
+    WORKSPACES = data.workspaces || [];
+    DEFAULT_WORKSPACE = data.default || DEFAULT_WORKSPACE;
+  } catch (_err) {
+    WORKSPACES = [];
+  }
+}
+
+function resolveInitialWorkspace() {
+  // Session binding wins; then the persisted picker choice; then the default.
+  if (SESSION?.workspace) return SESSION.workspace;
+  const stored = sessionStorage.getItem(WORKSPACE_STORAGE_KEY);
+  if (stored && WORKSPACES.some((w) => w.slug === stored)) return stored;
+  return DEFAULT_WORKSPACE;
+}
+
+async function loadWorkspaceMeta(slug) {
+  try {
+    const res = await fetch(`${API_BASE}/workspaces/${encodeURIComponent(slug)}/meta`);
+    if (!res.ok) throw new Error(`meta ${res.status}`);
+    WORKSPACE_META = await res.json();
+  } catch (_err) {
+    WORKSPACE_META = FALLBACK_META;
+  }
+}
+
+function setWorkspace(slug) {
+  if (!slug || slug === CURRENT_WORKSPACE) return;
+  sessionStorage.setItem(WORKSPACE_STORAGE_KEY, slug);
+  const proceed = () => location.reload(); // clean re-bootstrap, like login
+  if (SESSION && SESSION.workspace !== slug) {
+    // Sessions are bound to one workspace server-side; switching signs out
+    // and lands on the new workspace's login screen.
+    sessionStorage.removeItem("qt_guest");
+    fetch(`${API_BASE}/logout`, { method: "POST" })
+      .catch(() => {})
+      .finally(proceed);
+  } else {
+    proceed();
+  }
+}
+
+function renderWorkspacePickers() {
+  const options = WORKSPACES.map(
+    (w) =>
+      `<option value="${escapeHTML(w.slug)}"${w.slug === CURRENT_WORKSPACE ? " selected" : ""}>${escapeHTML(w.name)}</option>`
+  ).join("");
+  [
+    document.getElementById("workspace-picker"),
+    document.getElementById("login-workspace-picker"),
+  ].forEach((sel) => {
+    if (!sel) return;
+    if (WORKSPACES.length === 0) {
+      sel.hidden = true;
+      const label = document.querySelector(".workspace-switch-label");
+      if (label) label.hidden = true;
+      return;
+    }
+    sel.innerHTML = options;
+    sel.value = CURRENT_WORKSPACE;
+    sel.addEventListener("change", () => setWorkspace(sel.value));
+  });
+}
+
+function onboardCardHTML(s) {
+  return `
+    <div class="onboard-card" data-story="${escapeHTML(s.key || "")}">
+      <span class="onboard-card-head">
+        <span class="onboard-card-subtitle">${escapeHTML(s.subtitle || s.role || "")}</span>
+      </span>
+      <span class="onboard-card-title">${escapeHTML(s.title || "")}</span>
+      <span class="onboard-hint">${escapeHTML(s.hint || "")}</span>
+      <div class="onboard-actions">
+        <button type="button"
+                class="example-btn onboard-primary"
+                data-query="${escapeHTML(s.query || "")}"
+                data-role="${escapeHTML(s.role || "")}"
+                data-mode="single"
+                title="${escapeHTML(s.single_tooltip || "")}">
+          Run in Single
+        </button>
+        <button type="button"
+                class="example-btn onboard-secondary"
+                data-query="${escapeHTML(s.query || "")}"
+                data-role="${escapeHTML(s.role || "")}"
+                data-mode="compare"
+                title="${escapeHTML(s.compare_tooltip || "")}">
+          Open in Compare →
+        </button>
+      </div>
+    </div>`;
+}
+
+function compareOnboardCardHTML(s) {
+  return `
+    <button type="button"
+            class="example-btn onboard-card onboard-card-compact"
+            data-query="${escapeHTML(s.query || "")}"
+            data-role="${escapeHTML(s.role || "")}"
+            data-mode="compare"
+            data-story="${escapeHTML(s.key || "")}"
+            title="${escapeHTML(s.compare_card_tooltip || s.compare_tooltip || "")}">
+      <span class="onboard-card-head">
+        <span class="onboard-card-subtitle">${escapeHTML(s.compare_subtitle || s.subtitle || "")}</span>
+      </span>
+      <span class="onboard-card-title">${escapeHTML(s.title || "")}</span>
+      <span class="onboard-hint">${escapeHTML(s.compare_hint || s.hint || "")}</span>
+    </button>`;
+}
+
+function renderRoleControls() {
+  const container = document.getElementById("role-options");
+  if (!container) return;
+  const roles = WORKSPACE_META.roles || [];
+  ROLE_RANKS = {};
+  ROLE_DESCRIPTIONS = {};
+  roles.forEach((r) => {
+    ROLE_RANKS[r.name] = r.access_rank;
+    const seen = `Sees ${r.docs_visible} of ${WORKSPACE_META.total_docs} docs`;
+    ROLE_DESCRIPTIONS[r.name] = r.hint ? `${seen} — ${r.hint}.` : `${seen}.`;
+  });
+  container.innerHTML = roles
+    .map(
+      (r, i) => `
+      <label class="role-option">
+        <input type="radio" name="role" value="${escapeHTML(r.name)}"${i === 0 ? " checked" : ""} />
+        <span class="role-chip">${escapeHTML(roleLabel(r.name))}</span>
+      </label>`
+    )
+    .join("");
+  container.querySelectorAll('input[name="role"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      updateRoleDescription(radio.value);
+      evaluateSingleStale();
+    });
+  });
+  updateRoleDescription(roles[0]?.name || "");
+}
+
+function roleLabel(name) {
+  // Short role names render as acronyms (vp → VP); words get capitalized.
+  if (!name) return "";
+  if (name.length <= 3) return name.toUpperCase();
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function renderExamples() {
+  const container = document.getElementById("examples");
+  if (!container) return;
+  const examples = WORKSPACE_META.example_queries || [];
+  const rows = [
+    { mode: "single", label: "Single" },
+    { mode: "compare", label: "Compare" },
+  ]
+    .map(({ mode, label }) => {
+      const btns = examples
+        .filter((e) => (e.mode || "single") === mode)
+        .map(
+          (e) => `
+          <button class="example-btn${mode === "compare" ? " scenario-btn" : ""}"
+                  data-query="${escapeHTML(e.query || "")}"
+                  data-role="${escapeHTML(e.role || "")}"
+                  data-mode="${escapeHTML(mode)}"
+                  title="${escapeHTML(e.tooltip || "")}">${escapeHTML(e.label || "")}</button>`
+        )
+        .join("");
+      if (!btns) return "";
+      return `<div class="examples-row"><span class="examples-label">${label}</span>${btns}</div>`;
+    })
+    .join("");
+  container.innerHTML = rows;
+}
+
+function renderAdminFormOptions() {
+  const roleSel = document.getElementById("admin-min-role");
+  const typeSel = document.getElementById("admin-doc-type");
+  if (roleSel) {
+    roleSel.innerHTML = (WORKSPACE_META.roles || [])
+      .map((r) => `<option value="${escapeHTML(r.name)}">${escapeHTML(r.name)}</option>`)
+      .join("");
+  }
+  if (typeSel) {
+    typeSel.innerHTML = (WORKSPACE_META.doc_types || [])
+      .map((t) => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`)
+      .join("");
+  }
+}
+
+function renderWorkspaceUI() {
+  renderWorkspacePickers();
+  renderRoleControls();
+  renderExamples();
+  renderAdminFormOptions();
+
+  if (input && WORKSPACE_META.search_placeholder) {
+    input.placeholder = WORKSPACE_META.search_placeholder;
+  }
+
+  const emptyDesc = document.getElementById("empty-description");
+  if (emptyDesc) emptyDesc.textContent = WORKSPACE_META.empty_state_description || "";
+
+  const scenarios = WORKSPACE_META.scenarios || [];
+  const onboardGrid = document.getElementById("onboard-grid");
+  if (onboardGrid) onboardGrid.innerHTML = scenarios.map(onboardCardHTML).join("");
+  const compareGridEl = document.getElementById("compare-onboard-grid");
+  if (compareGridEl) {
+    compareGridEl.innerHTML = scenarios.map(compareOnboardCardHTML).join("");
+  }
+
+  const loginName = document.getElementById("login-workspace-name");
+  if (loginName) loginName.textContent = WORKSPACE_META.name || "";
+
+  // Letterhead classification line (D.4) — name comes from the manifest, the
+  // marking itself is generic product furniture (credible in any workspace).
+  const classLine = document.getElementById("classification-line");
+  if (classLine) {
+    const wsName = WORKSPACE_META.name || "";
+    classLine.textContent = wsName
+      ? `Private & Confidential · ${wsName}`
+      : "Private & Confidential";
+    classLine.hidden = false;
+  }
+}
+
+// Business-card personas (Fase 6 Etapa E): NAME · ROLE · CLEARANCE from the
+// workspace meta (access ranks render as roman numerals — corpus-agnostic).
+function romanRank(n) {
+  return ["", "I", "II", "III", "IV", "V"][n] || String(n);
+}
+
+function personaCardHTML(p) {
+  const initials = p.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const adminBadge = p.is_admin ? '<span class="persona-admin-badge">admin</span>' : "";
+  const rank = ROLE_RANKS[p.role];
+  const clearance = rank ? ` · Clearance ${romanRank(rank)}` : "";
+  return `
+    <button class="persona-card" type="button"
+            data-username="${escapeHTML(p.username)}" data-password="${escapeHTML(p.password_hint)}">
+      <span class="persona-avatar" aria-hidden="true">${initials}</span>
+      <span class="persona-body">
+        <span class="persona-name">${escapeHTML(p.name)} ${adminBadge}</span>
+        <span class="persona-card-line">${escapeHTML(p.role)}${escapeHTML(clearance)}</span>
+        <span class="persona-role">sees ${p.docs_visible} of ${p.total_docs} docs</span>
+        <span class="persona-creds">${escapeHTML(p.username)} / ${escapeHTML(p.password_hint)}</span>
+      </span>
+    </button>`;
+}
+
+function showLoginScreen() {
+  const screen = document.getElementById("login-screen");
+  const cardsEl = document.getElementById("persona-cards");
+  if (!screen || !cardsEl) return;
+  screen.hidden = false;
+  if (cardsEl.childElementCount > 0) return; // already rendered
+
+  // Personas ship with the workspace meta (Fase 2) — no extra fetch, and the
+  // cards always match the workspace shown in the picker.
+  const personas = WORKSPACE_META?.personas || [];
+  if (personas.length === 0) {
+    cardsEl.innerHTML =
+      '<p class="login-error">Could not load personas — is the server running?</p>';
+    return;
+  }
+  cardsEl.innerHTML = personas.map(personaCardHTML).join("");
+  cardsEl.querySelectorAll(".persona-card").forEach((card) => {
+    card.addEventListener("click", async () => {
+      card.disabled = true;
+      try {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: card.dataset.username,
+            password: card.dataset.password,
+            workspace: CURRENT_WORKSPACE, // session binds to this workspace
+          }),
+        });
+        if (!res.ok) throw new Error(`login ${res.status}`);
+        sessionStorage.removeItem("qt_guest");
+        location.reload(); // clean re-bootstrap with the session cookie set
+      } catch (err) {
+        card.disabled = false;
+        cardsEl.insertAdjacentHTML(
+          "beforeend",
+          `<p class="login-error">Sign-in failed (${escapeHTML(String(err.message || err))}). Try again.</p>`
+        );
+      }
+    });
+  });
+}
+
+document.getElementById("guest-link")?.addEventListener("click", () => {
+  sessionStorage.setItem("qt_guest", "1");
+  const screen = document.getElementById("login-screen");
+  if (screen) screen.hidden = true;
+});
+
+function renderSessionChip() {
+  const chip = document.getElementById("session-chip");
+  if (!chip) return;
+  if (SESSION) {
+    const initials = SESSION.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+    chip.innerHTML = `
+      <span class="chip-avatar" aria-hidden="true">${initials}</span>
+      <span class="chip-identity">
+        <span class="chip-name">${escapeHTML(SESSION.name)}</span>
+        <span class="chip-role">${escapeHTML(SESSION.role)}${SESSION.is_admin ? " · admin" : ""}${SESSION.workspace ? ` · ${escapeHTML(SESSION.workspace)}` : ""}</span>
+      </span>
+      <button class="chip-logout" id="logout-btn" type="button">Sign out</button>`;
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      try {
+        await fetch(`${API_BASE}/logout`, { method: "POST" });
+      } catch (_err) { /* cookie may already be gone */ }
+      sessionStorage.removeItem("qt_guest");
+      location.reload();
+    });
+  } else {
+    chip.innerHTML =
+      '<button class="chip-signin" id="signin-btn" type="button">Sign in</button>';
+    document.getElementById("signin-btn").addEventListener("click", () => {
+      sessionStorage.removeItem("qt_guest");
+      showLoginScreen();
+    });
+  }
+}
+
+function syncRoleControlsForMode() {
+  // Admin sessions: /query always runs as the session role, so lock the role
+  // radios in Single mode; Side-by-side keeps free role choice ("View as…").
+  if (!SESSION || !SESSION.is_admin) return;
+  const lock = currentMode === "single";
+  document.querySelectorAll('input[name="role"]').forEach((r) => {
+    r.disabled = lock;
+  });
+  if (lock) {
+    const rr = document.querySelector(`input[name="role"][value="${SESSION.role}"]`);
+    if (rr) rr.checked = true;
+    updateRoleDescription(SESSION.role);
+  }
+  const note = document.getElementById("session-role-note");
+  if (note) note.hidden = !lock;
+}
+
+function applySessionUI() {
+  if (!SESSION) return;
+  // Mirror the server-derived controls so downstream logic (stale banner,
+  // descriptions) stays coherent even while the selectors are hidden/locked.
+  const roleRadio = document.querySelector(`input[name="role"][value="${SESSION.role}"]`);
+  if (roleRadio) roleRadio.checked = true;
+  updateRoleDescription(SESSION.role);
+
+  if (!SESSION.is_admin) {
+    document.body.classList.add("product-mode");
+    const policyRadio = document.querySelector('input[name="policy"][value="full_policy"]');
+    if (policyRadio) policyRadio.checked = true;
+    updatePolicyDescription("full_policy");
+    // Product sessions get Query only (see the Fase P capability table).
+    document
+      .querySelectorAll('.mode-btn[data-mode="compare"], .mode-btn[data-mode="evals"]')
+      .forEach((b) => { b.hidden = true; });
+  } else {
+    document.body.classList.add("admin-mode");
+    if (INGEST_ENABLED !== false) {
+      const adminBtn = document.querySelector('.mode-btn[data-mode="admin"]');
+      if (adminBtn) adminBtn.hidden = false;
+    }
+    const roleGroup = document.querySelector(".role-selector-group");
+    if (roleGroup && !document.getElementById("session-role-note")) {
+      roleGroup.insertAdjacentHTML(
+        "beforeend",
+        `<p class="session-role-note" id="session-role-note">Query mode runs as your session role (${escapeHTML(SESSION.role)}). Use Side-by-side to view as other roles.</p>`
+      );
+    }
+    syncRoleControlsForMode();
+  }
+}
+
 // ── Mode toggle ──
 
 document.querySelectorAll(".mode-btn").forEach((btn) => {
@@ -175,6 +595,13 @@ function switchMode(mode) {
   // a round trip with a diverged role radio still surfaces the banner.
   if (leavingSingle) clearSingleStale();
   if (enteringSingle) evaluateSingleStale();
+
+  // Admin sessions: role radios lock in Single (server derives the role),
+  // unlock in Side-by-side ("View as…").
+  syncRoleControlsForMode();
+
+  // Ask AI only exists in Single mode (and only when the server has a key).
+  updateAskButtonVisibility();
 }
 
 function playModeEnter(el) {
@@ -188,6 +615,47 @@ function playModeEnter(el) {
     el.removeEventListener("animationend", onEnd);
   };
   el.addEventListener("animationend", onEnd);
+}
+
+// ── Theme toggle (Fase 6, D6.3) ──
+// data-theme on <html> is the explicit user choice (persisted in localStorage
+// and applied pre-paint by the boot script in index.html); without it the
+// prefers-color-scheme media query decides. The attribute wins both ways.
+
+const themeToggle = document.getElementById("theme-toggle");
+
+function effectiveTheme() {
+  const forced = document.documentElement.getAttribute("data-theme");
+  if (forced === "dark" || forced === "light") return forced;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function updateThemeToggleLabel() {
+  if (!themeToggle) return;
+  const next = effectiveTheme() === "dark" ? "light" : "dark";
+  const label = `Switch to ${next} theme`;
+  themeToggle.setAttribute("aria-label", label);
+  themeToggle.title = label;
+}
+
+if (themeToggle) {
+  themeToggle.addEventListener("click", () => {
+    const next = effectiveTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("qt_theme", next);
+    } catch (_err) {
+      /* storage unavailable — the choice lasts for this page only */
+    }
+    updateThemeToggleLabel();
+  });
+  const colorSchemeMq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (colorSchemeMq.addEventListener) {
+    colorSchemeMq.addEventListener("change", updateThemeToggleLabel);
+  }
+  updateThemeToggleLabel();
 }
 
 // ── Policy description + warning ──
@@ -229,32 +697,62 @@ function updateRoleDescription(role) {
   }, 80);
 }
 
-document.querySelectorAll('input[name="role"]').forEach((radio) => {
-  radio.addEventListener("change", () => {
-    updateRoleDescription(radio.value);
-    evaluateSingleStale();
-  });
-});
+// Role radios are rendered (and wired) per workspace in renderRoleControls().
 
-// Initialize with the default checked role
-updateRoleDescription(
-  document.querySelector('input[name="role"]:checked')?.value || "analyst"
-);
+// ── Bootstrap: health probe (capabilities + cold start) + session probe ──
+// If /health takes more than ~2.5s (Render free tier waking up, ~45-60s),
+// show a banner instead of a silent dead UI.
 
-// ── Capability probe — hide Admin tab when the server has ingest disabled ──
+(async function bootstrap() {
+  let coldStartBanner = null;
+  const coldStartTimer = setTimeout(() => {
+    coldStartBanner = document.createElement("div");
+    coldStartBanner.className = "cold-start-banner";
+    coldStartBanner.setAttribute("role", "status");
+    coldStartBanner.textContent =
+      "⏳ Waking up the free-tier server — this first load can take ~45 seconds. Everything is instant once it's up.";
+    document.body.prepend(coldStartBanner);
+  }, 2500);
 
-(async function probeIngestCapability() {
   try {
     const res = await fetch(`${API_BASE}/health`);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && data.ingest_enabled === false) {
-      const adminBtn = document.querySelector('.mode-btn[data-mode="admin"]');
-      if (adminBtn) adminBtn.hidden = true;
-      if (adminSection) adminSection.hidden = true;
+    if (res.ok) {
+      const data = await res.json();
+      INGEST_ENABLED = !!(data && data.ingest_enabled);
+      ASK_ENABLED = !!(data && data.ask_enabled);
+      updateAskButtonVisibility();
+      if (data && data.default_workspace) DEFAULT_WORKSPACE = data.default_workspace;
     }
   } catch (_err) {
-    // Non-fatal: if the probe fails (offline, old server), leave Admin visible.
+    // Non-fatal: offline or old server — leave capabilities at defaults.
+  } finally {
+    clearTimeout(coldStartTimer);
+    if (coldStartBanner) coldStartBanner.remove();
+  }
+
+  // Session probe: 401 → guest (lab). The login screen only appears when the
+  // visitor hasn't explicitly chosen the guest path this browser session.
+  try {
+    const res = await fetch(`${API_BASE}/me`);
+    if (res.ok) SESSION = await res.json();
+  } catch (_err) {
+    SESSION = null;
+  }
+
+  // Workspace resolution (Fase 2): session binding > stored choice > default.
+  // All corpus-specific UI (roles, scenarios, examples, personas) renders
+  // from the workspace meta before any session UI touches those controls.
+  await loadWorkspaces();
+  CURRENT_WORKSPACE = resolveInitialWorkspace();
+  sessionStorage.setItem(WORKSPACE_STORAGE_KEY, CURRENT_WORKSPACE);
+  await loadWorkspaceMeta(CURRENT_WORKSPACE);
+  renderWorkspaceUI();
+
+  renderSessionChip();
+  if (SESSION) {
+    applySessionUI();
+  } else if (!sessionStorage.getItem("qt_guest")) {
+    showLoginScreen();
   }
 })();
 
@@ -265,24 +763,40 @@ form.addEventListener("submit", async (e) => {
   const query = input.value.trim();
   if (!query) return;
 
-  const role = document.querySelector('input[name="role"]:checked').value;
+  // With a session, the role is server-derived; the radio is just a mirror.
+  const role = SESSION
+    ? SESSION.role
+    : document.querySelector('input[name="role"]:checked').value;
 
   if (currentMode === "compare") {
     await runCompare(query, role);
   } else {
     const policy =
-      document.querySelector('input[name="policy"]:checked')?.value ||
-      "full_policy";
+      SESSION && !SESSION.is_admin
+        ? "full_policy"
+        : document.querySelector('input[name="policy"]:checked')?.value ||
+          "full_policy";
     await runSingleQuery(query, role, policy);
   }
 });
 
 // ── Example / scenario buttons ──
+// Delegated: scenario cards and shortcut rows are re-rendered per workspace
+// (Fase 2), so a document-level listener replaces per-button wiring.
 
-document.querySelectorAll(".example-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest?.(".example-btn");
+  if (btn) handleExampleClick(btn);
+});
+
+function handleExampleClick(btn) {
+  {
     const query = btn.dataset.query;
-    const role = btn.dataset.role;
+    // Product/admin sessions can't impersonate roles in Query mode — the
+    // scenario runs as the session identity (that's the point of the mode).
+    const role = SESSION && btn.dataset.mode !== "compare"
+      ? SESSION.role
+      : btn.dataset.role;
     const targetMode = btn.dataset.mode;
 
     input.value = query;
@@ -315,23 +829,28 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
     } else {
       runSingleQuery(query, role, "full_policy");
     }
-  });
-});
+  }
+}
 
 // ── Single-policy query ──
 
 async function runSingleQuery(query, role, policy = "full_policy") {
   setLoadingSingle(true);
   try {
+    // Sessions: omit role (server derives it from the cookie; sending a
+    // conflicting one is a 400 by design). Non-admins also omit policy.
+    // Workspace always travels along (it matches the session binding).
+    const body = { query, top_k: DEFAULT_TOP_K, workspace: CURRENT_WORKSPACE };
+    if (!SESSION) {
+      body.role = role;
+      body.policy_name = policy;
+    } else if (SESSION.is_admin) {
+      body.policy_name = policy;
+    }
     const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        role,
-        top_k: DEFAULT_TOP_K,
-        policy_name: policy,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -356,7 +875,12 @@ async function runCompare(query, role) {
     const res = await fetch(`${API_BASE}/compare`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, role, top_k: DEFAULT_TOP_K }),
+      body: JSON.stringify({
+        query,
+        role,
+        top_k: DEFAULT_TOP_K,
+        workspace: CURRENT_WORKSPACE,
+      }),
     });
 
     if (!res.ok) {
@@ -372,6 +896,151 @@ async function runCompare(query, role) {
   } finally {
     setLoadingCompare(false);
   }
+}
+
+// ── Ask mode (Fase 4) ──
+// Same request shape and session rules as /query; the response adds an
+// AI answer with mechanically validated [doc_id] citations. The button is
+// hidden unless /health reports ask_enabled (i.e. the deploy has a key).
+
+const askBtn = document.getElementById("ask-btn");
+
+function updateAskButtonVisibility() {
+  if (!askBtn) return;
+  askBtn.hidden = !(ASK_ENABLED === true && currentMode === "single");
+}
+
+if (askBtn) {
+  askBtn.addEventListener("click", async () => {
+    const query = input.value.trim();
+    if (!query || currentMode !== "single") return;
+    const role = SESSION
+      ? SESSION.role
+      : document.querySelector('input[name="role"]:checked').value;
+    const policy =
+      SESSION && !SESSION.is_admin
+        ? "full_policy"
+        : document.querySelector('input[name="policy"]:checked')?.value ||
+          "full_policy";
+    await runAsk(query, role, policy);
+  });
+}
+
+async function runAsk(query, role, policy = "full_policy") {
+  setLoadingAsk(true);
+  try {
+    const body = { query, top_k: DEFAULT_TOP_K, workspace: CURRENT_WORKSPACE };
+    if (!SESSION) {
+      body.role = role;
+      body.policy_name = policy;
+    } else if (SESSION.is_admin) {
+      body.policy_name = policy;
+    }
+    const res = await fetch(`${API_BASE}/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Server returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    // The Ask response is a superset of /query — render the normal result
+    // view (cards, blocked section, trace) and put the answer panel on top.
+    renderSingleResult(data, role, policy);
+    resultsSection.insertAdjacentHTML("afterbegin", buildAskPanelHTML(data));
+    wireAskPanel(resultsSection);
+  } catch (err) {
+    renderError(err, resultsSection);
+  } finally {
+    setLoadingAsk(false);
+  }
+}
+
+function setLoadingAsk(on) {
+  askBtn.disabled = on;
+  askBtn.classList.toggle("loading", on);
+  submitBtn.disabled = on;
+  if (on) {
+    document.getElementById("empty-state")?.remove();
+    resultsSection.classList.remove("results-stale");
+    resultsSection.innerHTML = skeletonSingleHTML();
+  }
+}
+
+function buildAskPanelHTML(data) {
+  const validity = new Map((data.citations || []).map((c) => [c.doc_id, c.valid]));
+  const answerHTML = escapeHTML(data.answer || "").replace(
+    /\[(doc_\d+)\]/g,
+    (_m, id) => {
+      if (validity.get(id) === false) {
+        return (
+          `<span class="citation-chip citation-invalid" ` +
+          `title="Cited a document that was not in the context — flagged by mechanical citation validation">${id}</span>`
+        );
+      }
+      return (
+        `<button type="button" class="citation-chip" data-cite="${id}" ` +
+        `title="Jump to ${id} in the context below">${id}</button>`
+      );
+    }
+  );
+
+  const trace = data.decision_trace;
+  const blockedCount = trace?.blocked_summary
+    ? trace.blocked_summary.count
+    : (trace?.blocked_by_permission || []).length;
+  const grounded = data.grounded_doc_count || 0;
+  const groundingParts = [
+    `Grounded in ${grounded} ${grounded === 1 ? "doc" : "docs"}`,
+  ];
+  if (blockedCount > 0) {
+    groundingParts.push(
+      `${blockedCount} blocked ${blockedCount === 1 ? "doc" : "docs"} never reached the model`
+    );
+  }
+
+  const usage = data.usage || { input_tokens: 0, output_tokens: 0 };
+  const usageNote =
+    `${escapeHTML(data.model || "")} · ` +
+    `${usage.input_tokens.toLocaleString()} tokens in / ` +
+    `${usage.output_tokens.toLocaleString()} out` +
+    (data.cached ? " · served from cache (no new tokens spent)" : "");
+
+  return `
+    <div class="ask-panel">
+      <div class="ask-panel-header">
+        <span class="ask-panel-title">✦ AI answer</span>
+        <span class="ask-grounding">${groundingParts.join(" · ")}</span>
+      </div>
+      <p class="ask-answer">${answerHTML}</p>
+      <p class="ask-usage">${usageNote}</p>
+    </div>`;
+}
+
+function wireAskPanel(container) {
+  container.querySelectorAll(".citation-chip[data-cite]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const target = container.querySelector(
+        `.result-card[data-doc-id="${chip.dataset.cite}"]`
+      );
+      if (!target) return;
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+      target.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "center",
+      });
+      target.classList.remove("card-highlight");
+      void target.offsetWidth; // restart the highlight animation
+      target.classList.add("card-highlight");
+      setTimeout(() => target.classList.remove("card-highlight"), 1800);
+    });
+  });
 }
 
 // ── Loading states ──
@@ -435,6 +1104,46 @@ function skeletonCompareHTML() {
 
 // ── Render: single-policy result ──
 
+// ── Chunk grouping (Fase 5 Etapa B) ──
+// Context items are chunks; the UI renders one card per parent DOCUMENT:
+// best-scoring chunk visible, all matched chunks available via expand.
+
+function groupContextByDoc(context) {
+  const groups = new Map();
+  (context || []).forEach((item) => {
+    if (!groups.has(item.doc_id)) groups.set(item.doc_id, []);
+    groups.get(item.doc_id).push(item);
+  });
+  return Array.from(groups.values()).map((chunks) => {
+    const ordered = chunks
+      .slice()
+      .sort((a, b) => (a.chunk_index ?? 0) - (b.chunk_index ?? 0));
+    const best = chunks.reduce((a, b) => ((b.score ?? 0) > (a.score ?? 0) ? b : a), chunks[0]);
+    return {
+      ...best,
+      matchedSections: chunks.length,
+      totalSections: best.chunk_count ?? chunks.length,
+      fullContent: ordered.map((c) => c.content || "").join("\n[…]\n"),
+    };
+  });
+}
+
+// Dedupe chunk-level trace entries to one row per parent doc (first wins),
+// collecting the sibling chunk ids for display.
+function groupTraceEntries(list) {
+  const groups = new Map();
+  (list || []).forEach((e) => {
+    if (!groups.has(e.doc_id)) groups.set(e.doc_id, { ...e, chunk_ids: [] });
+    if (e.chunk_id) groups.get(e.doc_id).chunk_ids.push(e.chunk_id);
+  });
+  return Array.from(groups.values());
+}
+
+function docCount(metrics, key) {
+  // Prefer the doc-level counts (post-chunking traces); fall back to raw.
+  return metrics?.[`${key}_doc_count`] ?? metrics?.[`${key}_count`] ?? 0;
+}
+
 function renderSingleResult(data, role, policy) {
   if (!data.context || data.context.length === 0) {
     resultsSection.innerHTML = `
@@ -447,42 +1156,54 @@ function renderSingleResult(data, role, policy) {
   const meta = POLICY_META[policy] || { label: policy, variant: "full" };
   const trace = data.decision_trace;
   const metrics = trace?.metrics;
+  const docs = groupContextByDoc(data.context);
 
+  // Memo letterhead (Fase 6 D.1): hairline field table instead of pills.
+  // Class stays .summary-bar — the stale-results gate (UI-B) keys off it.
+  const budgetPctHeader = metrics
+    ? Math.round((metrics.budget_utilization ?? 0) * 100)
+    : null;
+  const memoFields = [
+    { label: "Prepared for", value: escapeHTML(roleLabel(role)), cls: "memo-role" },
+    { label: "Policy", value: escapeHTML(meta.label), cls: `policy-stat-${meta.variant}` },
+    {
+      label: docs.length === 1 ? "Document" : "Documents",
+      value: String(docs.length),
+    },
+    {
+      label: "Tokens",
+      value: budgetPctHeader != null
+        ? `${data.total_tokens.toLocaleString()} · ${budgetPctHeader}% of budget`
+        : data.total_tokens.toLocaleString(),
+    },
+  ];
+  if (metrics) {
+    const blockedN = docCount(metrics, "blocked");
+    const staleN = docCount(metrics, "stale");
+    memoFields.push({
+      label: "Blocked",
+      value: String(blockedN),
+      cls: blockedN > 0 ? "memo-blocked" : "",
+    });
+    memoFields.push({
+      label: "Stale",
+      value: String(staleN),
+      cls: staleN > 0 ? "memo-stale" : "",
+    });
+  }
   const summaryHTML = `
     <div class="summary-bar">
-      <div class="summary-stat">
-        <span class="stat-value">${data.context.length}</span>
-        <span class="stat-label">${data.context.length === 1 ? "doc" : "docs"}</span>
-      </div>
-      <span class="summary-divider"></span>
-      <div class="summary-stat">
-        <span class="stat-value">${data.total_tokens.toLocaleString()}</span>
-        <span class="stat-label">tokens</span>
-      </div>
-      <span class="summary-divider"></span>
-      <div class="summary-stat role-stat">
-        <span class="stat-value">${escapeHTML(role)}</span>
-        <span class="stat-label">role</span>
-      </div>
-      <span class="summary-divider"></span>
-      <div class="summary-stat policy-stat-${meta.variant}">
-        <span class="stat-value">${escapeHTML(meta.label)}</span>
-        <span class="stat-label">policy</span>
-      </div>
-      ${metrics ? `
-        <span class="summary-divider"></span>
-        <div class="summary-stat">
-          <span class="stat-value">${metrics.blocked_count}</span>
-          <span class="stat-label">blocked</span>
-        </div>
-        <span class="summary-divider"></span>
-        <div class="summary-stat">
-          <span class="stat-value">${metrics.stale_count}</span>
-          <span class="stat-label">stale</span>
-        </div>
-      ` : ""}
-      <button class="export-btn" id="export-single" type="button" aria-label="Export result as JSON" title="Download full /query response as JSON">
-        <span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Export JSON</span>
+      ${memoFields
+        .map(
+          (f) => `
+        <div class="memo-field">
+          <span class="memo-label">${f.label}</span>
+          <span class="memo-value${f.cls ? ` ${f.cls}` : ""}">${f.value}</span>
+        </div>`
+        )
+        .join("")}
+      <button class="export-btn" id="export-single" type="button" aria-label="Download the full query response as JSON" title="Download the full /query response as JSON">
+        <span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Download filing</span>
       </button>
     </div>`;
 
@@ -491,17 +1212,19 @@ function renderSingleResult(data, role, policy) {
     (trace?.demoted_as_stale || []).map((s) => [s.doc_id, s])
   );
 
-  const cardsHTML = data.context
-    .map((chunk, i) => singleCardHTML(chunk, i, policy, staleMap))
+  const cardsHTML = docs
+    .map((doc, i) => singleCardHTML(doc, i, policy, staleMap))
     .join("");
 
-  const blockedSectionHTML = buildBlockedSectionHTML(
-    trace?.blocked_by_permission || [],
-    role
-  );
+  // Product sessions receive a server-redacted trace: blocked docs arrive as
+  // {count, required_roles} only (P.4). Render the withheld strip instead of
+  // the detailed blocked section — the titles never reached the browser.
+  const blockedSectionHTML = trace?.blocked_summary
+    ? buildWithheldStripHTML(trace.blocked_summary)
+    : buildBlockedSectionHTML(trace?.blocked_by_permission || [], role);
 
   const traceHTML = trace
-    ? buildTracePanelHTML(trace, false, role)
+    ? buildTracePanelHTML(trace, true, role)
     : "";
 
   resultsSection.innerHTML = summaryHTML + cardsHTML + blockedSectionHTML + traceHTML;
@@ -510,6 +1233,7 @@ function renderSingleResult(data, role, policy) {
   wireTraceToggles(resultsSection);
   wireExpandButtons(resultsSection);
   wireBlockedSectionToggle(resultsSection);
+  animateBars(resultsSection);
 
   const exportBtn = resultsSection.querySelector("#export-single");
   if (exportBtn) {
@@ -533,13 +1257,6 @@ function singleCardHTML(chunk, index, policy, staleMap = new Map()) {
   const freshPct = Math.round(freshness * 100);
   const skipFreshness = (POLICY_META[policy] || {}).skipFreshness === true;
 
-  const accentColor =
-    score > 0.6
-      ? "var(--score-high)"
-      : score > 0.35
-      ? "var(--score-mid)"
-      : "var(--score-low)";
-
   const tagsHTML = (chunk.tags || [])
     .map((t) => `<span class="tag">${escapeHTML(t)}</span>`)
     .join("");
@@ -547,10 +1264,19 @@ function singleCardHTML(chunk, index, policy, staleMap = new Map()) {
   const title = chunk.title || chunk.doc_id;
   const docTypeLabel = formatDocType(chunk.doc_type);
   const dateLabel = formatDate(chunk.date);
+  // Sections badge (Fase 5 Etapa B): how many of the doc's chunks matched
+  const matched = chunk.matchedSections ?? 1;
+  const totalSections = chunk.totalSections ?? chunk.chunk_count ?? 1;
+  const sectionsLabel = totalSections > 1
+    ? `matched ${matched} of ${totalSections} section${totalSections === 1 ? "" : "s"}`
+    : null;
   const metaParts = [
-    `<span class="card-meta-badge">${escapeHTML(chunk.doc_id)}</span>`,
+    `<span class="card-meta-badge">REF: ${escapeHTML(chunk.doc_id)}</span>`,
     docTypeLabel ? escapeHTML(docTypeLabel) : null,
     dateLabel ? escapeHTML(dateLabel) : null,
+    sectionsLabel
+      ? `<span class="card-sections-badge" title="The document is indexed as ${totalSections} chunks; ${matched} made it into this context">${escapeHTML(sectionsLabel)}</span>`
+      : null,
   ].filter(Boolean).join(" · ");
 
   // Staleness detection: prefer chunk.superseded_by (IDEA 2), fall back to trace staleMap
@@ -563,12 +1289,13 @@ function singleCardHTML(chunk, index, policy, staleMap = new Map()) {
 
   const staleHTML = isSuperseded ? `
     <div class="stale-badge">
-      <span class="stale-icon">⚠</span>
+      <span class="stamp stamp-superseded" aria-hidden="true">Superseded</span>
       <span class="stale-text">Superseded by <strong>${escapeHTML(supersededBy)}</strong> — freshness penalized ${escapeHTML(penaltyLabel)}</span>
     </div>` : "";
 
   const rawShort = (chunk.content || "").slice(0, 200);
-  const rawFull = chunk.content || "";
+  // Expand shows every matched chunk of the doc, joined with […] separators
+  const rawFull = chunk.fullContent || chunk.content || "";
   const hasMore = rawFull.length > 200;
   _cardExcerpts.set(index, { short: rawShort, full: rawFull });
 
@@ -581,17 +1308,17 @@ function singleCardHTML(chunk, index, policy, staleMap = new Map()) {
         <div class="metric-label">Freshness</div>
         <div class="metric-bar-container">
           <div class="metric-bar">
-            <div class="metric-bar-fill freshness" style="width: ${freshPct}%"></div>
+            <div class="metric-bar-fill freshness" style="width: 0%" data-w="${freshPct}"></div>
           </div>
           <span class="metric-value">${freshness.toFixed(2)}</span>
         </div>
        </div>`;
 
   return `
-    <article class="result-card" data-card-idx="${index}" style="--card-accent: ${accentColor}; animation-delay: ${index * 50}ms">
+    <article class="result-card" data-card-idx="${index}" data-doc-id="${escapeHTML(chunk.doc_id)}" style="animation-delay: ${index * 50}ms">
       <div class="card-header">
         <span class="card-title">${escapeHTML(title)}</span>
-        <span class="card-rank">#${index + 1}</span>
+        <span class="card-folio">Exhibit ${String(index + 1).padStart(2, "0")}</span>
       </div>
       <div class="card-meta">${metaParts}</div>
       ${staleHTML}
@@ -604,7 +1331,7 @@ function singleCardHTML(chunk, index, policy, staleMap = new Map()) {
           <div class="metric-label">Relevance</div>
           <div class="metric-bar-container">
             <div class="metric-bar">
-              <div class="metric-bar-fill relevance" style="width: ${scorePct}%"></div>
+              <div class="metric-bar-fill relevance" style="width: 0%" data-w="${scorePct}"></div>
             </div>
             <span class="metric-value">${score.toFixed(2)}</span>
           </div>
@@ -625,17 +1352,29 @@ function renderCompare(data) {
   const blockedInFull = new Set(
     (fullResult?.decision_trace?.blocked_by_permission || []).map((b) => b.doc_id)
   );
+  // Verdict stamps (Fase 6 F.1): naive leaks whatever full_policy blocks —
+  // the doc-level count travels in full's trace metrics.
+  const fullBlockedDocs = fullResult
+    ? docCount(fullResult.decision_trace?.metrics, "blocked")
+    : null;
 
   const columns = COMPARE_ORDER.filter((p) => data.results[p]);
 
   compareGrid.innerHTML = columns
     .map((policyName, colIdx) =>
-      buildCompareColumnHTML(policyName, data.results[policyName], { blockedInFull }, colIdx, data.role)
+      buildCompareColumnHTML(
+        policyName,
+        data.results[policyName],
+        { blockedInFull, fullBlockedDocs },
+        colIdx,
+        data.role
+      )
     )
     .join("");
 
   // Wire all trace toggles in the compare grid
   wireTraceToggles(compareGrid);
+  animateBars(compareGrid);
 
   // Append (or replace) the Export JSON button in the compare banner.
   const compareBanner = document.getElementById("compare-banner");
@@ -647,10 +1386,10 @@ function renderCompare(data) {
     btn.className = "export-btn";
     btn.id = "export-compare";
     btn.type = "button";
-    btn.setAttribute("aria-label", "Export comparison as JSON");
+    btn.setAttribute("aria-label", "Download the full comparison as JSON");
     btn.title = "Download full /compare response as JSON";
     btn.innerHTML =
-      '<span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Export JSON</span>';
+      '<span class="export-btn-icon" aria-hidden="true">⤓</span><span class="export-btn-label">Download filing</span>';
     btn.addEventListener("click", () => {
       downloadJSON(data, `querytrace_compare_${data.role}.json`);
     });
@@ -670,16 +1409,17 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx, userRole
   const trace = result.decision_trace;
   const metrics = trace?.metrics;
 
-  // Stats cells
-  const blockedVal = metrics?.blocked_count ?? 0;
-  const staleVal = metrics?.stale_count ?? 0;
-  const droppedVal = metrics?.dropped_count ?? 0;
+  // Stats cells — doc-level counts (chunk entries deduped to parent docs)
+  const groupedDocs = groupContextByDoc(result.context);
+  const blockedVal = docCount(metrics, "blocked");
+  const staleVal = docCount(metrics, "stale");
+  const droppedVal = docCount(metrics, "dropped");
   const ttftMs = trace ? Math.round(trace.ttft_proxy_ms) : "—";
 
   const statsHTML = `
     <div class="col-stats">
       <div class="col-stat">
-        <span class="col-stat-val">${result.context.length}</span>
+        <span class="col-stat-val">${groupedDocs.length}</span>
         <span class="col-stat-lbl">included</span>
       </div>
       <div class="col-stat">
@@ -704,10 +1444,10 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx, userRole
       </div>
     </div>`;
 
-  // Document cards
+  // Document cards — one per parent doc (chunks grouped)
   const docsHTML =
-    result.context.length > 0
-      ? result.context
+    groupedDocs.length > 0
+      ? groupedDocs
           .map((doc, i) => {
             const wouldBeBlocked =
               policyName === "naive_top_k" &&
@@ -719,8 +1459,19 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx, userRole
 
   // Trace panel — starts open in compare mode so the comparison is immediately visible
   const traceHTML = trace
-    ? `<div class="col-trace">${buildTracePanelHTML(trace, true, userRole)}</div>`
+    ? `<div class="col-trace">${buildTracePanelHTML(trace, true, userRole, true)}</div>`
     : "";
+
+  // Verdict stamp (F.1): the contrast that sells the product, readable
+  // without the numbers. Naive gets LEAKED N DOCS only when full_policy
+  // actually blocks something for this role; full gets CLEAN.
+  let verdictHTML = "";
+  if (policyName === "naive_top_k" && (highlights.fullBlockedDocs ?? 0) > 0) {
+    const n = highlights.fullBlockedDocs;
+    verdictHTML = `<span class="stamp stamp-blocked col-verdict" aria-label="This baseline leaked ${n} restricted ${n === 1 ? "document" : "documents"}">Leaked ${n} ${n === 1 ? "doc" : "docs"}</span>`;
+  } else if (policyName === "full_policy" && highlights.fullBlockedDocs != null) {
+    verdictHTML = `<span class="stamp stamp-approved col-verdict" aria-label="No restricted documents reached this context">Clean</span>`;
+  }
 
   return `
     <div class="compare-col" data-policy="${escapeHTML(policyName)}" style="animation-delay: ${colIdx * 60}ms">
@@ -730,6 +1481,7 @@ function buildCompareColumnHTML(policyName, result, highlights, colIdx, userRole
           <span class="col-policy-name">${escapeHTML(policyName)}</span>
           <span class="col-policy-desc">${escapeHTML(meta.desc)}</span>
         </div>
+        ${verdictHTML}
       </div>
       ${statsHTML}
       <div class="col-docs">${docsHTML}</div>
@@ -746,13 +1498,6 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
   const freshPct = Math.min(100, Math.round(freshness * 100));
   const skipFreshness = (POLICY_META[policyName] || {}).skipFreshness === true;
 
-  const accentColor =
-    score > 0.6
-      ? "var(--score-high)"
-      : score > 0.35
-      ? "var(--score-mid)"
-      : "var(--score-low)";
-
   const flagHTML = wouldBeBlocked
     ? `<span class="doc-flag flag-blocked" title="Blocked in full_policy for this role">blocked in full</span>`
     : "";
@@ -764,10 +1509,14 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
   const compareTitle = (doc.title || doc.doc_id).slice(0, 60);
   const docTypeLabel = formatDocType(doc.doc_type);
   const dateLabel = formatDate(doc.date);
+  const compareSections = (doc.totalSections ?? 1) > 1
+    ? `${doc.matchedSections ?? 1}/${doc.totalSections} sections`
+    : null;
   const compareMetaParts = [
-    `<span class="card-meta-badge">${escapeHTML(doc.doc_id)}</span>`,
+    `<span class="card-meta-badge">REF: ${escapeHTML(doc.doc_id)}</span>`,
     docTypeLabel ? escapeHTML(docTypeLabel) : null,
     dateLabel ? escapeHTML(dateLabel) : null,
+    compareSections ? escapeHTML(compareSections) : null,
   ].filter(Boolean).join(" · ");
 
   const contentSnippet = escapeHTML((doc.content || "").slice(0, 120));
@@ -776,13 +1525,13 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
     ? `<div class="mini-metric"><span class="mini-na">freshness N/A</span></div>`
     : `<div class="mini-metric">
         <span class="mini-bar-wrap">
-          <span class="mini-bar" style="width: ${freshPct}%; background: var(--fresh-high)"></span>
+          <span class="mini-bar" style="width: 0%; background: var(--fresh-high)" data-w="${freshPct}"></span>
         </span>
         <span class="mini-val">${freshness.toFixed(2)}</span>
        </div>`;
 
   return `
-    <article class="compare-card" style="--card-accent: ${accentColor}; animation-delay: ${index * 35}ms">
+    <article class="compare-card" style="animation-delay: ${index * 35}ms">
       <div class="compare-card-header">
         <span class="compare-card-title">${escapeHTML(compareTitle)}</span>
         ${flagHTML}
@@ -793,7 +1542,7 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
       <div class="compare-card-scores">
         <div class="mini-metric">
           <span class="mini-bar-wrap">
-            <span class="mini-bar" style="width: ${scorePct}%; background: var(--score-high)"></span>
+            <span class="mini-bar" style="width: 0%; background: var(--score-high)" data-w="${scorePct}"></span>
           </span>
           <span class="mini-val">${score.toFixed(2)}</span>
         </div>
@@ -804,7 +1553,38 @@ function buildCompareCardHTML(doc, index, wouldBeBlocked, policyName) {
 
 // ── Render: blocked documents section (single mode) ──
 
-function buildBlockedSectionHTML(blocked, userRole) {
+function buildWithheldStripHTML(summary) {
+  if (!summary || summary.count === 0) return "";
+  const req = summary.required_roles || [];
+  const minReq = req.length
+    ? req.reduce((a, b) => ((ROLE_RANKS[a] || 9) <= (ROLE_RANKS[b] || 9) ? a : b))
+    : null;
+  const reqLabel = minReq ? `requires ${escapeHTML(minReq)}+` : "requires higher clearance";
+  const myRole = SESSION?.role || "guest";
+  const myRank = ROLE_RANKS[myRole] ?? "?";
+  const reqDetail = [...req]
+    .sort((a, b) => (ROLE_RANKS[a] || 9) - (ROLE_RANKS[b] || 9))
+    .map((r) => `${escapeHTML(r)} (${ROLE_RANKS[r] ?? "?"})`)
+    .join(", ");
+  const plural = summary.count === 1 ? "document" : "documents";
+  return `
+    <div class="withheld-strip" role="note">
+      <span class="withheld-lock" aria-hidden="true">🔒</span>
+      <span class="withheld-text">${summary.count} ${plural} withheld · ${reqLabel}</span>
+      <details class="withheld-why">
+        <summary>Why?</summary>
+        <div class="withheld-why-body">
+          Your role: <strong>${escapeHTML(myRole)} (${myRank})</strong> &lt; required:
+          <strong>${reqDetail}</strong>. Access is enforced server-side — the withheld
+          titles were never sent to your browser.
+        </div>
+      </details>
+    </div>`;
+}
+
+function buildBlockedSectionHTML(blockedRaw, userRole) {
+  // Entries are per-chunk since Fase 5 Etapa B — dedupe to parent docs
+  const blocked = groupTraceEntries(blockedRaw);
   if (!blocked || blocked.length === 0) return "";
 
   const count = blocked.length;
@@ -819,12 +1599,13 @@ function buildBlockedSectionHTML(blocked, userRole) {
         : `Requires <strong>${escapeHTML(b.required_role)}</strong> role — you are <strong>${escapeHTML(userRole || b.user_role)}</strong>`;
 
       const metaParts = [
-        `<span class="card-meta-badge">${escapeHTML(b.doc_id)}</span>`,
+        `<span class="card-meta-badge">REF: ${escapeHTML(b.doc_id)}</span>`,
         typeLabel ? escapeHTML(typeLabel) : null,
       ].filter(Boolean).join(" · ");
 
       return `
         <div class="blocked-card">
+          <span class="stamp stamp-blocked" aria-hidden="true">Blocked</span>
           <div class="blocked-card-title">${escapeHTML(title)}</div>
           <div class="card-meta blocked-card-meta">${metaParts}</div>
           <div class="blocked-card-reason">${reason}</div>
@@ -861,7 +1642,9 @@ function wireBlockedSectionToggle(container) {
 async function runEvals() {
   evalsContent.innerHTML = skeletonEvalsHTML();
   try {
-    const res = await fetch(`${API_BASE}/evals`);
+    const res = await fetch(
+      `${API_BASE}/evals?workspace=${encodeURIComponent(CURRENT_WORKSPACE || "")}`
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `Server returned ${res.status}`);
@@ -878,7 +1661,32 @@ function skeletonEvalsHTML() {
   return `
     <div class="evals-loading">
       <div class="evals-loading-spinner"></div>
-      <p class="evals-loading-text">Running 12 pipeline queries…</p>
+      <p class="evals-loading-text">Running the benchmark queries…</p>
+    </div>`;
+}
+
+// CERTIFIED plaque (Fase 6 F.2): the headline verdict of the benchmark. The
+// stamp only exists when the violation rate is exactly zero — otherwise the
+// plaque turns into a warning without any seal of approval.
+function buildCertifiedPlaqueHTML(agg) {
+  const rate = agg.permission_violation_rate ?? 0;
+  const queriesRun = agg.queries_run ?? 0;
+  if (rate === 0) {
+    return `
+      <div class="certified-plaque">
+        <div class="certified-figure">
+          <span class="certified-value">0%</span>
+          <span class="certified-label">permission violations · ${queriesRun} benchmark ${queriesRun === 1 ? "query" : "queries"}</span>
+        </div>
+        <span class="stamp stamp-approved certified-stamp">Certified</span>
+      </div>`;
+  }
+  return `
+    <div class="certified-plaque plaque-warning">
+      <div class="certified-figure">
+        <span class="certified-value certified-value-warning">${fmtPct(rate)}</span>
+        <span class="certified-label">permission violations · ${queriesRun} benchmark ${queriesRun === 1 ? "query" : "queries"} — restricted documents reached the context</span>
+      </div>
     </div>`;
 }
 
@@ -886,31 +1694,39 @@ function renderEvals(data) {
   const agg = data.aggregate;
   const queries = data.per_query;
 
-  const cards = [
-    { label: "Precision@5", value: (agg.avg_precision_at_5 ?? 0).toFixed(4), color: "var(--accent)", hint: "Accuracy of the top 5 results" },
-    { label: "Recall", value: (agg.avg_recall ?? 0).toFixed(4), color: "var(--score-high)", hint: "Coverage of expected documents" },
-    { label: "Permission Violations", value: fmtPct(agg.permission_violation_rate ?? 0), color: agg.permission_violation_rate > 0 ? "var(--trace-blocked)" : "var(--score-high)", hint: "Restricted docs leaked to context" },
-    { label: "Avg Context Docs", value: (agg.avg_context_docs ?? 0).toFixed(1), color: "var(--text-secondary)", hint: "Documents per assembled context" },
-    { label: "Avg Total Tokens", value: (agg.avg_total_tokens ?? 0).toFixed(0), color: "var(--text-secondary)", hint: "Token consumption per query" },
-    { label: "Avg Freshness", value: (agg.avg_freshness_score ?? 0).toFixed(4), color: "var(--fresh-high)", hint: "Document recency (1 = newest)" },
-    { label: "Avg Blocked", value: (agg.avg_blocked_count ?? 0).toFixed(1), color: "var(--trace-blocked)", hint: "Docs excluded per query by RBAC" },
-    { label: "Avg Stale", value: (agg.avg_stale_count ?? 0).toFixed(1), color: "var(--trace-stale)", hint: "Superseded docs flagged per query" },
-    { label: "Avg Dropped", value: (agg.avg_dropped_count ?? 0).toFixed(1), color: "var(--trace-dropped)", hint: "Docs cut by token budget" },
-    { label: "Avg Budget Util", value: fmtPct(agg.avg_budget_utilization ?? 0), color: "var(--accent)", hint: "Token budget utilization" },
+  // Financial statement rows (F.2) — figures in Fraunces at two decimals
+  const metricRows = [
+    { label: "Precision@5", value: (agg.avg_precision_at_5 ?? 0).toFixed(2), color: "var(--accent)", note: "Accuracy of the top 5 results" },
+    { label: "Recall", value: (agg.avg_recall ?? 0).toFixed(2), color: "var(--score-high)", note: "Coverage of expected documents" },
+    { label: "Avg Context Docs", value: (agg.avg_context_docs ?? 0).toFixed(1), color: "var(--text-primary)", note: "Documents per assembled context" },
+    { label: "Avg Total Tokens", value: (agg.avg_total_tokens ?? 0).toFixed(0), color: "var(--text-primary)", note: "Token consumption per query" },
+    { label: "Avg Freshness", value: (agg.avg_freshness_score ?? 0).toFixed(2), color: "var(--fresh-high)", note: "Document recency (1 = newest)" },
+    { label: "Avg Blocked", value: (agg.avg_blocked_count ?? 0).toFixed(1), color: "var(--trace-blocked)", note: "Docs excluded per query by RBAC" },
+    { label: "Avg Stale", value: (agg.avg_stale_count ?? 0).toFixed(1), color: "var(--trace-stale)", note: "Superseded docs flagged per query" },
+    { label: "Avg Dropped", value: (agg.avg_dropped_count ?? 0).toFixed(1), color: "var(--trace-dropped)", note: "Docs cut by token budget" },
+    { label: "Avg Budget Util", value: fmtPct(agg.avg_budget_utilization ?? 0), color: "var(--accent)", note: "Token budget utilization" },
   ];
 
-  const cardsHTML = cards
-    .map(
-      (c, i) => `
-      <div class="metric-card" style="animation-delay: ${i * 40}ms">
-        <span class="metric-card-label">${escapeHTML(c.label)}</span>
-        <span class="metric-card-value" style="color: ${c.color}">${escapeHTML(c.value)}</span>
-        <span class="metric-card-hint">${escapeHTML(c.hint)}</span>
-      </div>`
-    )
-    .join("");
+  const metricsTableHTML = `
+    <div class="evals-table-wrap metrics-statement">
+      <table class="evals-table metrics-table">
+        <tbody>
+          ${metricRows
+            .map(
+              (r) => `
+            <tr>
+              <td class="metrics-label">${escapeHTML(r.label)}</td>
+              <td class="metrics-value" style="color: ${r.color}">${escapeHTML(r.value)}</td>
+              <td class="metrics-note">${escapeHTML(r.note)}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
 
   const narrativeHTML = buildEvalsNarrative(agg);
+  const plaqueHTML = buildCertifiedPlaqueHTML(agg);
 
   const headerRow = `
     <tr>
@@ -951,7 +1767,7 @@ function renderEvals(data) {
           <td class="mono-cell${q.blocked_count > 0 ? " val-blocked" : ""}">${q.blocked_count ?? 0}</td>
           <td class="mono-cell${q.stale_count > 0 ? " val-stale" : ""}">${q.stale_count ?? 0}</td>
           <td class="mono-cell${q.dropped_count > 0 ? " val-dropped" : ""}">${q.dropped_count ?? 0}</td>
-          <td class="mono-cell">${fmtPct(q.budget_utilization ?? 0)}</td>
+          ${budgetCellHTML(q.budget_utilization)}
           <td class="mono-cell${hasViolation ? " val-violation" : " val-ok"}">${hasViolation ? q.permission_violations.join(", ") : "none"}</td>
         </tr>`;
     })
@@ -959,7 +1775,8 @@ function renderEvals(data) {
 
   evalsContent.innerHTML = `
     ${narrativeHTML}
-    <div class="metrics-grid">${cardsHTML}</div>
+    ${plaqueHTML}
+    ${metricsTableHTML}
     <h3 class="evals-section-label">Benchmark Questions</h3>
     <div class="evals-table-wrap">
       <table class="evals-table">
@@ -969,7 +1786,25 @@ function renderEvals(data) {
     </div>
     <p class="evals-footer">Queries run: ${agg.queries_run ?? 0} · Failed: ${agg.queries_failed ?? 0}</p>`;
 
+  const subtitle = document.getElementById("evals-subtitle");
+  if (subtitle) {
+    const wsName = WORKSPACE_META?.name || CURRENT_WORKSPACE || "";
+    subtitle.textContent =
+      `Precision@5 · recall · permission safety · trace counts — ` +
+      `${queries.length} corpus-grounded test queries · ${wsName}`;
+  }
+
   wireCopyButtons(evalsContent);
+  animateBars(evalsContent);
+}
+
+// Budget cell with an inline fill bar (F.2) — animated by animateBars (A.7)
+function budgetCellHTML(utilization) {
+  const pct = Math.min(100, Math.round((utilization ?? 0) * 100));
+  return `
+    <td class="mono-cell evals-budget-cell">
+      <span class="budget-cell-bar" aria-hidden="true"><span class="mini-bar" style="width: 0%; background: var(--azul)" data-w="${pct}"></span></span>${fmtPct(utilization ?? 0)}
+    </td>`;
 }
 
 // ── Narrative banner for Evals (IDEA 6) ──
@@ -1141,7 +1976,7 @@ function renderSessionAudit(data) {
       <td class="mono-cell${(m.blocked_count ?? 0) > 0 ? " val-blocked" : ""}">${m.blocked_count ?? 0}</td>
       <td class="mono-cell${(m.stale_count ?? 0) > 0 ? " val-stale" : ""}">${m.stale_count ?? 0}</td>
       <td class="mono-cell${(m.dropped_count ?? 0) > 0 ? " val-dropped" : ""}">${m.dropped_count ?? 0}</td>
-      <td class="mono-cell">${fmtPct(m.budget_utilization ?? 0)}</td>
+      ${budgetCellHTML(m.budget_utilization)}
     </tr>${hasDetail ? `<tr class="sa-toggle-row"><td colspan="11"><button class="sa-toggle-btn" data-target="${detailId}">▸ docs</button></td></tr>${detailRow}` : ""}`;
   }).join("");
 
@@ -1170,18 +2005,22 @@ function renderSessionAudit(data) {
   });
 
   wireCopyButtons(sessionAuditContent);
+  animateBars(sessionAuditContent);
 }
 
 // ── Build natural-language Decision Trace summary (IDEA 4) ──
 
 function buildTraceSummary(trace, userRole, compact) {
   const m = trace.metrics || {};
-  const included = m.included_count ?? (trace.included || []).length;
+  // Doc-level counts throughout — users reason about documents, not chunks
+  const included = m.included_doc_count
+    ?? m.included_count
+    ?? (trace.included || []).length;
   const tokens = m.total_tokens ?? 0;
   const budgetPct = Math.round((m.budget_utilization ?? 0) * 100);
-  const blockedCount = m.blocked_count ?? 0;
-  const droppedCount = m.dropped_count ?? 0;
-  const staleList = trace.demoted_as_stale || [];
+  const blockedCount = docCount(m, "blocked");
+  const droppedCount = docCount(m, "dropped");
+  const staleList = groupTraceEntries(trace.demoted_as_stale || []);
   const blockedList = trace.blocked_by_permission || [];
 
   const sentences = [];
@@ -1248,78 +2087,182 @@ function buildTraceSummary(trace, userRole, compact) {
 
 // ── Build Decision Trace panel HTML ──
 
-function buildTracePanelHTML(trace, startOpen, userRole) {
+// ── Decision Record rows (Fase 6 D.2) ──
+// One ledger row per parent doc per ACTION: TITLE · REF · flat action mark ·
+// readable basis. Inline basis text replaces the old chip tooltips (which
+// were unreachable on touch). All dynamic strings are escaped by the callers.
+
+function recordRowHTML(action, stampCls, title, ref, basisHTML) {
+  const titleHTML = title
+    ? `<span class="record-title">${escapeHTML(title)}</span>`
+    : `<span class="record-untitled">—</span>`;
+  return `
+    <tr>
+      <td class="record-doc">${titleHTML}</td>
+      <td class="record-ref">${escapeHTML(ref)}</td>
+      <td class="record-action"><span class="stamp stamp-flat ${stampCls}">${action}</span></td>
+      <td class="record-basis">${basisHTML}</td>
+    </tr>`;
+}
+
+function buildDecisionRecordHTML(trace, userRole) {
+  const rows = [];
+
+  groupTraceEntries(trace.included || []).forEach((d) => {
+    const sections =
+      (d.chunk_ids || []).length > 1 ? ` · ${d.chunk_ids.length} sections` : "";
+    rows.push(
+      recordRowHTML(
+        "Included", "stamp-approved", d.title, d.doc_id,
+        `score ${(d.score ?? 0).toFixed(2)} · ${d.token_count} tokens${sections}`
+      )
+    );
+  });
+
+  groupTraceEntries(trace.demoted_as_stale || []).forEach((d) => {
+    rows.push(
+      recordRowHTML(
+        "Demoted", "stamp-superseded", d.title, d.doc_id,
+        `superseded by ${escapeHTML(d.superseded_by)} · freshness ×${d.penalty_applied ?? 0.5}`
+      )
+    );
+  });
+
+  groupTraceEntries(trace.dropped_by_budget || []).forEach((d) => {
+    rows.push(
+      recordRowHTML(
+        "Dropped", "stamp-overbudget", d.title, d.doc_id,
+        `${d.token_count} tokens · score ${(d.score ?? 0).toFixed(2)} · over budget`
+      )
+    );
+  });
+
+  groupTraceEntries(trace.blocked_by_permission || []).forEach((d) => {
+    const basis = d.reason === "unknown_min_role"
+      ? `unknown role requirement: ${escapeHTML(d.required_role)}`
+      : `requires ${escapeHTML(d.required_role)} — you are ${escapeHTML(userRole || d.user_role || "")}`;
+    rows.push(recordRowHTML("Blocked", "stamp-blocked", d.title, d.doc_id, basis));
+  });
+
+  // Product sessions (D.3): the server redacts blocked docs to a count +
+  // required_roles. One count-only row — no titles, no refs, no tooltips.
+  const summary = trace.blocked_summary;
+  if ((trace.blocked_by_permission || []).length === 0 && summary && summary.count > 0) {
+    const req = (summary.required_roles || []).map((r) => escapeHTML(r)).join(" / ");
+    rows.push(
+      recordRowHTML(
+        "Blocked", "stamp-blocked", null,
+        `${summary.count} withheld`,
+        req ? `requires ${req} — titles withheld server-side` : "titles withheld server-side"
+      )
+    );
+  }
+
+  const bodyHTML = rows.length
+    ? rows.join("")
+    : `<tr><td colspan="4" class="record-empty">No documents retrieved</td></tr>`;
+
+  return `
+    <div class="record-table-wrap">
+      <table class="record-table">
+        <thead>
+          <tr><th>Document</th><th>Ref</th><th>Action</th><th>Basis</th></tr>
+        </thead>
+        <tbody>${bodyHTML}</tbody>
+      </table>
+    </div>`;
+}
+
+// Compact chips — Compare columns only (the acta table needs more width)
+function buildTraceChipsHTML(trace) {
+  const chunkSuffix = (d) =>
+    (d.chunk_ids || []).length > 1 ? `<em> ·${d.chunk_ids.length} chunks</em>` : "";
+  const chunkTitle = (d) =>
+    (d.chunk_ids || []).length ? ` · ${escapeHTML(d.chunk_ids.join(", "))}` : "";
+
+  const includedChips = groupTraceEntries(trace.included || [])
+    .map(
+      (d) =>
+        `<span class="trace-chip trace-chip-included" title="score: ${d.score.toFixed(2)} · ${d.token_count} tokens${chunkTitle(d)}">${escapeHTML(d.doc_id)}${chunkSuffix(d)}</span>`
+    )
+    .join("") || `<span class="trace-chip-empty">none</span>`;
+
+  const blockedChips = groupTraceEntries(trace.blocked_by_permission || [])
+    .map(
+      (d) =>
+        `<span class="trace-chip trace-chip-blocked" title="requires: ${escapeHTML(d.required_role)}${chunkTitle(d)}">${escapeHTML(d.doc_id)}<em> ·${escapeHTML(d.required_role)}</em></span>`
+    )
+    .join("") || `<span class="trace-chip-empty">none</span>`;
+
+  const staleChips = groupTraceEntries(trace.demoted_as_stale || [])
+    .map(
+      (d) =>
+        `<span class="trace-chip trace-chip-stale" title="superseded by: ${escapeHTML(d.superseded_by)} · penalty: ${d.penalty_applied}×${chunkTitle(d)}">${escapeHTML(d.doc_id)}<em> →${escapeHTML(d.superseded_by)}</em></span>`
+    )
+    .join("") || `<span class="trace-chip-empty">none</span>`;
+
+  const droppedChips = groupTraceEntries(trace.dropped_by_budget || [])
+    .map(
+      (d) =>
+        `<span class="trace-chip trace-chip-dropped" title="${d.token_count} tokens · score: ${d.score.toFixed(2)}${chunkTitle(d)}">${escapeHTML(d.doc_id)}<em> ·${d.token_count}t</em></span>`
+    )
+    .join("") || `<span class="trace-chip-empty">none</span>`;
+
+  return `
+    <div class="trace-row">
+      <div class="trace-section">
+        <span class="trace-section-label trace-label-included">✓ Included</span>
+        <div class="trace-chips">${includedChips}</div>
+      </div>
+      <div class="trace-section">
+        <span class="trace-section-label trace-label-blocked">🔒 Blocked</span>
+        <div class="trace-chips">${blockedChips}</div>
+      </div>
+    </div>
+    <div class="trace-row">
+      <div class="trace-section">
+        <span class="trace-section-label trace-label-stale">⏱ Stale</span>
+        <div class="trace-chips">${staleChips}</div>
+      </div>
+      <div class="trace-section">
+        <span class="trace-section-label trace-label-dropped">✂ Dropped</span>
+        <div class="trace-chips">${droppedChips}</div>
+      </div>
+    </div>`;
+}
+
+// startOpen controls only the initial expanded state; compact selects the
+// tighter Compare-column variant (chips + compact summary). They are
+// independent (A.6): Single opens the full "Decision Record" acta.
+function buildTracePanelHTML(trace, startOpen, userRole, compact = false) {
   const m = trace.metrics || {};
   const budgetPct = Math.min(100, Math.round((m.budget_utilization ?? 0) * 100));
-  const summaryHTML = buildTraceSummary(trace, userRole, startOpen === true);
+  const summaryHTML = buildTraceSummary(trace, userRole, compact === true);
 
-  const includedChips = (trace.included || [])
-    .map(
-      (d) =>
-        `<span class="trace-chip trace-chip-included" title="score: ${d.score.toFixed(2)} · ${d.token_count} tokens">${escapeHTML(d.doc_id)}</span>`
-    )
-    .join("") || `<span class="trace-chip-empty">none</span>`;
-
-  const blockedChips = (trace.blocked_by_permission || [])
-    .map(
-      (d) =>
-        `<span class="trace-chip trace-chip-blocked" title="requires: ${escapeHTML(d.required_role)}">${escapeHTML(d.doc_id)}<em> ·${escapeHTML(d.required_role)}</em></span>`
-    )
-    .join("") || `<span class="trace-chip-empty">none</span>`;
-
-  const staleChips = (trace.demoted_as_stale || [])
-    .map(
-      (d) =>
-        `<span class="trace-chip trace-chip-stale" title="superseded by: ${escapeHTML(d.superseded_by)} · penalty: ${d.penalty_applied}×">${escapeHTML(d.doc_id)}<em> →${escapeHTML(d.superseded_by)}</em></span>`
-    )
-    .join("") || `<span class="trace-chip-empty">none</span>`;
-
-  const droppedChips = (trace.dropped_by_budget || [])
-    .map(
-      (d) =>
-        `<span class="trace-chip trace-chip-dropped" title="${d.token_count} tokens · score: ${d.score.toFixed(2)}">${escapeHTML(d.doc_id)}<em> ·${d.token_count}t</em></span>`
-    )
-    .join("") || `<span class="trace-chip-empty">none</span>`;
-
-  const blockedCount = m.blocked_count ?? 0;
-  const staleCount = m.stale_count ?? 0;
-  const droppedCount = m.dropped_count ?? 0;
+  const blockedCount = docCount(m, "blocked");
+  const staleCount = docCount(m, "stale");
+  const droppedCount = docCount(m, "dropped");
   const toggleSummary = `${blockedCount} blocked · ${staleCount} stale · ${droppedCount} dropped`;
+
+  const detailHTML = compact
+    ? buildTraceChipsHTML(trace)
+    : buildDecisionRecordHTML(trace, userRole);
 
   return `
     <div class="trace-panel${startOpen ? " open" : ""}">
       <button class="trace-toggle" aria-expanded="${startOpen}">
-        <span class="trace-toggle-label">Decision Trace</span>
+        <span class="trace-toggle-label">${compact ? "Decision Trace" : "Decision Record"}</span>
         <span class="trace-toggle-summary">${escapeHTML(toggleSummary)}</span>
         <span class="trace-caret" aria-hidden="true">▾</span>
       </button>
       <div class="trace-body">
-        <div class="trace-summary${startOpen ? " trace-summary-compact" : ""}">${summaryHTML}</div>
-        <div class="trace-row">
-          <div class="trace-section">
-            <span class="trace-section-label trace-label-included">✓ Included</span>
-            <div class="trace-chips">${includedChips}</div>
-          </div>
-          <div class="trace-section">
-            <span class="trace-section-label trace-label-blocked">🔒 Blocked</span>
-            <div class="trace-chips">${blockedChips}</div>
-          </div>
-        </div>
-        <div class="trace-row">
-          <div class="trace-section">
-            <span class="trace-section-label trace-label-stale">⏱ Stale</span>
-            <div class="trace-chips">${staleChips}</div>
-          </div>
-          <div class="trace-section">
-            <span class="trace-section-label trace-label-dropped">✂ Dropped</span>
-            <div class="trace-chips">${droppedChips}</div>
-          </div>
-        </div>
+        <div class="trace-summary${compact ? " trace-summary-compact" : ""}">${summaryHTML}</div>
+        ${detailHTML}
         <div class="trace-metrics-strip">
           <div class="budget-row">
             <span class="budget-label" title="Percentage of the 2048-token budget used by assembled context">Budget</span>
             <div class="budget-bar-wrap">
-              <div class="budget-bar-fill" style="width: ${budgetPct}%"></div>
+              <div class="budget-bar-fill" style="width: 0%" data-w="${budgetPct}"></div>
             </div>
             <span class="budget-pct">${budgetPct}%</span>
           </div>
@@ -1356,6 +2299,22 @@ function wireTraceToggles(container) {
       const panel = btn.closest(".trace-panel");
       const isOpen = panel.classList.toggle("open");
       btn.setAttribute("aria-expanded", isOpen);
+    });
+  });
+}
+
+// ── Fill-bar entrance (A.7) ──
+// Bars render at width:0 with the real percentage in data-w; setting the
+// final width one frame later lets the CSS width transition actually play.
+// Under prefers-reduced-motion the transition is disabled, so bars snap.
+function animateBars(container) {
+  const bars = container.querySelectorAll("[data-w]");
+  if (bars.length === 0) return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      bars.forEach((bar) => {
+        bar.style.width = `${bar.dataset.w}%`;
+      });
     });
   });
 }
@@ -1439,23 +2398,60 @@ function clearAdminStatus() {
   adminStatus.textContent = "";
 }
 
+// Human labels for the ingest job states (Fase 3: POST /ingest → 202 + job).
+const JOB_STATE_LABELS = {
+  queued: "Queued — waiting for the ingest worker…",
+  extracting: "Persisting extracted text…",
+  embedding: "Generating embeddings…",
+  indexing: "Updating FAISS + BM25 indexes…",
+};
+const JOB_STATE_ORDER = ["queued", "extracting", "embedding", "indexing"];
+const JOB_POLL_MS = 1000;
+const JOB_POLL_MAX = 120; // give up after ~2 minutes
+
+function renderJobProgress(state) {
+  const idx = JOB_STATE_ORDER.indexOf(state);
+  const steps = JOB_STATE_ORDER.map((s, i) => {
+    const cls = i < idx ? "job-step done" : i === idx ? "job-step active" : "job-step";
+    return `<span class="${cls}" title="${escapeHTML(JOB_STATE_LABELS[s])}"></span>`;
+  }).join("");
+  const label = JOB_STATE_LABELS[state] || state;
+  return `<span class="job-progress">${steps}</span> ${escapeHTML(label)}`;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pollIngestJob(jobId) {
+  for (let i = 0; i < JOB_POLL_MAX; i++) {
+    const res = await fetch(`${API_BASE}/ingest/jobs/${encodeURIComponent(jobId)}`);
+    const job = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(job?.detail || `HTTP ${res.status}`);
+    }
+    if (job.state === "done" || job.state === "failed") return job;
+    setAdminStatus("loading", renderJobProgress(job.state));
+    await sleep(JOB_POLL_MS);
+  }
+  throw new Error("Timed out waiting for the ingest job to finish.");
+}
+
 async function uploadDocument(event) {
   event.preventDefault();
   if (!adminForm || !adminSubmit) return;
 
   const file = adminFileInput?.files?.[0];
   if (!file) {
-    setAdminStatus("error", "Please pick a PDF file.");
+    setAdminStatus("error", "Please pick a file (.pdf, .txt, .md or .docx).");
     return;
   }
 
   const fd = new FormData(adminForm);
+  fd.set("workspace", CURRENT_WORKSPACE || ""); // ingest into the active workspace
   adminSubmit.disabled = true;
   adminSubmit.classList.add("loading");
-  setAdminStatus(
-    "loading",
-    "Uploading and rebuilding the index… this usually takes 5&ndash;15 seconds."
-  );
+  setAdminStatus("loading", "Uploading and validating the file…");
 
   try {
     const res = await fetch(`${API_BASE}/ingest`, { method: "POST", body: fd });
@@ -1467,11 +2463,22 @@ async function uploadDocument(event) {
       return;
     }
 
+    // 202: validated + queued. Poll the job until it reaches a terminal state.
+    setAdminStatus("loading", renderJobProgress(data.state || "queued"));
+    const job = await pollIngestJob(data.job_id);
+
+    if (job.state === "failed") {
+      const detail = job.error?.detail || "Ingest job failed.";
+      setAdminStatus("error", `Upload failed: ${escapeHTML(detail)}`);
+      return;
+    }
+
+    const result = job.result || {};
     setAdminStatus(
       "success",
-      `Indexed <strong>${escapeHTML(data.doc_id)}</strong> — ${escapeHTML(
-        data.title
-      )}. Corpus now contains ${data.total_documents} documents. It is searchable in Single and Compare modes.`
+      `Indexed <strong>${escapeHTML(result.doc_id)}</strong> — ${escapeHTML(
+        result.title
+      )}. Corpus now contains ${result.total_documents} documents. It is searchable in Single and Compare modes.`
     );
     adminForm.reset();
   } catch (err) {

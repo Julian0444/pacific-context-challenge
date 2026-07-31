@@ -4,7 +4,9 @@ import os
 import pytest
 from src.evaluator import load_test_queries, precision_at_k, run_evals
 
-EVALS_PATH = os.path.join(os.path.dirname(__file__), "..", "evals", "test_queries.json")
+EVALS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "corpora", "pe-deal", "evals.json"
+)
 
 
 # ---- precision_at_k --------------------------------------------------------
@@ -159,6 +161,30 @@ def test_run_evals_budget_utilization_bounded(eval_results):
         if "error" in r:
             continue
         assert 0.0 <= r["budget_utilization"] <= 1.0
+
+
+# ---- policy A/B: naive_top_k baseline vs full_policy -------------------------
+
+@pytest.fixture(scope="module")
+def naive_eval_results():
+    queries = load_test_queries(EVALS_PATH)
+    return run_evals(queries, k=5, top_k=8, policy_name="naive_top_k")
+
+
+def test_run_evals_naive_has_permission_violations(naive_eval_results):
+    """The unfiltered baseline must leak forbidden docs — that delta vs
+    full_policy's 0% is the headline metric of the project."""
+    rate = naive_eval_results["aggregate"]["permission_violation_rate"]
+    assert rate > 0, "naive_top_k unexpectedly produced no permission violations"
+
+
+def test_run_evals_naive_blocks_nothing(naive_eval_results):
+    assert naive_eval_results["aggregate"]["avg_blocked_count"] == 0.0
+
+
+def test_run_evals_full_policy_zero_violations(eval_results):
+    """eval_results uses the default policy (= full_policy): 0 violations."""
+    assert eval_results["aggregate"]["permission_violation_rate"] == 0.0
 
 
 def test_run_evals_precision_floor(eval_results):

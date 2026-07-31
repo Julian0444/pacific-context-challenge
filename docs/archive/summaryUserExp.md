@@ -483,3 +483,7 @@ The project is designed as a demonstration and technical validation tool, not as
 - Evaluator: `src/evaluator.py`
 - Corpus: `corpus/metadata.json`, `corpus/roles.json`, `corpus/documents/`
 - Test queries: `evals/test_queries.json`
+
+
+
+❯ '/Users/jirustaroure/Desktop/pacific-context-challenge/frente_3_querytrace.md'   QUE SUENE MAS A GUION HAZLO MAS CORTO E INCLUYE LO FUNDAMENTAL NOMAS. QUE SUENE HUMANO TAMBIEN    

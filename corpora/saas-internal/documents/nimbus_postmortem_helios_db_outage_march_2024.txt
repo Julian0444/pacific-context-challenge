@@ -1,0 +1,45 @@
+NIMBUS ANALYTICS — INCIDENT POSTMORTEM PM-2024-03
+helios-db Primary Outage — March 4, 2024
+Published March 9, 2024 | INTERNAL — ALL EMPLOYEES | BLAMELESS
+
+INCIDENT COMMANDER: Lena Fischer | SCRIBE: on-call secondary
+
+SUMMARY
+
+On March 4, 2024, the helios-db primary Postgres cluster was unavailable or
+severely degraded for 3 hours 42 minutes (09:14–12:56 UTC). Dashboards (Prism)
+served stale data and event ingestion (Skyhook) buffered to disk. Approximately
+38% of customers experienced dashboard latency or query failures. No events were
+lost; buffered ingestion replayed fully by 14:30 UTC.
+
+CUSTOMER AND BUSINESS IMPACT
+
+  — 246 of ~640 customers affected (38%).
+  — SLA credits issued: $214,000 against Q1 revenue.
+  — 3 enterprise prospects in active evaluation were affected; CS notified.
+
+ROOT CAUSE
+
+A schema migration shipped at 09:02 UTC took an ACCESS EXCLUSIVE lock on the
+events table. Long-running analytical queries queued behind the lock, exhausting
+the pgbouncer connection pool within 12 minutes. Health checks then failed and
+the API tier began timing out. Failover was NOT attempted for 68 minutes because
+the documented procedure was manual (Runbook v1, RTO 45 minutes) and the on-call
+engineer initially diagnosed the issue as an application bug.
+
+WHAT WENT WELL / WHAT DIDN'T
+
+  + Skyhook disk buffering prevented data loss.
+  — Manual failover and a 15-minute paging acknowledgement window delayed response.
+  — No incident-commander role: three engineers debugged, nobody owned comms.
+
+ACTION ITEMS
+
+  1. Automate helios-db failover (owner: SRE) — DONE, shipped April 2024;
+     codified in On-Call Runbook v2 (RTO now 8 minutes).
+  2. Migration review gate: any migration touching events requires SRE sign-off
+     and lock-timeout settings — DONE.
+  3. pgbouncer pool sizing and per-role limits — DONE.
+  4. Adopt severity matrix and IC role — DONE (Runbook v2).
+
+Source: sre/postmortems/PM-2024-03.md | Classification: INTERNAL

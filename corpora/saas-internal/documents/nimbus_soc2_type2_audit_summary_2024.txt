@@ -1,0 +1,44 @@
+NIMBUS ANALYTICS — SOC 2 TYPE II AUDIT SUMMARY
+Security & Compliance | April 30, 2024 | RESTRICTED — MANAGERS AND ABOVE
+
+OWNER: CISO office | Auditor: Hartley & Voss LLP
+
+RESULT
+
+Nimbus received a SOC 2 Type II report with ZERO major exceptions for the audit
+window June 1, 2023 – March 31, 2024, covering the Security, Availability, and
+Confidentiality trust criteria. Two minor findings were noted (below). The full
+report is available to customers under NDA through the trust portal.
+
+SCOPE
+
+Systems in scope: Skyhook (ingestion), Prism (dashboards), Gatekeeper (access
+broker), helios-db (primary datastore), corporate identity and endpoint
+management. The March 4 helios-db outage was reviewed under Availability; the
+auditor accepted the postmortem and remediation evidence (automated failover,
+Runbook v2) as an effective corrective-action process.
+
+MINOR FINDINGS
+
+  F-1  Offboarding latency. 4 of 31 sampled departures had access-revocation
+       tickets closed more than 5 business days after the departure date,
+       against a 24-hour policy (Information Security Policy v3). Remediation:
+       automated offboarding workflow triggered from the HRIS, due Q3 FY2025.
+       Owner: IT + People Ops.
+
+  F-2  Log retention gap. Prism service logs were retained 90 days in one
+       region versus the documented 180-day standard. Remediation: retention
+       policy unified in the logging pipeline, due Q3 FY2025. Owner: SRE.
+
+CUSTOMER-FACING GUIDANCE
+
+Sales and CS may state: "SOC 2 Type II, zero major exceptions, report available
+under NDA." Do not paraphrase the minor findings to customers; direct security
+questionnaires to the compliance queue.
+
+NEXT CYCLE
+
+The FY2026 audit window opens July 1, 2024 (rolling 9-month window). Evidence
+collection is continuous via the compliance automation platform.
+
+Source: security/soc2_type2_2024_summary.md | Classification: RESTRICTED

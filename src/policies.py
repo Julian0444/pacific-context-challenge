@@ -49,7 +49,7 @@ def resolve_policy(name: str, top_k: int) -> PolicyConfig:
 
 
 # ---------------------------------------------------------------------------
-# Role loading and filtering (unchanged from original)
+# Role loading
 # ---------------------------------------------------------------------------
 
 def load_roles(roles_path: str) -> dict:
@@ -60,20 +60,3 @@ def load_roles(roles_path: str) -> dict:
     with open(roles_path, "r") as f:
         data = json.load(f)
     return data["roles"]
-
-
-def filter_by_role(chunks: list, role: str, roles: dict) -> list:
-    """Remove chunks that the given role is not permitted to access.
-
-    Access rule: role's access_rank >= document's min_role access_rank.
-    Raises ValueError if the role is not defined.
-    """
-    if role not in roles:
-        raise ValueError(f"Unknown role: {role!r}. Valid roles: {list(roles.keys())}")
-
-    user_rank = roles[role]["access_rank"]
-
-    return [
-        chunk for chunk in chunks
-        if roles.get(chunk["min_role"], {}).get("access_rank", float("inf")) <= user_rank
-    ]

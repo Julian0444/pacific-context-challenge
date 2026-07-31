@@ -1,0 +1,44 @@
+NIMBUS ANALYTICS — PRODUCT ROADMAP FY2025 (FINAL)
+May 28, 2024 | RESTRICTED — EXECUTIVE TEAM ONLY
+
+PREPARED BY: Yuki Tanaka, VP Product | Ratified at the May 21 exec offsite
+
+REVISION NOTES
+
+Final roadmap; supersedes Draft v0.4 (May 6, 2024). Decisions taken at the
+offsite: EU data residency PULLED FORWARD from Q4 to Q3 (three enterprise deals,
+combined $640K ACV, are contractually contingent on it); warehouse-native mode
+moves from Q3 to Q4; the AI assistant ships as a Q3 BETA renamed "Nimbus IQ"
+(legal flagged the "Copilot" name); mobile session replay is CUT from FY2025.
+
+FINAL SEQUENCE
+
+  Q2 FY2025   Foundations: Frankfurt region procurement, data-partitioning
+              design for residency, Nimbus IQ model-cost spike, enterprise
+              tier hardening (SSO/SCIM gaps from Q1 deals).
+
+  Q3 FY2025   EU DATA RESIDENCY GA — Frankfurt for Skyhook and helios-db,
+              residency-aware routing in Gatekeeper.
+              NIMBUS IQ BETA — AI insights assistant behind a flag for design
+              partners; pricing decision deferred until beta telemetry.
+
+  Q4 FY2025   WAREHOUSE-NATIVE MODE GA — Snowflake first, BigQuery fast-follow.
+              Nimbus IQ GA decision gate.
+
+  CUT FROM FY2025: Mobile session replay (revisit in FY2026 planning).
+
+DEPENDENCIES AND RISKS
+
+  — Residency work assumes both SRE hires (Hiring Plan FY2025) start by Q3;
+    a slip pushes GA into early Q4 and endangers the $640K contingent ACV.
+  — Nimbus IQ unit economics: beta gate requires model cost under 4% of the
+    attributable ACV before GA pricing is set.
+  — Warehouse-native performance target: p95 dashboard query under 3 seconds
+    on partner datasets, or GA slips.
+
+COMMUNICATION
+
+Sales may commit to Q3 EU residency with named accounts under NDA. Nimbus IQ
+may be teased as "AI insights beta, H2" without naming dates in contracts.
+
+Source: product/roadmap_fy2025_final.md | Classification: RESTRICTED — EXEC

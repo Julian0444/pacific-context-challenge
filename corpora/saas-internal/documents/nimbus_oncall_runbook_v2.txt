@@ -1,0 +1,48 @@
+NIMBUS ANALYTICS — ON-CALL RUNBOOK
+Version 2.0 | April 18, 2024 | INTERNAL — ENGINEERING
+
+OWNER: Lena Fischer, Head of SRE
+
+REVISION NOTES
+
+Version 2.0 supersedes Version 1.0 (November 2023). Rewritten after the March 4,
+2024 helios-db outage (see postmortem PM-2024-03). Key changes: Opsgenie replaces
+PagerBot, a formal severity matrix and incident-commander role are introduced, and
+helios-db failover is now automated.
+
+ROTATION
+
+One primary and one secondary engineer per week, per service group (Skyhook,
+Prism, Gatekeeper, helios-db). Handoff moved to WEDNESDAYS at 10:00 in
+#incidents, with a written handoff note. Paging runs through Opsgenie rotations;
+PagerBot is decommissioned.
+
+SEVERITY MATRIX
+
+  SEV1  Customer-facing outage or data loss. Acknowledge within 5 minutes.
+        Incident commander assigned immediately; status page update within
+        15 minutes; exec notification is automatic via Opsgenie policy.
+  SEV2  Degraded service, workaround exists. Acknowledge within 15 minutes.
+  SEV3  Non-urgent defect with operational impact. Next business day.
+  SEV4  Cosmetic or internal-only. Backlog.
+
+ESCALATION (v2)
+
+  1. Opsgenie pages the primary; unacknowledged SEV1/SEV2 pages escalate to the
+     secondary after 5 minutes, then to the SRE manager on the escalation policy.
+  2. Every SEV1 gets an incident commander (IC) who owns comms and coordination.
+     The IC is not the person debugging.
+
+DATABASE FAILOVER (helios-db)
+
+Failover is AUTOMATED via the orchestrator deployed April 2024: replica promotion,
+pgbouncer pool cycling, and DNS switch run as one supervised workflow. Measured
+recovery time objective (RTO): 8 minutes. Manual override remains available to
+SRE via Gatekeeper for split-brain scenarios.
+
+POSTMORTEMS
+
+Every SEV1/SEV2 requires a blameless postmortem within 5 business days using the
+standard template. Action items get owners and due dates tracked in #incidents.
+
+Source: sre/oncall_runbook_v2.md | Classification: INTERNAL

@@ -1,0 +1,19 @@
+{
+  "roles": {
+    "employee": {
+      "name": "employee",
+      "description": "Individual contributor. Access to onboarding guides, security policy, runbooks, postmortems, and the performance review guide.",
+      "access_rank": 1
+    },
+    "manager": {
+      "name": "manager",
+      "description": "People manager. Adds compensation bands, the hiring plan, and compliance audit summaries.",
+      "access_rank": 2
+    },
+    "exec": {
+      "name": "exec",
+      "description": "Executive team. Full access including board materials, workforce planning memos, and product roadmaps.",
+      "access_rank": 3
+    }
+  }
+}

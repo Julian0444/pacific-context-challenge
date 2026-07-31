@@ -53,17 +53,54 @@ def test_query_partner_can_see_all():
     })
     data = resp.json()
     doc_ids = [c["doc_id"] for c in data["context"]]
-    # Partner should be able to see partner-level docs
-    # At least some results should be returned
     assert len(data["context"]) > 0
+    # Partner must actually see partner-only material (IC memo)
+    assert "doc_010" in doc_ids
 
 
-def test_query_invalid_role_returns_422():
+def test_query_invalid_role_returns_400():
     resp = client.post("/query", json={
         "query": "test",
         "role": "viewer",
     })
     assert resp.status_code == 400
+
+
+# ── request validation bounds (QueryRequest/CompareRequest Field constraints) ──
+
+def test_query_negative_top_k_returns_422():
+    resp = client.post("/query", json={"query": "test", "top_k": -1})
+    assert resp.status_code == 422
+
+
+def test_query_zero_top_k_returns_422():
+    resp = client.post("/query", json={"query": "test", "top_k": 0})
+    assert resp.status_code == 422
+
+
+def test_query_top_k_above_max_returns_422():
+    resp = client.post("/query", json={"query": "test", "top_k": 51})
+    assert resp.status_code == 422
+
+
+def test_query_empty_query_returns_422():
+    resp = client.post("/query", json={"query": ""})
+    assert resp.status_code == 422
+
+
+def test_query_overlong_query_returns_422():
+    resp = client.post("/query", json={"query": "x" * 2001})
+    assert resp.status_code == 422
+
+
+def test_compare_negative_top_k_returns_422():
+    resp = client.post("/compare", json={"query": "test", "top_k": -1})
+    assert resp.status_code == 422
+
+
+def test_compare_empty_query_returns_422():
+    resp = client.post("/compare", json={"query": ""})
+    assert resp.status_code == 422
 
 
 def test_query_invalid_policy_returns_400():

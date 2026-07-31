@@ -1,0 +1,44 @@
+NIMBUS ANALYTICS — PROJECT ALPINE: WORKFORCE CONTINGENCY MEMO
+June 3, 2024 | RESTRICTED — EXECUTIVE TEAM ONLY | DO NOT FORWARD
+
+PREPARED BY: Dana Whitfield (CEO), Ingrid Solberg (VP People), Marcus Bell (CFO)
+
+STATUS
+
+CONTINGENCY PLANNING ONLY. No reduction has been approved. This memo defines the
+trigger, scope, and execution standards so that a decision, if ever taken, is
+fast and humane. Distribution is limited to the executive team.
+
+TRIGGER
+
+If Q2 FY2025 net-new ARR misses plan by more than 25% (plan: $1.9M net-new),
+the executive team convenes a decision gate on JULY 15, 2024. Absent that miss,
+Project Alpine is shelved at the July gate.
+
+SCOPE (IF TRIGGERED)
+
+  — Reduction of approximately 9% of workforce (~16 of ~180 roles).
+  — Concentrated in marketing programs and G&A; engineering, SRE, and the
+    enterprise sales pod are explicitly protected. The FY2025 hiring plan
+    would be re-baselined (marketing freeze already in effect).
+  — No performance framing: this would be a structural, role-based reduction.
+
+SEVERANCE AND SUPPORT STANDARDS
+
+  — 8 weeks base severance plus 2 weeks per full year of tenure.
+  — Healthcare coverage continuation for 4 months (COBRA paid).
+  — Accelerated vesting of the next quarterly tranche; 12-month exercise window.
+  — Job-placement support contracted in advance; references from managers.
+
+EXECUTION PRINCIPLES
+
+Single-day notification, individually delivered by the direct manager with
+People Ops present; same-day all-hands with written FAQ; no phased or rolling
+cuts. Access revocation follows the offboarding policy without punitive haste.
+
+COMMUNICATION RISK
+
+Premature leakage would damage trust and Q2 sales. Nothing in this memo may be
+referenced outside the executive team until the July 15 gate.
+
+Source: exec/project_alpine_memo.md | Classification: RESTRICTED — EXEC

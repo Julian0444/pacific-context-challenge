@@ -114,6 +114,10 @@ def _budget_stage(docs, policy) -> StageResult:
             docs,
             token_budget=policy.token_budget,
             enforce_budget=not policy.skip_budget,
+            # H4 (Fase 5 Etapa B): top_k caps UNIQUE PARENT DOCUMENTS in the
+            # final context; the token budget is the second limit. The naive
+            # baseline (skip_budget) stays uncapped by design.
+            max_docs=None if policy.skip_budget else policy.top_k,
         ))
     except Exception as e:
         return StageErr(stage="budget_packer", error=str(e))
@@ -154,11 +158,14 @@ def run_pipeline(
     user_ctx = UserContext(role=request.role, access_rank=user_rank)
 
     # Stage 1 — Retrieve
-    # Over-retrieve by 3× to compensate for downstream permission attrition.
-    # For a small corpus with restricted analyst access, top_k=8 can leave
-    # only 2-3 candidates after filtering.  The budget packer still
-    # enforces the token budget regardless of how many candidates enter.
-    retrieve_k = policy.top_k * 3
+    # Over-retrieve by 6× to compensate for downstream permission attrition
+    # AND chunk inflation (Fase 5 Etapa B: rows are chunks, ~2 per document,
+    # and top_k now caps unique documents). For a small corpus with
+    # restricted analyst access, a 3× chunk window left low-rank permitted
+    # documents outside the packer's reach. The budget packer still enforces
+    # the token budget and the top_k doc cap regardless of how many
+    # candidates enter.
+    retrieve_k = policy.top_k * 6
     candidates: List[ScoredDocument] = _unwrap(
         _retrieve_stage(request.query, retrieve_k, retriever)
     )

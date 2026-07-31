@@ -1,0 +1,41 @@
+NIMBUS ANALYTICS — ON-CALL RUNBOOK
+Version 1.0 | November 2, 2023 | INTERNAL — ENGINEERING
+STATUS NOTE: SUPERSEDED BY ON-CALL RUNBOOK v2.0 (APRIL 2024)
+
+OWNER: Lena Fischer, Head of SRE
+
+ROTATION
+
+One primary and one secondary engineer per week, per service group (Skyhook,
+Prism, helios-db). Handoff happens Mondays at 10:00 in #incidents. PagerBot,
+our legacy Slack paging bot, delivers alerts to the primary.
+
+ESCALATION (v1)
+
+  1. Primary acknowledges the PagerBot alert. If no acknowledgement within
+     15 minutes, PagerBot pages the secondary.
+  2. If the incident is customer-visible and unresolved after 30 minutes,
+     page Lena Fischer (Head of SRE) directly by phone.
+  3. Executive notification is manual: the on-call engineer emails the CTO
+     for anything affecting more than 10% of customers.
+
+DATABASE FAILOVER (helios-db)
+
+Failover to the standby replica is a MANUAL procedure documented in the
+db-failover wiki page. Expected recovery time objective (RTO): 45 minutes,
+including manual DNS switch, replica promotion, and connection-pool restart.
+Only SRE members with Gatekeeper production grants may execute it.
+
+SEVERITY
+
+Incidents are informally classified as "minor" or "major" at the discretion
+of the on-call engineer. Major incidents require a written summary in
+#incidents within 48 hours.
+
+KNOWN GAPS (ACKNOWLEDGED AT PUBLICATION)
+
+  — No automated failover for helios-db.
+  — No formal severity matrix or incident-commander role.
+  — PagerBot has no override for silenced channels.
+
+Source: sre/oncall_runbook_v1.md | Classification: INTERNAL

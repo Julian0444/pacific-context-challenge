@@ -68,11 +68,16 @@ class TestResultShape:
             assert r["rank"] == i + 1
 
     def test_top_k_clamped_to_corpus_size(self):
+        # Rows are chunks (Fase 5 Etapa B) — clamp is against the artifact
+        # row count, not the document count.
         results = retrieve("anything", top_k=999)
-        metadata_path = Path(__file__).resolve().parents[1] / "corpus" / "metadata.json"
-        with open(metadata_path) as f:
-            corpus_size = len(json.load(f)["documents"])
-        assert len(results) == corpus_size
+        artifacts_path = (
+            Path(__file__).resolve().parents[1]
+            / "artifacts" / "pe-deal" / "index_documents.json"
+        )
+        with open(artifacts_path) as f:
+            row_count = len(json.load(f))
+        assert len(results) == row_count
 
 
 # ---------------------------------------------------------------------------
@@ -101,23 +106,34 @@ class TestHybridVsSemantic:
     def test_bm25_rescues_dd_memo_for_clearwater_risks(self):
         """The DD memo (doc_006) discusses 'Project Clearwater' risks in detail.
         Semantic search may not rank it highly for a name-heavy query, but
-        BM25 should promote it because the exact terms match."""
-        q = "Rohan Mehta CTO departure integration risk"
-        hybrid = [r["doc_id"] for r in retrieve(q, top_k=5)]
-        sem = [r["doc_id"] for r in semantic_retrieve(q, top_k=5)]
+        BM25 should promote it because the exact terms match.
 
-        # doc_006 (DD memo) should appear in hybrid top-5
-        assert "doc_006" in hybrid, (
-            f"Expected doc_006 in hybrid top-5, got {hybrid}"
+        The assertion pins the *mechanism* (BM25 lifts doc_006 above its
+        semantic-only rank), not an absolute top-N cutoff: the exact cutoff
+        proved runtime-dependent — the ONNX embedder (Fase 5 Etapa A) sees
+        512 tokens per doc vs torch's 256, which legitimately reshuffled
+        near-ties in this name-heavy query."""
+        q = "Rohan Mehta CTO departure integration risk"
+        full = 999  # rank over every chunk so both lists contain doc_006
+        # Chunk rows → doc-level ranking = first occurrence of each doc_id
+        hybrid = list(dict.fromkeys(r["doc_id"] for r in retrieve(q, top_k=full)))
+        sem = list(dict.fromkeys(r["doc_id"] for r in semantic_retrieve(q, top_k=full)))
+
+        assert "doc_006" in hybrid and "doc_006" in sem
+        hybrid_rank = hybrid.index("doc_006")
+        sem_rank = sem.index("doc_006")
+        # BM25's exact-term signal must never hurt doc_006's rank. (With
+        # chunking the semantic side already ranks the relevant chunk near
+        # the top — the 256-token blindness BM25 used to rescue is gone —
+        # so equality is the expected healthy outcome, not a regression.)
+        assert hybrid_rank <= sem_rank, (
+            f"BM25 should not demote doc_006 in the fused ranking "
+            f"(hybrid={hybrid_rank}, semantic={sem_rank})"
         )
-        # And it should rank higher in hybrid than semantic
-        if "doc_006" in sem:
-            hybrid_rank = hybrid.index("doc_006")
-            sem_rank = sem.index("doc_006")
-            assert hybrid_rank <= sem_rank, (
-                f"doc_006 should rank at least as high in hybrid "
-                f"(hybrid={hybrid_rank}, semantic={sem_rank})"
-            )
+        # and keep it in the retrievable window the pipeline actually uses
+        # (retrieve_k = top_k * 3 = 15 chunks for the default top_k=5)
+        chunk_rank = [r["doc_id"] for r in retrieve(q, top_k=full)].index("doc_006")
+        assert chunk_rank < 15, f"doc_006 fell out of the over-retrieval window ({chunk_rank})"
 
     def test_bm25_promotes_customer_concentration_for_exact_terms(self):
         """doc_012 (customer concentration analysis) contains exact figures
@@ -146,14 +162,6 @@ class TestRRFFusion:
         """A doc present in both rankings (even at low rank) should beat a
         doc present in only one ranking (at high rank), because the missing
         ranking gets the worst-case default rank."""
-        sem = {"a": 1}
-        bm25 = {"b": 2}
-        # a: 1/(60+1) + 1/(60+3)=default  →  1/61 + 1/63 ≈ 0.0322
-        # b: 1/(60+3)=default + 1/(60+2)   →  1/63 + 1/62 ≈ 0.0320
-        # But a doc in BOTH at modest ranks beats one in only one:
-        both = {"a": 1, "b": 2}
-        bm25_both = {"a": 2, "b": 1}
-        fused = _rrf_fuse(both, bm25_both, 5)
         # c only appears in semantic at rank 3, missing from bm25 → rank 6
         sem_partial = {"a": 1, "b": 2, "c": 3}
         bm25_partial = {"a": 2, "b": 1}

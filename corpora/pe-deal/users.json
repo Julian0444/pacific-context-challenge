@@ -1,0 +1,29 @@
+{
+  "_comment": "Demo personas. Passwords are deliberately published in plain text in the README and on the login screen (password_hint) — fictitious accounts over fictitious data, zero-friction demo. role = data access (roles.json ranks); is_admin = platform capability (Upload, admin console, attributed audit). Distinct axes on purpose.",
+  "users": [
+    {
+      "username": "julia",
+      "name": "Julia Ferreyra",
+      "role": "analyst",
+      "is_admin": false,
+      "password_sha256": "cce657f16c436d5357567f215df4e4d5c56f8a19c32916e43562db7905035a04",
+      "password_hint": "demo-analyst"
+    },
+    {
+      "username": "victoria",
+      "name": "Victoria Sosa",
+      "role": "vp",
+      "is_admin": false,
+      "password_sha256": "77ccaf8dc1b928acaabf527c1a4fc683f757967ad5feea80cb38af5e82677c6d",
+      "password_hint": "demo-vp"
+    },
+    {
+      "username": "patricia",
+      "name": "Patricia Alonso",
+      "role": "partner",
+      "is_admin": true,
+      "password_sha256": "cce7a2cf1ae045989cfc914fb95a41526f167a838b3c7d33745143614abace7c",
+      "password_hint": "demo-admin"
+    }
+  ]
+}

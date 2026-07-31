@@ -1,0 +1,161 @@
+{
+  "description": "Ask-mode goldens (Fase 4): question pairs whose ANSWER changes with the viewer's role, because RBAC changes what the model is allowed to see. Run `python -m src.evaluator --ask-goldens` with ANTHROPIC_API_KEY set to fill `snapshots` with measured answers (a few cents with the default Haiku model). Snapshots are measured artifacts — never hand-edit them.",
+  "workspace": "pe-deal",
+  "cases": [
+    {
+      "id": "golden_ic_recommendation",
+      "query": "What is the final IC recommendation for the Meridian acquisition?",
+      "roles": [
+        "analyst",
+        "partner"
+      ],
+      "note": "The IC memo (doc_010) and its superseded draft (doc_014) are partner-only. Partner should answer citing [doc_010]; analyst should get an insufficient-context answer — the recommendation never reaches the model for that role."
+    },
+    {
+      "id": "golden_valuation",
+      "query": "What valuation is being discussed for Meridian?",
+      "roles": [
+        "analyst",
+        "vp"
+      ],
+      "note": "Analyst can only ground on the public press rumor (doc_015, $500M chatter); vp sees the internal financial model v2 (doc_008). Same question, different sources, different numbers — both answers are grounded, in different realities."
+    },
+    {
+      "id": "golden_customer_concentration",
+      "query": "How concentrated is Meridian's customer base and what is the risk?",
+      "roles": [
+        "analyst",
+        "vp"
+      ],
+      "note": "The dedicated concentration analysis (doc_012) is vp-level. Vp should cite it; analyst can only lean on public filings (doc_001) if anything."
+    }
+  ],
+  "snapshots": {
+    "generated_at": "2026-07-06",
+    "model": "claude-haiku-4-5-20251001",
+    "entries": [
+      {
+        "case_id": "golden_ic_recommendation",
+        "role": "analyst",
+        "model": "claude-haiku-4-5-20251001",
+        "answer": "I cannot find a final IC (Investment Committee) recommendation for the Meridian acquisition in the provided documents. \n\nThe documents contain various information about Meridian Technologies, including:\n- Research notes with buy ratings and valuation estimates [doc_002, doc_003]\n- A sector overview discussing M&A landscape [doc_005]\n- News speculation about a rumored $500M valuation [doc_015]\n- Company filings and press releases [doc_001, doc_004]\n\nHowever, none of these documents contain an explicit IC recommendation regarding an acquisition decision. To answer your question, I would need access to internal investment committee materials or decision documents that are not included in the provided context.",
+        "citations": [
+          {
+            "doc_id": "doc_005",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_015",
+            "valid": true
+          }
+        ],
+        "blocked_count": 10,
+        "input_tokens": 1110,
+        "output_tokens": 153
+      },
+      {
+        "case_id": "golden_ic_recommendation",
+        "role": "partner",
+        "model": "claude-haiku-4-5-20251001",
+        "answer": "Based on the documents provided, the final IC recommendation for the Meridian acquisition is to **proceed with the acquisition at an enterprise value of $340 million, subject to final legal and financial confirmations** [doc_010].\n\nThis recommendation appears in the final Investment Committee Memorandum dated April 18, 2024. It's worth noting that this represents a change from an earlier draft (v0.9 from April 9, 2024) which had recommended deferring the acquisition pending clarification of legal and customer-risk issues [doc_014], but that draft was explicitly superseded by the final memo.",
+        "citations": [
+          {
+            "doc_id": "doc_010",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_014",
+            "valid": true
+          }
+        ],
+        "blocked_count": 0,
+        "input_tokens": 2970,
+        "output_tokens": 135
+      },
+      {
+        "case_id": "golden_valuation",
+        "role": "analyst",
+        "model": "claude-haiku-4-5-20251001",
+        "answer": "Based on the documents provided, a **$500 million valuation** is being discussed for Meridian [doc_015].\n\nThis valuation is described as a rumor based on public market chatter rather than internal diligence, and appears to be derived from public SaaS multiples applied to Meridian's reported $38.1M FY2023 ARR [doc_015].\n\nFor context, a research analyst had previously set a base-case enterprise value target of $480 million for Meridian [doc_002], which is close to the rumored $500M figure.",
+        "citations": [
+          {
+            "doc_id": "doc_015",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_002",
+            "valid": true
+          }
+        ],
+        "blocked_count": 10,
+        "input_tokens": 1108,
+        "output_tokens": 132
+      },
+      {
+        "case_id": "golden_valuation",
+        "role": "vp",
+        "model": "claude-haiku-4-5-20251001",
+        "answer": "Based on the documents provided, a **$500M valuation** for Meridian is being discussed [doc_015].\n\nThis valuation is described as a rumor based on public market chatter rather than internal diligence. According to the source, the $500M figure appears to be derived from public SaaS multiples applied to Meridian's reported $38.1M FY2023 ARR and prior growth commentary from third-party research [doc_015].\n\nAdditionally, Summit Financial Research issued a base-case enterprise value target of **$480 million** for Meridian [doc_002], which is in a similar range to the rumored valuation.",
+        "citations": [
+          {
+            "doc_id": "doc_015",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_002",
+            "valid": true
+          }
+        ],
+        "blocked_count": 4,
+        "input_tokens": 2265,
+        "output_tokens": 149
+      },
+      {
+        "case_id": "golden_customer_concentration",
+        "role": "analyst",
+        "model": "claude-haiku-4-5-20251001",
+        "answer": "# Customer Concentration Risk at Meridian\n\nBased on the provided documents, I cannot find specific information about how concentrated Meridian's customer base is or the associated risks.\n\nThe documents provided include:\n- Business overview and financial data [doc_001]\n- Research coverage initiation and estimate revisions [doc_002, doc_003]\n- Financing announcements [doc_004]\n- Sector overview [doc_005]\n- News articles about valuation [doc_015]\n\nHowever, none of these documents contain details about customer concentration metrics, customer distribution, revenue concentration by customer, or customer-related risks. To answer your question about customer concentration and its risks, I would need access to documents that specifically address customer composition, such as detailed risk factor disclosures, customer concentration tables, or management discussion sections covering customer dependencies.",
+        "citations": [
+          {
+            "doc_id": "doc_001",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_004",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_005",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_015",
+            "valid": true
+          }
+        ],
+        "blocked_count": 10,
+        "input_tokens": 1112,
+        "output_tokens": 181
+      },
+      {
+        "case_id": "golden_customer_concentration",
+        "role": "vp",
+        "model": "claude-haiku-4-5-20251001",
+        "answer": "# Meridian's Customer Concentration Risk\n\n## Concentration Level\n\nBased on the available documents, Meridian's customer base is **highly concentrated**. As of March 31, 2024, the top customer (Regional Bank A) represents **24.7% of total ARR at $9.4M** [doc_012]. While the document appears to reference additional major customers, the excerpt provided is incomplete, but the fact that a single customer represents nearly one-quarter of revenue indicates significant concentration risk.\n\n## Risk Impact\n\nThis customer concentration has directly influenced Atlas Capital's financial projections. The concentration analysis prompted a **downward revision of FY2024 ARR growth from 35% to 22%** [doc_008]. This revision reflects management's concern about the dependency on a limited customer base for revenue stability.\n\nThe documents indicate that this concentration risk was a material finding in the due diligence process, with Diana Park's customer concentration analysis (April 8, 2024) specifically cited as the basis for updating growth assumptions in the financial model [doc_008].\n\nHowever, the provided documents do not contain complete details about the full customer concentration breakdown (the list appears to be cut off after \"Customer 2\"), so a comprehensive assessment of the total concentration risk across the top 3-5 customers cannot be fully determined from the available context.",
+        "citations": [
+          {
+            "doc_id": "doc_012",
+            "valid": true
+          },
+          {
+            "doc_id": "doc_008",
+            "valid": true
+          }
+        ],
+        "blocked_count": 4,
+        "input_tokens": 2269,
+        "output_tokens": 291
+      }
+    ]
+  }
+}

@@ -1,6 +1,7 @@
-# QueryTrace — Reviewer Demo Guide
+# QueryTrace — Demo Guide
 
-A self-service companion for reviewers exploring the deployed QueryTrace app. For the live presenter script see [`demo.md`](../demo.md); for the Loom/video narration see [`script_en.md`](../script_en.md).
+A self-service companion for exploring QueryTrace. Start the app first (Quickstart in the
+[README](../README.md)), then walk through this guide at `http://localhost:8000/app/`.
 
 ---
 
@@ -15,7 +16,128 @@ A self-service companion for reviewers exploring the deployed QueryTrace app. Fo
 | **Metrics mode** | Two sections: Benchmark (12 static test queries) and Session Audit (live queries from your session). |
 | **Upload mode** | PDF ingestion form (may be disabled on public deploys). |
 
-For a deeper explanation of each mode and metric, see [`summaryUserExp.md`](../summaryUserExp.md).
+For a deeper explanation of each mode and metric, see [`archive/summaryUserExp.md`](archive/summaryUserExp.md).
+
+---
+
+## The 3-minute tour
+
+Sign in with the demo personas (credentials are deliberately public — fictitious fund, fictitious documents):
+
+| Min | Account | Do this | What it demonstrates |
+|---|---|---|---|
+| 1 | `julia / demo-analyst` | Ask about the financial model → **"10 documents withheld · requires vp+"** | The permission wall is felt, not explained — and the withheld titles never reach your browser (server-side redaction) |
+| 2 | `victoria / demo-vp` | Same question → the real answer (model v2 ranked up, v1 demoted as superseded) | Same app, different identity, different truth |
+| 3 | `patricia / demo-admin` | Upload a PDF, then open the session audit: julia's blocked attempt is right there, attributed | Govern, ask, audit — the loop closes |
+
+Prefer the unauthenticated sandbox? **Explore the Lab** (no sign-in) keeps the full instrument panel: choose any role, toggle the three policies, and compare them side by side.
+
+With an `ANTHROPIC_API_KEY` in your environment, Ask mode appears (a **✦ Ask AI** button next to Run) and minute 2 gets sharper: ask the *same question* as julia and as victoria — the **answers** differ, with `[doc_id]` citations, because RBAC changed what the model was allowed to read.
+
+Minute 4 (optional): use the **workspace picker** in the header to switch to *Nimbus Analytics — Internal Workspace* — a second, completely isolated corpus with its own roles and personas. Ask about salary bands as `sofia` and hit a different permission wall.
+
+### Credentials
+
+**Atlas Capital — PE Deal Room** (`pe-deal`, default workspace):
+
+| Persona | Password | Data role | Platform |
+|---|---|---|---|
+| `julia` | `demo-analyst` | analyst — sees 6 of 16 docs | — |
+| `victoria` | `demo-vp` | vp — sees 12 of 16 docs | — |
+| `patricia` | `demo-admin` | partner — sees all 16 docs | admin: Upload, audit with user attribution, policy console |
+
+**Nimbus Analytics — Internal Workspace** (`saas-internal`):
+
+| Persona | Password | Data role | Platform |
+|---|---|---|---|
+| `sofia` | `demo-employee` | employee — sees 6 of 14 docs | — |
+| `marcos` | `demo-manager` | manager — sees 10 of 14 docs | — |
+| `alex` | `demo-admin` | exec — sees all 14 docs | admin: Upload, audit with user attribution, policy console |
+
+Sessions are bound to the workspace they were created in — a `pe-deal` cookie used against `saas-internal` gets a 403, never a silent role remap.
+
+---
+
+## Three scenarios that show why retrieval policy matters
+
+(The table describes the default `pe-deal` workspace; `saas-internal` mirrors the same three stories with its own documents — salary bands instead of IC memos.)
+
+| Scenario | What to try | What it reveals |
+|---|---|---|
+| **Permission Wall** | Query "ARR growth rate" as an **analyst** | The analyst sees 6 documents. Switch to Compare mode: the naive pipeline (no filters) surfaces all 16 — including 10 VP/partner-only docs the analyst should never see. |
+| **Financial Model Access** | Query "financial model revenue projections" as a **VP** | The VP gains access to deal memos and financial models blocked from analysts. The full pipeline demotes the superseded financial model v1 (`doc_007` → `doc_008`). |
+| **Stale Detection** | Query "IC memo and LP quarterly update" as a **partner** | The partner has full corpus access — no permission blocks in any policy. But the full pipeline still demotes 3 superseded documents with a 0.5x freshness penalty, pushing current versions higher. |
+
+---
+
+## The corpora
+
+### `pe-deal` — Atlas Capital PE Deal Room (default)
+
+16 documents from a fictional PE acquisition (Atlas Capital / Meridian Technologies — "Project Clearwater"):
+
+```
+analyst  (rank 1)  — public filings, research notes, press releases, news, sector overview
+VP       (rank 2)  — deal memos, financial models, internal email, internal memos
+partner  (rank 3)  — IC memos, LP updates, board materials, legal diligence
+```
+
+| Superseded | Replaced by | What changed |
+|---|---|---|
+| `doc_002` Research Notes Q3 | `doc_003` Research Notes Q4 | Quarterly revision |
+| `doc_007` Financial Model v1 ($480M) | `doc_008` Financial Model v2 ($340M) | Valuation revised down |
+| `doc_014` IC Draft (defer) | `doc_010` IC Final (approve) | Recommendation reversed |
+
+### `saas-internal` — Nimbus Analytics Internal Workspace
+
+14 documents from a fictional B2B SaaS company's internal knowledge base:
+
+```
+employee (rank 1)  — onboarding, security policy, runbooks, postmortems, perf review guide
+manager  (rank 2)  — compensation bands, hiring plan, compliance audits
+exec     (rank 3)  — board deck, workforce contingency memo, product roadmaps
+```
+
+| Superseded | Replaced by | What changed |
+|---|---|---|
+| `doc_003` On-Call Runbook v1 | `doc_004` On-Call Runbook v2 | Manual 45-min failover → automated 8-min RTO |
+| `doc_007` Comp Bands 2023 | `doc_008` Comp Bands 2024 | Bands +8–9%, bonus 8%→10%, geo tiers added |
+| `doc_013` Roadmap Draft v0.4 | `doc_014` Roadmap Final | EU residency pulled to Q3, mobile replay cut |
+
+The signature demo: an **employee** asking about salary bands hits 8 RBAC-blocked documents — the naive baseline happily leaks the compensation tables.
+
+### Bring your own corpus
+
+One command turns any directory of documents into a fully working workspace:
+
+```bash
+python -m src.workspace create my-company \
+    --from-dir ~/docs-to-index \
+    --name "My Company KB"        # optional --roles roles.json, --description
+python -m src.workspace list
+```
+
+Every file (.pdf/.txt/.md/.docx) goes through the exact same pipeline as an HTTP upload — magic-byte verification, extraction, content-hash dedup (duplicates are skipped with a warning), incremental indexing. Defaults: roles `viewer(1) < editor(2) < admin(3)` (override with `--roles`), `min_role` = lowest rank, date = file mtime, title = humanized filename. Then start the server and pick the new workspace in the UI switcher (no demo personas — explore it in guest/Lab mode, or add `users.json` entries by hand).
+
+---
+
+## Ask mode configuration
+
+Set one environment variable; removing it is the kill-switch (the button disappears, `/health` reports `ask_enabled: false`, everything else keeps working):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...   # enables POST /ask + the ✦ Ask AI button
+```
+
+| Knob (env) | Default | Purpose |
+|---|---|---|
+| `ASK_MODEL` | `claude-haiku-4-5` | Cheapest current Claude model — a public-demo cost decision |
+| `ASK_MAX_PER_MINUTE` | `6` | Model calls per minute per visitor IP (429 beyond it) |
+| `ASK_MAX_PER_MINUTE_GLOBAL` | `30` | Global calls/minute across all visitors |
+| `ASK_CACHE_TTL_SECONDS` | `3600` | Answer cache per (workspace, query, role, policy) — replaying a demo query is free |
+| `ASK_MAX_TOKENS` | `600` | Answer length cap |
+
+Guardrails designed for a public deploy: repeated queries are served from cache (marked `cached: true`, zero new tokens), rate limits return a friendly 429, and provider failures (timeout, 5xx, bad key) surface as a clean 502 — never a stack trace.
 
 ---
 
@@ -152,7 +274,7 @@ The Metrics tab has two sections, separated by a divider.
 
 ### Benchmark (q001–q012)
 
-The top section loads automatically on the first Metrics tab visit. It runs 12 predefined test queries (from `evals/test_queries.json`) through `full_policy` and shows:
+The top section loads automatically on the first Metrics tab visit. It runs 12 predefined test queries (from the workspace's `corpora/<slug>/evals.json`) through `full_policy` and shows:
 
 - **Narrative banner** — Executive summary: permission violations, recall, budget utilization tier.
 - **10 metric cards** — Aggregate metrics across all 12 queries. The three that matter most: Permission Violations (0.0%), Recall (1.0), and Avg Blocked.

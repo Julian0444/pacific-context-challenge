@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 matches Render's .python-version; 3.9 validates the lower
+        # bound of the supported range declared in the README.
+        python-version: ["3.9", "3.11"]
+
+    env:
+      # Concrete paths (no ~): these land in os.environ verbatim, and neither
+      # tiktoken nor fastembed expanduser()s them.
+      TIKTOKEN_CACHE_DIR: /home/runner/.cache/tiktoken
+      FASTEMBED_CACHE_PATH: /home/runner/.cache/fastembed
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      # Without these caches every run re-downloads the ONNX MiniLM model
+      # (~90 MB) and tiktoken's BPE encoding.
+      - name: Cache fastembed ONNX model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/fastembed
+          key: fastembed-all-MiniLM-L6-v2-onnx-${{ runner.os }}
+
+      - name: Cache tiktoken encodings
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tiktoken
+          key: tiktoken-cl100k_base-${{ runner.os }}
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check src/ tests/
+
+      - name: Tests
+        run: python -m pytest tests/ -q
+
+      # Smoke: runs the 12-query benchmark through naive_top_k and
+      # full_policy; asserts full_policy has zero permission violations.
+      - name: Evaluator A/B smoke
+        run: python -m src.evaluator --compare

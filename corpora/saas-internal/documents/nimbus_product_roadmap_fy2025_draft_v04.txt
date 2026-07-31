@@ -1,0 +1,41 @@
+NIMBUS ANALYTICS — PRODUCT ROADMAP FY2025, DRAFT v0.4
+May 6, 2024 | RESTRICTED — EXECUTIVE TEAM ONLY
+STATUS NOTE: SUPERSEDED BY PRODUCT ROADMAP FY2025 — FINAL (MAY 28, 2024)
+
+PREPARED BY: Yuki Tanaka, VP Product
+
+FRAMING (DRAFT)
+
+Draft sequencing for the FY2025 roadmap ahead of the May offsite. Bets are
+ordered by projected ARR impact; engineering capacity assumes the FY2025 hiring
+plan lands on schedule.
+
+PROPOSED SEQUENCE (v0.4)
+
+  Q2 FY2025   "Copilot for dashboards" — AI insights assistant that drafts
+              analyses and explains metric movements in natural language.
+              Rationale: competitive buzz; demo-able at the June conference.
+
+  Q3 FY2025   Warehouse-native mode — query customer data in place (Snowflake,
+              BigQuery) instead of ingesting through Skyhook. Unlocks data-team
+              buyers; reduces storage COGS.
+
+  Q4 FY2025   EU data residency — Frankfurt region for Skyhook and helios-db.
+              Held to Q4 because infra work competes with warehouse-native.
+
+  DEPRIORITIZED: Mobile session replay — pushed below the line pending iOS
+  capture-library rewrite; revisit in FY2026 planning.
+
+OPEN QUESTIONS FOR THE OFFSITE
+
+  1. Is Q2 too early for the AI assistant given model-cost uncertainty?
+  2. Three enterprise deals (combined $640K ACV) are blocked on EU residency —
+     can sales hold them to Q4, or does residency need to move up?
+  3. Naming: "Copilot" collides with several vendor brands; legal review pending.
+
+CAPACITY NOTES (DRAFT)
+
+Platform team carries the failover orchestrator maintenance through Q2; the
+2 SRE hires from the hiring plan are assumed staffed by Q3 for residency work.
+
+Source: product/roadmap_fy2025_draft_v0.4.md | Classification: RESTRICTED — EXEC

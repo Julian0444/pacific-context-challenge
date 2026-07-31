@@ -21,6 +21,8 @@ artifacts/*.npy
 .idea/
 *.swp
 *.swo
+.agents/
+.claude/
 
 # OS
 .DS_Store
@@ -30,6 +32,10 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 .coverage
+test-results/
+
+# Personal working material (never commit)
+frente_3_querytrace.md
 
 # Worktrees
 .worktrees/

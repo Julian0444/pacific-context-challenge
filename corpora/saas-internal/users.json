@@ -1,0 +1,29 @@
+{
+  "_comment": "Demo personas for the Nimbus Analytics workspace. Passwords are deliberately published in plain text on the login screen (password_hint) — fictitious accounts over fictitious data, zero-friction demo. role = data access (roles.json ranks); is_admin = platform capability (Upload, admin console, attributed audit). Distinct axes on purpose.",
+  "users": [
+    {
+      "username": "sofia",
+      "name": "Sofía Reyes",
+      "role": "employee",
+      "is_admin": false,
+      "password_sha256": "5c6fd8f4610eef0161afc7c0eb387b009e0a709059970c52a3f9dc063c8b7ecd",
+      "password_hint": "demo-employee"
+    },
+    {
+      "username": "marcos",
+      "name": "Marcos Vidal",
+      "role": "manager",
+      "is_admin": false,
+      "password_sha256": "ae4a180a148c6fa73b885f1715c71b54f9f41980b20a0b3223cbac19b1b172ec",
+      "password_hint": "demo-manager"
+    },
+    {
+      "username": "alex",
+      "name": "Alex Kim",
+      "role": "exec",
+      "is_admin": true,
+      "password_sha256": "cce7a2cf1ae045989cfc914fb95a41526f167a838b3c7d33745143614abace7c",
+      "password_hint": "demo-admin"
+    }
+  ]
+}

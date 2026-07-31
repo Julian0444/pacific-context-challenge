@@ -1,0 +1,41 @@
+NIMBUS ANALYTICS — INFORMATION SECURITY POLICY
+Version 3.0 | January 25, 2024 | INTERNAL — ALL EMPLOYEES
+
+OWNER: Security Team (CISO office) | Approved by: Priya Raghavan, CTO
+
+SCOPE
+
+Applies to all employees, contractors, and systems that touch Nimbus or customer
+data. Annual security training is mandatory; completion is tracked by People Ops.
+
+ACCESS CONTROL
+
+  — Single sign-on with phishing-resistant hardware keys (YubiKey) is required for
+    all internal systems. Passwords live only in the company 1Password vault.
+  — Production access is brokered exclusively through Gatekeeper. Direct SSH to
+    production hosts is prohibited; all sessions are recorded.
+  — Access follows least privilege and is re-certified in quarterly access reviews.
+    Offboarding must revoke all access within 24 hours of departure.
+
+DATA CLASSIFICATION
+
+  PUBLIC      Marketing material, published docs.
+  INTERNAL    Default for company information (this policy, runbooks, wikis).
+  RESTRICTED  Customer event data, compensation data, board and legal material.
+
+Customer event data is retained for 13 months and then deleted from Skyhook and
+helios-db backups on a rolling schedule. Restricted data may not be exported to
+personal devices or unapproved SaaS tools.
+
+ENDPOINTS AND VENDORS
+
+  — Laptops run the managed image: full-disk encryption, screen lock, MDM agent.
+  — New vendors require a security review and a signed DPA before any data flows.
+
+INCIDENT REPORTING
+
+Suspected incidents must be reported in #incidents or to security@nimbus within
+24 hours of discovery. The on-call incident commander (see On-Call Runbook) owns
+triage; Security owns forensics and disclosure decisions.
+
+Source: security/infosec_policy_v3.md | Classification: INTERNAL
