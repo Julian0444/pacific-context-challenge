@@ -1,9 +1,18 @@
 """
 budget_packer.py — Pure compute stage: token-budget-aware context assembly.
 
-Ranks documents by a 50/50 blend of similarity and freshness scores, then
-greedily packs them into the token budget.  Documents that don't fit are
-tracked as dropped_by_budget.
+Ranks CHUNKS by a 50/50 blend of similarity and freshness scores, then
+greedily packs them under two independent limits (Fase 5 Etapa B, resolves
+audit finding H4):
+
+  1. `max_docs` — the request's top_k, redefined as the maximum number of
+     UNIQUE PARENT DOCUMENTS in the final context. A chunk whose document
+     is already in the context never opens a new document slot; a chunk
+     from a new document is dropped once max_docs distinct documents are
+     packed. None = uncapped (naive baseline).
+  2. `token_budget` — the total token ceiling, as before.
+
+Chunks cut by either limit are tracked as dropped_by_budget.
 
 No I/O.  No side effects.
 """
@@ -11,7 +20,7 @@ No I/O.  No side effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import tiktoken
 
@@ -45,18 +54,22 @@ def pack_budget(
     docs: List[FreshnessScoredDocument],
     token_budget: int = DEFAULT_TOKEN_BUDGET,
     enforce_budget: bool = True,
+    max_docs: Optional[int] = None,
 ) -> BudgetResult:
-    """Rank by combined score and greedily pack within the token budget.
+    """Rank chunks by combined score and greedily pack under both limits.
 
     Args:
-        docs:           Freshness-scored candidates.
+        docs:           Freshness-scored candidate chunks.
         token_budget:   Maximum tokens allowed in the assembled context.
-        enforce_budget: If False, all docs are packed regardless of budget
-                        (dangerous baseline mode).
+        enforce_budget: If False, all chunks are packed regardless of budget
+                        or max_docs (dangerous baseline mode).
+        max_docs:       Maximum unique parent documents in the context
+                        (the request's top_k — see module docstring / H4).
+                        None = no document cap.
 
     Returns:
-        BudgetResult with packed documents, over-budget documents,
-        total_tokens used, and budget_utilization ratio.
+        BudgetResult with packed chunks, dropped chunks, total_tokens used,
+        and budget_utilization ratio.
     """
     if not docs:
         return BudgetResult(packed=[], over_budget=[], total_tokens=0, budget_utilization=0.0)
@@ -66,18 +79,26 @@ def pack_budget(
     packed: List[IncludedDocument] = []
     over_budget: List[DroppedByBudget] = []
     total_tokens = 0
+    packed_doc_ids: set = set()
 
     for doc in ranked:
         text = doc.excerpt
         tk = _count_tokens(text)
 
-        if enforce_budget and total_tokens + tk > token_budget:
+        doc_cap_hit = (
+            max_docs is not None
+            and doc.doc_id not in packed_doc_ids
+            and len(packed_doc_ids) >= max_docs
+        )
+        if enforce_budget and (doc_cap_hit or total_tokens + tk > token_budget):
             over_budget.append(
                 DroppedByBudget(
                     doc_id=doc.doc_id,
                     token_count=tk,
                     score=doc.score,
                     freshness_score=doc.freshness_score,
+                    title=doc.title,
+                    chunk_id=doc.chunk_id,
                 )
             )
             continue
@@ -94,9 +115,13 @@ def pack_budget(
                 doc_type=doc.doc_type,
                 date=doc.date,
                 superseded_by=doc.superseded_by,
+                chunk_id=doc.chunk_id,
+                chunk_index=doc.chunk_index,
+                chunk_count=doc.chunk_count,
             )
         )
         total_tokens += tk
+        packed_doc_ids.add(doc.doc_id)
 
     utilization = total_tokens / token_budget if token_budget > 0 else 0.0
 

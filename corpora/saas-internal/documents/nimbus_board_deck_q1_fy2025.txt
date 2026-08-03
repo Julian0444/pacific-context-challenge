@@ -1,0 +1,42 @@
+NIMBUS ANALYTICS — BOARD OF DIRECTORS DECK, Q1 FY2025 (SUMMARY MEMO)
+May 2, 2024 | RESTRICTED — EXECUTIVE TEAM ONLY
+
+PREPARED BY: Dana Whitfield (CEO), Marcus Bell (CFO)
+
+HEADLINE METRICS (Q1 FY2025)
+
+  ARR:                      $22.4 million  (+31% YoY)
+  Net Revenue Retention:    112%
+  Gross Margin:             74%
+  Monthly logo churn:       1.1%
+  Burn multiple:            1.4x
+  Runway:                   26 months at current plan
+  Customers:                ~640 (58 enterprise tier)
+
+QUARTER HIGHLIGHTS
+
+  — Enterprise tier launched in February: 58 customers migrated or signed,
+    already 34% of new bookings. Two lighthouse logos signed multi-year.
+  — Reliability program delivered: automated helios-db failover shipped after
+    the March 4 outage; RTO cut from 45 minutes to 8. SLA credits of $214K
+    were absorbed in Q1 COGS; no enterprise churn attributable to the incident.
+  — SOC 2 Type II renewed with zero major exceptions — now a sales asset in
+    security reviews.
+
+RISKS DISCUSSED WITH THE BOARD
+
+  1. Pricing pressure: two competitors moved to aggressive usage-based pricing;
+     win rates dipped in deals under $30K ACV. Packaging review underway.
+  2. Concentration in product analytics: the roadmap bets on EU data residency
+     and warehouse-native mode to open enterprise and European pipelines
+     (see Product Roadmap FY2025 — Final).
+  3. Hiring pace: 24 net-new heads planned (Hiring Plan FY2025); enterprise AE
+     hiring is gated on Q2 net-new ARR.
+
+ASKS AND RESOLUTIONS
+
+The board approved the FY2025 operating plan and the equity refresh pool, and
+reviewed the workforce contingency memo (Project Alpine) WITHOUT approving any
+action — it remains a contingency gated on Q2 results.
+
+Source: exec/board_deck_q1_fy2025.pdf | Classification: RESTRICTED — EXEC

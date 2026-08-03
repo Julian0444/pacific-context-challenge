@@ -1,0 +1,40 @@
+NIMBUS ANALYTICS — HIRING PLAN FY2025
+People Operations & Finance | May 14, 2024 | RESTRICTED — MANAGERS AND ABOVE
+
+OWNERS: Ingrid Solberg (VP People), Marcus Bell (CFO)
+
+HEADCOUNT SUMMARY
+
+FY2025 authorizes 24 net-new hires against a current base of ~180 employees,
+weighted to engineering and revenue roles. Marketing backfills are FROZEN for
+FY2025; any exception goes to the CFO.
+
+  Engineering        11   (4 platform, 3 product eng, 2 SRE, 2 data)
+  Sales               6   (4 AEs enterprise tier, 2 SDRs)
+  Customer Success    4   (2 CSMs, 1 onboarding, 1 support eng)
+  G&A                 3   (1 finance, 1 people ops, 1 IT)
+
+The 2 SRE hires are tied to the reliability investment that followed the March
+helios-db outage (postmortem PM-2024-03): 24/7 coverage without heroics and
+ownership of the failover orchestrator.
+
+TIMING AND GATES
+
+  — Target start dates: 70% of offers accepted by end of Q3 FY2025.
+  — Enterprise-tier AE hiring is gated on Q2 net-new ARR performance; if the
+    Q2 gate is missed, the last 2 AE requisitions convert to Q4 decisions.
+  — Every requisition needs a written role charter before it opens.
+
+BUDGET
+
+  — Recruiting budget: $380,000 for the year (tools, sourcing, events).
+  — Agency usage is capped at 20% of hires; agency fees negotiated to 18%.
+  — Offer approvals: hiring manager → department VP → People Ops (band check,
+    see Compensation Bands 2024) → CFO for any out-of-band component.
+
+REPORTING
+
+People Ops publishes a monthly hiring dashboard (Prism board "hiring-fy2025")
+tracking open reqs, pipeline pass-through, offer-accept rate, and time-to-fill.
+
+Source: people-ops/hiring_plan_fy2025.md | Classification: RESTRICTED

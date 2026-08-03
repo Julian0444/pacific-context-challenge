@@ -31,8 +31,8 @@ import os
 # Fixtures — load real roles and metadata once
 # ---------------------------------------------------------------------------
 
-_ROLES_PATH = os.path.join(os.path.dirname(__file__), "..", "corpus", "roles.json")
-_METADATA_PATH = os.path.join(os.path.dirname(__file__), "..", "corpus", "metadata.json")
+_ROLES_PATH = os.path.join(os.path.dirname(__file__), "..", "corpora", "pe-deal", "roles.json")
+_METADATA_PATH = os.path.join(os.path.dirname(__file__), "..", "corpora", "pe-deal", "metadata.json")
 
 _roles = load_roles(_ROLES_PATH)
 
@@ -170,7 +170,6 @@ def test_stale_docs_in_trace():
         role="partner",
         top_k=12,
     )
-    stale_ids = {s.doc_id for s in result.trace.demoted_as_stale}
     for s in result.trace.demoted_as_stale:
         assert isinstance(s, StaleDocument)
         assert s.superseded_by  # non-empty

@@ -1,10 +1,11 @@
---extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
-sentence-transformers==3.3.1
-transformers==4.46.3
-huggingface-hub>=0.23.2,<1.0
-torch==2.2.2+cpu
+# Embeddings run on ONNX Runtime via fastembed (Fase 5 Etapa A) — replaces the
+# old sentence-transformers/transformers/torch stack (~500 MB) with ~50 MB.
+# Pinned: py3.9 (local) and py3.11 (CI/Render) must resolve the same version.
+# fastembed resolves the platform-appropriate onnxruntime on its own
+# (1.19.x is the last with py3.9 wheels; py3.11 gets a newer one — both fine).
+fastembed==0.7.4
 numpy<2
 faiss-cpu
 pydantic
@@ -12,3 +13,9 @@ tiktoken
 rank-bm25
 pdfplumber
 python-multipart
+# Ingest multi-format (Fase 3) — .docx extraction. Pinned: py3.9 (local) and
+# py3.11 (CI/Render) must resolve the same version.
+python-docx==1.2.0
+# Ask mode (Fase 4) — Claude client for POST /ask. Pinned: py3.9 (local) and
+# py3.11 (CI/Render) must resolve the same version.
+anthropic==0.116.0

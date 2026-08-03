@@ -16,7 +16,6 @@ from src.models import (
     BlockedDocument,
     StaleDocument,
     IncludedDocument,
-    DroppedByBudget,
     TraceMetrics,
     DecisionTrace,
     PipelineResult,

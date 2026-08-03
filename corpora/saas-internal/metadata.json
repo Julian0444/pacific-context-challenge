@@ -1,0 +1,172 @@
+{
+  "documents": [
+    {
+      "id": "doc_001",
+      "file_name": "nimbus_engineering_onboarding_guide.txt",
+      "title": "Nimbus Analytics — Engineering Onboarding Guide",
+      "type": "onboarding_guide",
+      "date": "2024-02-12",
+      "min_role": "employee",
+      "sensitivity": "low",
+      "superseded_by": null,
+      "tags": ["nimbus", "onboarding", "engineering", "bootcamp", "30-60-90", "skyship"],
+      "short_summary": "Engineering onboarding: 4-day bootcamp, first-week checklist (SSO, nimbus-core monorepo, buddy), architecture tour (Skyhook, Prism, Gatekeeper, helios-db), trunk-based dev with Friday deploy freeze, 30-60-90 expectations."
+    },
+    {
+      "id": "doc_002",
+      "file_name": "nimbus_information_security_policy_v3.txt",
+      "title": "Nimbus Analytics — Information Security Policy v3",
+      "type": "security_policy",
+      "date": "2024-01-25",
+      "min_role": "employee",
+      "sensitivity": "medium",
+      "superseded_by": null,
+      "tags": ["nimbus", "security", "policy", "gatekeeper", "access_control", "data_classification"],
+      "short_summary": "Security policy v3: SSO with hardware keys, production access only via Gatekeeper (recorded sessions), quarterly access reviews, 24h offboarding revocation, data classification, 13-month customer data retention, 24h incident reporting."
+    },
+    {
+      "id": "doc_003",
+      "file_name": "nimbus_oncall_runbook_v1.txt",
+      "title": "Nimbus Analytics — On-Call Runbook v1",
+      "type": "runbook",
+      "date": "2023-11-02",
+      "min_role": "employee",
+      "sensitivity": "medium",
+      "superseded_by": "doc_004",
+      "tags": ["nimbus", "sre", "oncall", "runbook", "pagerbot", "failover", "stale"],
+      "short_summary": "STALE. Legacy on-call: PagerBot paging with 15-min acknowledgement, Monday handoffs, manual helios-db failover (45-min RTO), no severity matrix or incident commander. Superseded by Runbook v2 (April 2024)."
+    },
+    {
+      "id": "doc_004",
+      "file_name": "nimbus_oncall_runbook_v2.txt",
+      "title": "Nimbus Analytics — On-Call Runbook v2",
+      "type": "runbook",
+      "date": "2024-04-18",
+      "min_role": "employee",
+      "sensitivity": "medium",
+      "superseded_by": null,
+      "tags": ["nimbus", "sre", "oncall", "runbook", "opsgenie", "sev1", "failover", "incident_commander"],
+      "short_summary": "Current on-call runbook: Opsgenie rotations, SEV1-4 severity matrix (SEV1 ack in 5 min), incident-commander role, Wednesday handoffs, AUTOMATED helios-db failover with 8-minute RTO. Written after the March 2024 outage."
+    },
+    {
+      "id": "doc_005",
+      "file_name": "nimbus_postmortem_helios_db_outage_march_2024.txt",
+      "title": "Nimbus Analytics — Postmortem: helios-db Outage (March 4, 2024)",
+      "type": "postmortem",
+      "date": "2024-03-09",
+      "min_role": "employee",
+      "sensitivity": "medium",
+      "superseded_by": null,
+      "tags": ["nimbus", "postmortem", "helios-db", "outage", "sla_credits", "migration", "pgbouncer"],
+      "short_summary": "Blameless postmortem PM-2024-03: 3h42m helios-db outage, root cause a schema migration lock exhausting the pgbouncer pool; 38% of customers affected, $214K SLA credits; action items delivered automated failover and Runbook v2."
+    },
+    {
+      "id": "doc_006",
+      "file_name": "nimbus_performance_review_guide_fy2024.txt",
+      "title": "Nimbus Analytics — Performance Review Guide FY2024",
+      "type": "hr_policy",
+      "date": "2024-02-28",
+      "min_role": "employee",
+      "sensitivity": "low",
+      "superseded_by": null,
+      "tags": ["nimbus", "hr", "performance_review", "calibration", "promotion", "ratings"],
+      "short_summary": "FY2024 review guide: April/October cycles, 5-level rating scale with 10/25/50/10/5 calibration guidance, peer feedback (3-5 peers), promotion windows; comp adjustments follow the manager-level compensation bands."
+    },
+    {
+      "id": "doc_007",
+      "file_name": "nimbus_compensation_bands_2023.txt",
+      "title": "Nimbus Analytics — Engineering Compensation Bands 2023",
+      "type": "hr_policy",
+      "date": "2023-03-15",
+      "min_role": "manager",
+      "sensitivity": "high",
+      "superseded_by": "doc_008",
+      "tags": ["nimbus", "compensation", "salary_bands", "2023", "bonus", "equity", "stale"],
+      "short_summary": "STALE. 2023 bands: L3 $118-142K, L4 $145-172K, L5 $178-205K; 8% bonus target; ad hoc equity refreshes; single national band with no geographic tiers. Superseded by the 2024 bands."
+    },
+    {
+      "id": "doc_008",
+      "file_name": "nimbus_compensation_bands_2024.txt",
+      "title": "Nimbus Analytics — Engineering Compensation Bands 2024",
+      "type": "hr_policy",
+      "date": "2024-03-20",
+      "min_role": "manager",
+      "sensitivity": "high",
+      "superseded_by": null,
+      "tags": ["nimbus", "compensation", "salary_bands", "2024", "geo_tiers", "equity_refresh"],
+      "short_summary": "Current 2024 bands (tier 1): L3 $128-152K, L4 $158-186K, L5 $192-224K; bonus target raised to 10%; annual equity refresh program; three geographic tiers (100%/92%/85%). Supersedes the 2023 bands."
+    },
+    {
+      "id": "doc_009",
+      "file_name": "nimbus_hiring_plan_fy2025.txt",
+      "title": "Nimbus Analytics — Hiring Plan FY2025",
+      "type": "hiring_plan",
+      "date": "2024-05-14",
+      "min_role": "manager",
+      "sensitivity": "high",
+      "superseded_by": null,
+      "tags": ["nimbus", "hiring", "headcount", "fy2025", "recruiting_budget", "sre"],
+      "short_summary": "FY2025 hiring plan: 24 net-new heads (11 eng incl. 2 SRE tied to the outage reliability program, 6 sales, 4 CS, 3 G&A), marketing backfills frozen, $380K recruiting budget, agency usage capped at 20%, AE hiring gated on Q2 ARR."
+    },
+    {
+      "id": "doc_010",
+      "file_name": "nimbus_soc2_type2_audit_summary_2024.txt",
+      "title": "Nimbus Analytics — SOC 2 Type II Audit Summary (2024)",
+      "type": "compliance_report",
+      "date": "2024-04-30",
+      "min_role": "manager",
+      "sensitivity": "high",
+      "superseded_by": null,
+      "tags": ["nimbus", "soc2", "compliance", "audit", "offboarding", "log_retention"],
+      "short_summary": "SOC 2 Type II (Jun 2023-Mar 2024, Hartley & Voss): zero major exceptions; two minor findings — offboarding revocation latency and a Prism log-retention gap — both remediated by Q3 FY2025. Next window opens July 2024."
+    },
+    {
+      "id": "doc_011",
+      "file_name": "nimbus_board_deck_q1_fy2025.txt",
+      "title": "Nimbus Analytics — Board Deck Q1 FY2025 (Summary)",
+      "type": "board_deck",
+      "date": "2024-05-02",
+      "min_role": "exec",
+      "sensitivity": "confidential",
+      "superseded_by": null,
+      "tags": ["nimbus", "board", "arr", "nrr", "metrics", "enterprise_tier", "q1_fy2025"],
+      "short_summary": "Q1 FY2025 board summary: ARR $22.4M (+31% YoY), NRR 112%, gross margin 74%, 1.1% monthly churn, 26-month runway, 640 customers; enterprise tier at 34% of new bookings; risks: usage-based pricing pressure, residency-blocked deals."
+    },
+    {
+      "id": "doc_012",
+      "file_name": "nimbus_project_alpine_workforce_contingency_memo.txt",
+      "title": "Nimbus Analytics — Project Alpine: Workforce Contingency Memo",
+      "type": "exec_memo",
+      "date": "2024-06-03",
+      "min_role": "exec",
+      "sensitivity": "confidential",
+      "superseded_by": null,
+      "tags": ["nimbus", "project_alpine", "workforce", "layoff_contingency", "severance", "exec_only"],
+      "short_summary": "EXEC-ONLY contingency memo: if Q2 net-new ARR misses plan by >25%, decision gate July 15 on a ~9% reduction (~16 roles) concentrated in marketing/G&A; 8 weeks + 2/yr severance standards. Not approved — contingency only."
+    },
+    {
+      "id": "doc_013",
+      "file_name": "nimbus_product_roadmap_fy2025_draft_v04.txt",
+      "title": "Nimbus Analytics — Product Roadmap FY2025 Draft v0.4",
+      "type": "product_roadmap",
+      "date": "2024-05-06",
+      "min_role": "exec",
+      "sensitivity": "confidential",
+      "superseded_by": "doc_014",
+      "tags": ["nimbus", "roadmap", "fy2025", "draft", "copilot", "eu_residency", "stale"],
+      "short_summary": "STALE. Draft roadmap v0.4: AI assistant ('Copilot for dashboards') in Q2, warehouse-native Q3, EU residency Q4, mobile session replay deprioritized. Superseded by the final roadmap which resequenced all three bets."
+    },
+    {
+      "id": "doc_014",
+      "file_name": "nimbus_product_roadmap_fy2025_final.txt",
+      "title": "Nimbus Analytics — Product Roadmap FY2025 (Final)",
+      "type": "product_roadmap",
+      "date": "2024-05-28",
+      "min_role": "exec",
+      "sensitivity": "confidential",
+      "superseded_by": null,
+      "tags": ["nimbus", "roadmap", "fy2025", "final", "nimbus_iq", "eu_residency", "warehouse_native"],
+      "short_summary": "Final FY2025 roadmap: EU data residency pulled forward to Q3 ($640K contingent ACV), Nimbus IQ (renamed AI assistant) beta Q3, warehouse-native mode moved to Q4, mobile session replay cut. Supersedes draft v0.4."
+    }
+  ]
+}

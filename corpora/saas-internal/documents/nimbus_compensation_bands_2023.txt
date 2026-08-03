@@ -1,0 +1,40 @@
+NIMBUS ANALYTICS — ENGINEERING COMPENSATION BANDS 2023
+People Operations | March 15, 2023 | RESTRICTED — MANAGERS AND ABOVE
+STATUS NOTE: SUPERSEDED BY COMPENSATION BANDS 2024 (MARCH 2024)
+
+OWNER: Ingrid Solberg, VP People | Approved by: Marcus Bell, CFO
+
+PURPOSE
+
+Base salary bands for software engineering, effective April 1, 2023. Bands are
+confidential manager-level material: share outcomes with your reports, never the
+band tables themselves.
+
+BASE SALARY BANDS — SOFTWARE ENGINEERING (USD, ANNUAL)
+
+  L3  Software Engineer          $118,000 – $142,000   (mid $130,000)
+  L4  Senior Software Engineer   $145,000 – $172,000   (mid $158,500)
+  L5  Staff Software Engineer    $178,000 – $205,000   (mid $191,500)
+  EM1 Engineering Manager        $165,000 – $195,000   (mid $180,000)
+
+Adjacent functions (SRE, Data) map to the same bands with a +5% premium at L4
+and above, reflecting 2023 market scarcity.
+
+BONUS AND EQUITY (2023 POLICY)
+
+  — Company bonus target: 8% of base, paid annually on company performance.
+  — Equity refreshes are AD HOC: managers nominate, execs approve case by case.
+    There is no scheduled refresh program in 2023.
+
+GEOGRAPHY
+
+Single national band: no geographic tiers in 2023. Remote hires in any US state
+are paid from the same table. (International contractors are out of scope.)
+
+PLACEMENT GUIDANCE
+
+  — New hires target the 25th–50th percentile of the band.
+  — Placement above the 75th percentile requires VP People sign-off.
+  — Out-of-band offers require CFO approval and a written exception memo.
+
+Source: people-ops/comp_bands_2023.xlsx | Classification: RESTRICTED

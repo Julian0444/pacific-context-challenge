@@ -1,0 +1,28 @@
+# Render Blueprint — infra as code for the QueryTrace service.
+# The owner connects this repo in the Render dashboard; deploys trigger ONLY
+# on the owner's own pushes (or manually, if Auto-Deploy is set to "No").
+services:
+  - type: web
+    name: querytrace
+    runtime: docker
+    plan: free # upgrade to `starter` to eliminate free-tier cold starts (decision D2)
+    # Roadmap preview branch; re-point to `main` after the owner's final merge.
+    branch: feat/ToDeploy
+    healthCheckPath: /health
+    envVars:
+      # Read-only public deploy: /ingest returns 403 and the Upload UI hides
+      # itself. Revisited in Fase P when Upload sits behind the admin session.
+      - key: ALLOW_INGEST
+        value: "false"
+      # Session-cookie signing secret (Fase P). sync: false = set the value in
+      # the Render dashboard, never in the repo.
+      - key: QUERYTRACE_SECRET_KEY
+        sync: false
+      # Ask mode (Fase 4, decision D3): set ANTHROPIC_API_KEY in the dashboard
+      # to enable POST /ask + the "Ask AI" button. Leave it unset and the mode
+      # disappears (health reports ask_enabled: false) — that's the kill-switch.
+      # Optional knobs (defaults in src/ask.py): ASK_MODEL=claude-haiku-4-5,
+      # ASK_MAX_PER_MINUTE=6, ASK_MAX_PER_MINUTE_GLOBAL=30,
+      # ASK_CACHE_TTL_SECONDS=3600, ASK_MAX_TOKENS=600.
+      - key: ANTHROPIC_API_KEY
+        sync: false

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Lacre circular seal (Fase 6 Etapa G) — one identity for tab, social and app -->
+  <style>
+    .bg  { fill: #f7f2e9; }
+    .ink { stroke: #8c2b2b; }
+    .qt  { fill: #8c2b2b; }
+    @media (prefers-color-scheme: dark) {
+      .bg  { fill: #191713; }
+      .ink { stroke: #dc8177; }
+      .qt  { fill: #dc8177; }
+    }
+  </style>
+  <rect class="bg" width="64" height="64" rx="14"/>
+  <g transform="rotate(-8 32 32)">
+    <circle class="ink" cx="32" cy="32" r="23" fill="none" stroke-width="4"/>
+    <circle class="ink" cx="32" cy="32" r="17.5" fill="none" stroke-width="1.5" opacity="0.65"/>
+    <text class="qt" x="32.5" y="38.5" font-family="'IBM Plex Mono', 'Menlo', monospace" font-size="15" font-weight="700" text-anchor="middle" letter-spacing="1.2">QT</text>
+  </g>
+</svg>

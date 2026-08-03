@@ -21,6 +21,13 @@ from src.models import (
 )
 
 
+class TraceAccountingError(RuntimeError):
+    """Internal accounting invariant violated (blocked + included + dropped
+    != retrieved). Deliberately NOT a ValueError: the HTTP boundary maps
+    ValueError to 400 (bad request), but this is a server-side bug and must
+    surface as 500."""
+
+
 def build_trace(
     user_ctx: UserContext,
     policy: PolicyConfig,
@@ -50,11 +57,13 @@ def build_trace(
     Returns:
         A fully populated DecisionTrace.
     """
-    # Invariant: every retrieved document must end up in exactly one bucket
+    # Invariant: every retrieved CHUNK must end up in exactly one bucket.
+    # Counts are chunk-level since Fase 5 Etapa B (the retrieval unit is the
+    # chunk); doc-level views are derived below for the UI.
     accounted = len(blocked) + len(included) + len(dropped)
     if accounted != retrieved_count:
-        raise ValueError(
-            f"Document accounting mismatch: "
+        raise TraceAccountingError(
+            f"Chunk accounting mismatch: "
             f"blocked({len(blocked)}) + included({len(included)}) + "
             f"dropped({len(dropped)}) = {accounted}, expected {retrieved_count}"
         )
@@ -76,6 +85,10 @@ def build_trace(
         budget_utilization=budget_utilization,
         avg_score=round(avg_score, 6),
         avg_freshness_score=round(avg_freshness, 6),
+        included_doc_count=len({d.doc_id for d in included}),
+        blocked_doc_count=len({d.doc_id for d in blocked}),
+        stale_doc_count=len({d.doc_id for d in stale}),
+        dropped_doc_count=len({d.doc_id for d in dropped}),
     )
 
     return DecisionTrace(

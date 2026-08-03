@@ -54,6 +54,7 @@ def filter_permissions(
                     user_role=user_ctx.role,
                     title=doc.title,
                     doc_type=doc.doc_type,
+                    chunk_id=doc.chunk_id,
                 )
             )
             continue
@@ -71,6 +72,7 @@ def filter_permissions(
                     user_role=user_ctx.role,
                     title=doc.title,
                     doc_type=doc.doc_type,
+                    chunk_id=doc.chunk_id,
                 )
             )
 

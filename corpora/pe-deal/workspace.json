@@ -1,0 +1,92 @@
+{
+  "slug": "pe-deal",
+  "name": "Atlas Capital — PE Deal Room",
+  "description": "A private equity fund evaluating the acquisition of Meridian Technologies, a fictitious fintech company. Analysts see public materials; VPs add deal memos and models; partners see IC and LP documents.",
+  "doc_types": [
+    "board_memo",
+    "deal_memo",
+    "financial_model",
+    "internal_analysis",
+    "internal_email",
+    "internal_memo",
+    "legal_memo",
+    "lp_update",
+    "news_article",
+    "press_release",
+    "public_filing",
+    "research_note",
+    "sector_overview"
+  ],
+  "blocked_disclosure": "count",
+  "role_hints": {
+    "analyst": "public filings, research notes, press release, sector overview, public news",
+    "vp": "adds deal memos, financial models, diligence analyses, internal memos",
+    "partner": "full corpus including IC memo, LP update, and legal diligence"
+  },
+  "search_placeholder": "Try: 'ARR growth', 'integration risks', 'IC recommendation'…",
+  "empty_state_description": "QueryTrace retrieves documents from the Atlas Capital / Meridian Technologies corpus, filters by role, penalises stale docs, and enforces token budgets — with every decision visible in the Decision Trace. Pick a scenario to see the contrast.",
+  "scenarios": [
+    {
+      "key": "permission-wall",
+      "title": "Permission Wall",
+      "subtitle": "Analyst",
+      "compare_subtitle": "Analyst · ARR",
+      "query": "What is Meridian's ARR growth rate and net revenue retention?",
+      "role": "analyst",
+      "hint": "Analyst query hits 10 documents blocked by RBAC.",
+      "compare_hint": "No Filters surfaces 16 docs · RBAC + Full Pipeline block 10.",
+      "single_tooltip": "Shows which documents an analyst can access — 10 are blocked by RBAC",
+      "compare_tooltip": "Opens side-by-side comparison — see how each policy handles analyst-level permissions",
+      "compare_card_tooltip": "Opens side-by-side comparison — No Filters surfaces all 16 docs while RBAC and Full Pipeline block 10"
+    },
+    {
+      "key": "vp-deal-view",
+      "title": "Financial model access",
+      "subtitle": "VP",
+      "compare_subtitle": "VP · Financial models",
+      "query": "What are the financial model assumptions, revenue projections, and deal valuation for Project Clearwater?",
+      "role": "vp",
+      "hint": "Retrieves deal memos and financial models — the outdated v1 model gets demoted by freshness scoring.",
+      "compare_hint": "All three policies include the deal memo · only Full Pipeline demotes the outdated v1 model.",
+      "single_tooltip": "Shows financial projections and deal valuation — the superseded v1 model is freshness-penalized",
+      "compare_tooltip": "Opens side-by-side comparison — only Full Pipeline demotes the outdated financial model",
+      "compare_card_tooltip": "Opens side-by-side comparison — only Full Pipeline demotes the outdated financial model"
+    },
+    {
+      "key": "stale-detection",
+      "title": "Stale Detection",
+      "subtitle": "Partner",
+      "compare_subtitle": "Partner · IC + LP",
+      "query": "What is the investment committee recommendation and LP update for the Meridian acquisition?",
+      "role": "partner",
+      "hint": "Full corpus access — superseded documents still appear but are freshness-penalized 0.5×.",
+      "compare_hint": "Full corpus retrievable · only Full Pipeline demotes superseded documents 0.5×.",
+      "single_tooltip": "Shows IC and LP documents — superseded versions are demoted by freshness scoring",
+      "compare_tooltip": "Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline",
+      "compare_card_tooltip": "Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline"
+    }
+  ],
+  "example_queries": [
+    {
+      "label": "Diligence risks",
+      "query": "What are the risks identified in the due diligence for Project Clearwater?",
+      "role": "vp",
+      "mode": "single",
+      "tooltip": "Shows diligence risk findings from deal materials and financial models"
+    },
+    {
+      "label": "IC recommendation",
+      "query": "What is the IC recommendation for the Meridian acquisition?",
+      "role": "partner",
+      "mode": "single",
+      "tooltip": "Shows the investment committee recommendation for the Meridian acquisition"
+    },
+    {
+      "label": "Stale detection →",
+      "query": "What is the investment committee recommendation and LP update for the Meridian acquisition?",
+      "role": "partner",
+      "mode": "compare",
+      "tooltip": "Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline"
+    }
+  ]
+}

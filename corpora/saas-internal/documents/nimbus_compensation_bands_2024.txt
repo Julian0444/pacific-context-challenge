@@ -1,0 +1,42 @@
+NIMBUS ANALYTICS — ENGINEERING COMPENSATION BANDS 2024
+People Operations | March 20, 2024 | RESTRICTED — MANAGERS AND ABOVE
+
+OWNER: Ingrid Solberg, VP People | Approved by: Marcus Bell, CFO
+
+REVISION NOTES
+
+Supersedes Compensation Bands 2023 (March 2023). Key changes: bands raised
+roughly 8–9% against market data, bonus target moved from 8% to 10%, a scheduled
+annual equity refresh program replaces ad hoc refreshes, and three geographic
+tiers are introduced.
+
+BASE SALARY BANDS — SOFTWARE ENGINEERING (USD, ANNUAL, TIER 1)
+
+  L3  Software Engineer          $128,000 – $152,000   (mid $140,000)
+  L4  Senior Software Engineer   $158,000 – $186,000   (mid $172,000)
+  L5  Staff Software Engineer    $192,000 – $224,000   (mid $208,000)
+  EM1 Engineering Manager        $178,000 – $210,000   (mid $194,000)
+
+SRE and Data keep the +5% premium at L4+ carried over from 2023.
+
+GEOGRAPHIC TIERS (NEW IN 2024)
+
+  Tier 1 (100%)  San Francisco Bay Area, New York metro, Seattle.
+  Tier 2 (92%)   Other major US metros (Austin, Denver, Boston, LA, Chicago).
+  Tier 3 (85%)   All other US locations.
+
+Existing employees are grandfathered at their current tier; relocations re-tier
+at the next review cycle.
+
+BONUS AND EQUITY (2024 POLICY)
+
+  — Company bonus target: 10% of base (was 8%).
+  — ANNUAL equity refresh program: everyone rated Meets or above receives a
+    refresh grant sized by level and rating band; vesting 4 years, quarterly.
+
+PLACEMENT GUIDANCE
+
+Unchanged from 2023: hire into the 25th–50th percentile; >75th percentile needs
+VP People sign-off; out-of-band offers need CFO approval.
+
+Source: people-ops/comp_bands_2024.xlsx | Classification: RESTRICTED

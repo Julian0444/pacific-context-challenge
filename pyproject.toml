@@ -1,0 +1,8 @@
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+# Defaults (E4/E7/E9 pycodestyle errors + F pyflakes) — enough to catch
+# unused imports, undefined names, and syntax-level mistakes.
+select = ["E4", "E7", "E9", "F"]

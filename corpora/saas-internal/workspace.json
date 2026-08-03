@@ -1,0 +1,89 @@
+{
+  "slug": "saas-internal",
+  "name": "Nimbus Analytics — Internal Workspace",
+  "description": "A fictitious B2B SaaS company's internal knowledge base. Employees see runbooks and policies; managers add compensation bands and hiring plans; execs see board and roadmap material.",
+  "doc_types": [
+    "board_deck",
+    "compliance_report",
+    "exec_memo",
+    "hiring_plan",
+    "hr_policy",
+    "onboarding_guide",
+    "postmortem",
+    "product_roadmap",
+    "runbook",
+    "security_policy"
+  ],
+  "blocked_disclosure": "count",
+  "role_hints": {
+    "employee": "onboarding, security policy, runbooks, postmortems, perf review guide",
+    "manager": "adds compensation bands, hiring plan, and compliance audits",
+    "exec": "full corpus including board deck, workforce memo, and roadmaps"
+  },
+  "search_placeholder": "Try: 'salary bands', 'on-call escalation', 'FY2025 roadmap'…",
+  "empty_state_description": "QueryTrace retrieves documents from the Nimbus Analytics internal corpus, filters by role, penalises stale docs, and enforces token budgets — with every decision visible in the Decision Trace. Pick a scenario to see the contrast.",
+  "scenarios": [
+    {
+      "key": "permission-wall",
+      "title": "Permission Wall",
+      "subtitle": "Employee",
+      "compare_subtitle": "Employee · Salary bands",
+      "query": "What are the engineering compensation bands and salary ranges for senior engineers?",
+      "role": "employee",
+      "hint": "An employee asking about salary bands hits 8 documents blocked by RBAC.",
+      "compare_hint": "No Filters surfaces 14 docs · RBAC + Full Pipeline block 8.",
+      "single_tooltip": "Shows what an employee can access — the manager-level comp bands stay blocked",
+      "compare_tooltip": "Opens side-by-side comparison — see how each policy handles employee-level permissions",
+      "compare_card_tooltip": "Opens side-by-side comparison — No Filters surfaces all 14 docs while RBAC and Full Pipeline block 8"
+    },
+    {
+      "key": "stale-runbook",
+      "title": "Stale Runbook",
+      "subtitle": "Employee",
+      "compare_subtitle": "Employee · On-call",
+      "query": "What is the current on-call escalation process and database failover procedure?",
+      "role": "employee",
+      "hint": "Both runbook versions match — the superseded v1 is freshness-penalized 0.5×.",
+      "compare_hint": "Both versions retrievable · only Full Pipeline demotes the outdated v1 runbook.",
+      "single_tooltip": "Shows the on-call runbooks — the superseded v1 is freshness-penalized",
+      "compare_tooltip": "Opens side-by-side comparison — only Full Pipeline demotes the outdated runbook",
+      "compare_card_tooltip": "Opens side-by-side comparison — only Full Pipeline demotes the outdated runbook"
+    },
+    {
+      "key": "roadmap-drift",
+      "title": "Roadmap Drift",
+      "subtitle": "Exec",
+      "compare_subtitle": "Exec · Roadmap",
+      "query": "How did the final FY2025 product roadmap change from the draft version?",
+      "role": "exec",
+      "hint": "Full corpus access — the superseded roadmap draft appears but is freshness-penalized 0.5×.",
+      "compare_hint": "Full corpus retrievable · only Full Pipeline demotes the superseded draft 0.5×.",
+      "single_tooltip": "Shows both roadmap versions — the superseded draft is demoted by freshness scoring",
+      "compare_tooltip": "Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline",
+      "compare_card_tooltip": "Opens side-by-side comparison — superseded documents get demoted only under Full Pipeline"
+    }
+  ],
+  "example_queries": [
+    {
+      "label": "Outage postmortem",
+      "query": "What caused the March helios-db outage and what action items came out of it?",
+      "role": "employee",
+      "mode": "single",
+      "tooltip": "Shows the postmortem findings and the runbook changes they produced"
+    },
+    {
+      "label": "Hiring plan",
+      "query": "How many people are we hiring in FY2025 and what is the recruiting budget?",
+      "role": "manager",
+      "mode": "single",
+      "tooltip": "Shows the FY2025 headcount plan — manager-level access"
+    },
+    {
+      "label": "Salary bands →",
+      "query": "What are the engineering compensation bands and salary ranges for senior engineers?",
+      "role": "employee",
+      "mode": "compare",
+      "tooltip": "Opens side-by-side comparison — No Filters leaks the comp bands, RBAC and Full Pipeline block them"
+    }
+  ]
+}

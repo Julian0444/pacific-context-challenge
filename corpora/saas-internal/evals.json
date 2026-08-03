@@ -1,0 +1,95 @@
+{
+  "queries": [
+    {
+      "id": "q001",
+      "query": "What does the engineering onboarding bootcamp cover and what is the first-week checklist?",
+      "role": "employee",
+      "expected_doc_ids": ["doc_001"],
+      "notes": "Normal retrieval. The onboarding guide (4-day bootcamp, day-by-day checklist, 30-60-90 plan) is the sole authoritative source."
+    },
+    {
+      "id": "q002",
+      "query": "What is the current on-call escalation process and the SEV1 acknowledgement SLA?",
+      "role": "employee",
+      "expected_doc_ids": ["doc_004"],
+      "notes": "Stale doc case. doc_004 (Runbook v2: Opsgenie, SEV1 ack in 5 min) is current. doc_003 (v1: PagerBot, 15-min ack) may appear alongside it demoted — demonstrating demotion-not-removal."
+    },
+    {
+      "id": "q003",
+      "query": "What are the engineering compensation bands and salary ranges for senior engineers?",
+      "role": "employee",
+      "expected_doc_ids": ["doc_006"],
+      "forbidden_doc_ids": ["doc_007", "doc_008", "doc_009", "doc_010", "doc_011", "doc_012", "doc_013", "doc_014"],
+      "notes": "Permissions test — THE demo scenario. The retriever surfaces the manager-level comp bands as top matches; after employee-role filtering only the perf review guide (which references the bands) remains. Validates no restricted salary data leaks."
+    },
+    {
+      "id": "q004",
+      "query": "How did the 2024 compensation bands change from the 2023 bands?",
+      "role": "manager",
+      "expected_doc_ids": ["doc_008", "doc_007"],
+      "forbidden_doc_ids": ["doc_011", "doc_012", "doc_013", "doc_014"],
+      "notes": "Band revision case. doc_008 is current (bands +8-9%, 10% bonus, geo tiers); doc_007 is the superseded 2023 baseline. Both should appear: the stale doc provides the comparison baseline."
+    },
+    {
+      "id": "q005",
+      "query": "How many people are we hiring in FY2025 and what is the recruiting budget?",
+      "role": "manager",
+      "expected_doc_ids": ["doc_009"],
+      "forbidden_doc_ids": ["doc_011", "doc_012", "doc_013", "doc_014"],
+      "notes": "Manager-level planning case. The FY2025 hiring plan (24 heads, $380K recruiting budget, marketing freeze) is the sole source."
+    },
+    {
+      "id": "q006",
+      "query": "What did the SOC 2 Type II audit find and what remediations are due?",
+      "role": "manager",
+      "expected_doc_ids": ["doc_010"],
+      "forbidden_doc_ids": ["doc_011", "doc_012", "doc_013", "doc_014"],
+      "notes": "Compliance case. doc_010 (zero major exceptions, offboarding + log-retention findings, Q3 remediation) is the definitive source."
+    },
+    {
+      "id": "q007",
+      "query": "What caused the March helios-db outage and what action items came out of it?",
+      "role": "employee",
+      "expected_doc_ids": ["doc_005", "doc_004"],
+      "forbidden_doc_ids": ["doc_007", "doc_008", "doc_009", "doc_010", "doc_011", "doc_012", "doc_013", "doc_014"],
+      "notes": "Incident case. The postmortem (root cause: migration lock exhausting pgbouncer) is primary; Runbook v2 carries the delivered action items (automated failover, severity matrix)."
+    },
+    {
+      "id": "q008",
+      "query": "What ARR growth and net revenue retention did we report to the board in Q1?",
+      "role": "exec",
+      "expected_doc_ids": ["doc_011"],
+      "notes": "Exec-only board metrics case. doc_011 (ARR $22.4M +31%, NRR 112%, 26-month runway) is the sole source. Exec access required."
+    },
+    {
+      "id": "q009",
+      "query": "What is the workforce reduction contingency plan if Q2 misses the target?",
+      "role": "exec",
+      "expected_doc_ids": ["doc_012"],
+      "notes": "Exec-only sensitive case. Project Alpine (9% reduction trigger, July 15 gate, severance standards) is the sole source and must never be visible below exec."
+    },
+    {
+      "id": "q010",
+      "query": "How did the final FY2025 product roadmap change from the draft version?",
+      "role": "exec",
+      "expected_doc_ids": ["doc_014", "doc_013"],
+      "notes": "Stale governance case. doc_013 is the superseded draft (residency in Q4); doc_014 is the ratified final (residency pulled to Q3, Nimbus IQ beta, mobile replay cut). Tests stale pair doc_013→doc_014."
+    },
+    {
+      "id": "q011",
+      "query": "What are the rules for production access and how long is customer data retained?",
+      "role": "employee",
+      "expected_doc_ids": ["doc_002"],
+      "forbidden_doc_ids": ["doc_007", "doc_008", "doc_009", "doc_010", "doc_011", "doc_012", "doc_013", "doc_014"],
+      "notes": "Security policy case. doc_002 (Gatekeeper-brokered access, recorded sessions, 13-month retention) is the sole employee-visible source."
+    },
+    {
+      "id": "q012",
+      "query": "How many SRE engineers are we hiring and which incident motivated the reliability investment?",
+      "role": "manager",
+      "expected_doc_ids": ["doc_009", "doc_005"],
+      "forbidden_doc_ids": ["doc_011", "doc_012", "doc_013", "doc_014"],
+      "notes": "Cross-document case. The hiring plan (2 SRE hires tied to the reliability program) and the postmortem (the March outage that motivated it) are both required."
+    }
+  ]
+}

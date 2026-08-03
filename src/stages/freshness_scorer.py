@@ -79,6 +79,9 @@ def score_freshness(
             short_summary=doc.short_summary,
             sensitivity=doc.sensitivity,
             doc_type=doc.doc_type,
+            chunk_id=doc.chunk_id,
+            chunk_index=doc.chunk_index,
+            chunk_count=doc.chunk_count,
             freshness_score=freshness_score,
             is_stale=is_stale,
         )
@@ -91,6 +94,8 @@ def score_freshness(
                     superseded_by=superseded_by,
                     freshness_score=freshness_score,
                     penalty_applied=STALE_PENALTY,
+                    title=doc.title,
+                    chunk_id=doc.chunk_id,
                 )
             )
 

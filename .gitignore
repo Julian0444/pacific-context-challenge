@@ -21,6 +21,8 @@ artifacts/*.npy
 .idea/
 *.swp
 *.swo
+.agents/
+.claude/
 
 # OS
 .DS_Store
@@ -30,7 +32,19 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 .coverage
+test-results/
+
+# Personal working material (never commit)
+frente_3_querytrace.md
 
 # Worktrees
 .worktrees/
 worktrees/
+
+# Local agent tooling and internal working notes
+/AGENTS.md
+/CLAUDE.md
+/skills-lock.json
+/plansToPortfolio/
+/docs/HANDOFF.md
+/docs/archive/
